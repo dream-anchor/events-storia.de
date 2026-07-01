@@ -1,47 +1,92 @@
-## Problem
+# Plan: "Vorschau anzeigen" regeneriert komplettes Angebotspaket
 
-Der Details-Tab (Event-DNA, Veranstaltungsort, Kontakt & Firma, Rechnungsadresse) ist bei Anfragen mit Status **Bestätigt** komplett gesperrt (`disabled`). Ebenso die Zahlungs-Konditionen im OfferBuilder werden vermutlich durch die gleiche Sperre blockiert.
+## Ziel
+Beim Klick auf "Vorschau anzeigen" wird **alles neu erzeugt**, was der Kunde später sieht: E-Mail, PDF, Public-Offer-Seite und LexOffice-Rechnung. Bisherige Vorschau bleibt optisch gleich (Mail-Tab + PDF-Tab + Public-Seite-Link) — die Änderung liegt darunter: echte Neu-Generierung statt nur Anzeige.
 
-Ursache in `src/components/admin/refine/InquiryEditor/SmartInquiryEditor.tsx:1025`:
+## Verhalten heute vs. neu
 
-```ts
-const isReadOnlyLocked = inquiry.status === 'confirmed' || isSignatureLocked;
+| Bereich | Heute | Neu |
+|---|---|---|
+| Mail-Vorschau | Dry-Run (regeneriert) | unverändert |
+| PDF-Vorschau | Dry-Run (regeneriert) | unverändert |
+| Public-Offer-Seite | Liest live aus `event_inquiries` → Draft-Änderungen sofort für Kunden sichtbar | Liest vom letzten **Snapshot** (Version N); Draft nur mit Admin-Preview-Token sichtbar |
+| LexOffice-Rechnung | Wird nur bei echtem Versand neu erstellt | Beim Preview wird alte Rechnung **storniert** und neue Draft-Rechnung erzeugt |
+| Diff-Anzeige | keine | Kompakte Liste der geänderten Felder ("Rechnungsadresse geändert, Menü geändert, Zahlungsbedingungen geändert") |
+
+## Ablauf beim Klick auf "Vorschau anzeigen"
+
+```text
+Admin klickt "Vorschau anzeigen (Version 2)"
+        │
+        ▼
+Preview-Screen öffnet sich
+        │
+        ├─► Tab 1: E-Mail-Vorschau (regeneriert, wie bisher)
+        ├─► Tab 2: PDF-Vorschau (regeneriert, wie bisher)
+        ├─► Tab 3: Public-Seite-Link "Kundenansicht Version 2 öffnen"
+        │           → öffnet /offer/:id?preview_draft=<token>
+        │           → nur Admin sieht Draft, Kunde sieht weiter Version 1
+        ├─► Diff-Panel: "Was ändert sich in Version 2"
+        │           z.B. "Rechnungsadresse geändert · Menü geändert · Zahlungsbedingungen geändert"
+        └─► LexOffice: alte Rechnung wird als "veraltet" markiert,
+                       neue Draft-Rechnung entsteht
+        │
+        ▼
+Admin prüft alles → klickt "Version 2 an Kunde senden"
+        │
+        ▼
+- Snapshot v2 wird in offer_history gespeichert
+- alte LexOffice-Rechnung wird storniert
+- neue Rechnung wird finalisiert
+- Kunde bekommt Mail mit Link zur Public-Seite v2
 ```
 
-Sobald `status === 'confirmed'` gesetzt ist, wird `isReadOnly={true}` an `EventDNACard` (und Folgekomponenten) durchgereicht → alle Inputs `disabled`.
+## Was der Kunde sieht
 
-Das widerspricht der zuletzt beschlossenen Regel: **Angebote sind editierbar; erst beim Versand einer neuen Version wird ein Snapshot eingefroren.** Die Snapshot-Logik existiert bereits (vorige Runde: `inquiry_snapshot`, `address_snapshot`, `payment_terms_snapshot` in `v2_event_offer_history`).
+- **Vor Versand v2:** Kunde sieht weiter Version 1 (Snapshot). Keine unbeabsichtigten Draft-Änderungen sichtbar.
+- **Nach Versand v2:** Kundenlink zeigt Version 2. Version 1 ist im Archiv, aber nicht mehr über den Kundenlink erreichbar.
+- **Alte LexOffice-Rechnung:** automatisch storniert. Kunde sieht nur die aktuelle gültige Rechnung.
 
-## Änderung
+## Diff-Panel (kompakt)
 
-### 1. Confirmed-Sperre entfernen — Signatur-Sperre bleibt
+Vergleicht Draft mit letztem Snapshot. Zeigt nur Feldnamen, keine alten/neuen Werte:
 
-`SmartInquiryEditor.tsx`:
-
-```ts
-// vorher
-const isReadOnlyLocked = inquiry.status === 'confirmed' || isSignatureLocked;
-
-// nachher
-// Nach unterschriebener Kostenübernahme bleiben signaturrelevante Felder gesperrt.
-// "Bestätigt" alleine sperrt nichts mehr — Änderungen erzeugen beim nächsten
-// Versand automatisch eine neue Version (Snapshot-Versionierung).
-const isReadOnlyLocked = isSignatureLocked;
+```text
+Änderungen für Version 2
+· Rechnungsadresse
+· Menü & Preise
+· Zahlungsbedingungen
 ```
 
-Keine weiteren Änderungen an EventDNACard, LocationBlock, OfferBuilder — die reichen `isReadOnly` bereits transparent durch.
+## Technische Umsetzung
 
-### 2. Verifikation
+**1. Public-Offer-Seite auf Snapshot umstellen**
+- `PublicOffer.tsx`: Default = neuester Eintrag aus `inquiry_offer_history` (Menü + Preise + Adresse + Zahlungsbedingungen + Kontakt).
+- Fallback auf `event_inquiries` nur wenn noch keine Version existiert.
+- Preview-Modus: Query-Param `?preview_draft=<signed_token>` → liest aus `event_inquiries` (Draft). Token ist kurzlebig (15 min), admin-signiert, nicht ratbar.
 
-- `tsgo` grün
-- Manueller Test in Browser-Session:
-  1. Bestätigte Anfrage öffnen → Details-Tab: Felder sind editierbar
-  2. Kontakt/Adresse/Zahlungsart ändern
-  3. Neue Angebotsversion senden → Archivseite v_n zeigt geänderte Werte, v_(n-1) zeigt alte Werte
-  4. Anfrage mit unterschriebener Kostenübernahme: Felder bleiben gesperrt (Signatur-Lock)
+**2. Preview-Screen erweitern (`OfferSendPreview.tsx`)**
+- Bestehende Mail- und PDF-Tabs bleiben.
+- Neuer Button "Kundenansicht Version N+1 öffnen" → generiert Preview-Token, öffnet `/offer/:id?preview_draft=…` in neuem Tab.
+- Neues Diff-Panel: berechnet clientseitig, welche Snapshot-Felder sich vom Draft unterscheiden (Menü/Preise, Adresse, Zahlungsbedingungen, Kontakt/Event). Zeigt Feldnamen-Liste.
 
-## Nicht Teil dieser Änderung
+**3. LexOffice-Regenerierung**
+- `create-event-quotation` Edge Function: bekommt Flag `force_recreate: true`.
+- Ruft im Preview-Modus mit `force_recreate=true` auf → alte Quotation wird per LexOffice-API storniert, neue Draft-Quotation entsteht.
+- Beim echten Versand wird die neue Quotation finalisiert.
 
-- Keine neuen "Neue Version"-Buttons (bleibt automatisch beim Versand)
-- Keine Änderung an der Snapshot-Logik (bereits letzte Runde implementiert)
-- Keine Änderung am Signatur-Lock-Verhalten
+**4. Preview-Token**
+- Neue Edge Function `create-preview-token` (SECURITY DEFINER, admin-only): erzeugt kurzlebiges signiertes Token, das `PublicOffer.tsx` gegen Serverzeit validiert.
+
+## Betroffene Dateien
+- `src/pages/PublicOffer.tsx` — Snapshot-Read + Preview-Token-Support
+- `src/components/admin/refine/InquiryEditor/OfferSendPreview.tsx` — Public-Vorschau-Button + Diff-Panel
+- `src/lib/adminPublicOfferUrl.ts` — Preview-Token-URL-Builder
+- `supabase/functions/create-event-quotation/index.ts` — `force_recreate`-Flag
+- `supabase/functions/create-preview-token/index.ts` — neu
+- Migration: keine neuen Tabellen; ggf. Index auf `inquiry_offer_history(inquiry_id, version)`
+
+## Nicht Teil dieses Plans
+- Kein Umbau von Versionierungs-Logik selbst (bleibt wie beschlossen: Snapshot nur beim Versand).
+- Kein Diff mit alten/neuen Werten — nur Feldnamen (auf deinen Wunsch).
+- Keine Änderung an "Vorschau anzeigen"-Button-Beschriftung über das hinaus, was bereits existiert.
