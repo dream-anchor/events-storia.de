@@ -765,6 +765,12 @@ function MenuContent({
   onCourseAdd,
   onCourseRemove,
   disabled,
+  daysView,
+  activeDayId,
+  onSelectDay,
+  onAddDay,
+  onRemoveDay,
+  onRenameActiveDay,
 }: {
   option: OfferBuilderOption;
   courseConfigs: CourseConfig[];
@@ -774,25 +780,69 @@ function MenuContent({
   onCourseAdd: (type: CourseType, label: string) => void;
   onCourseRemove: (idx: number) => void;
   disabled: boolean;
+  daysView: import('./menuDaysHelpers').DayView[];
+  activeDayId: string;
+  onSelectDay: (dayId: string) => void;
+  onAddDay: () => void;
+  onRemoveDay: (dayId: string) => void;
+  onRenameActiveDay: (label: string) => void;
 }) {
+  const activeDay = daysView.find((d) => d.id === activeDayId) ?? daysView[0];
+  const activeCourses = activeDay?.courses ?? [];
+  const showTabs = daysView.length > 1;
   return (
     <div className="space-y-4">
+      {/* Tages-Tabs (nur bei mehrtägigen Menüs sichtbar) */}
+      {showTabs && (
+        <DayTabsBar
+          days={daysView}
+          activeDayId={activeDay?.id ?? activeDayId}
+          onSelect={onSelectDay}
+          onAdd={onAddDay}
+          onRemove={onRemoveDay}
+          onRenameActive={onRenameActiveDay}
+          disabled={disabled}
+        />
+      )}
       {/* Gänge */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             Menü
+            {showTabs && activeDay?.dateLabel ? (
+              <span className="ml-2 normal-case tracking-normal text-muted-foreground/70">
+                — {activeDay.dateLabel}
+              </span>
+            ) : null}
           </h4>
+          {!showTabs && (
+            <button
+              type="button"
+              onClick={onAddDay}
+              disabled={disabled}
+              className="text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-40"
+              title="Zweiten Tag hinzufügen (mehrtägiges Menü)"
+            >
+              + Weiterer Tag
+            </button>
+          )}
         </div>
         <InlineCourseEditor
-          courses={option.menuSelection.courses}
+          courses={activeCourses}
           courseConfigs={courseConfigs}
           menuItems={menuItems}
           onUpdateCourse={onCourseUpdate}
           onAddCourse={onCourseAdd}
           onRemoveCourse={onCourseRemove}
           onReorderCourses={(reordered) => {
-            onUpdate({ menuSelection: { ...option.menuSelection, courses: reordered } });
+            // Reorder muss auf den aktiven Tag angewendet werden (nicht auf die
+            // aggregierte Flat-Liste), sonst würde die Tages-Struktur brechen.
+            const next = require('./menuDaysHelpers').withUpdatedDayCourses(
+              option,
+              activeDay?.id ?? activeDayId,
+              () => reordered,
+            );
+            onUpdate({ menuSelection: next });
           }}
           pricingMode={option.pricingMode ?? 'per_person'}
           disabled={disabled}
