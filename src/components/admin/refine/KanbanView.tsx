@@ -427,11 +427,13 @@ function KanbanCard({
 }: KanbanCardProps) {
   const action = getInquiryActionState(event);
   const inactivity = getInactivityLabel(event);
+  const isPlaceholder = (v: string) =>
+    !v || /^(null|n\/?a|undefined|private|privat|-)$/i.test(v);
   const rawCompany = event.company_name?.trim() ?? "";
-  const isPlaceholderCompany = /^(private|privat)$/i.test(rawCompany);
+  const rawContact = event.contact_name?.trim() ?? "";
   const title =
-    (!isPlaceholderCompany && rawCompany) ||
-    event.contact_name?.trim() ||
+    (!isPlaceholder(rawCompany) && rawCompany) ||
+    (!isPlaceholder(rawContact) && rawContact) ||
     "Unbenannte Anfrage";
 
   const currentColumn = (() => {
