@@ -49,6 +49,7 @@ import { LanguageSwitchDialog, type TranslationScope } from "./LanguageSwitchDia
 import { Languages as LanguagesIcon } from "lucide-react";
 import { SendInvoiceDialog } from "./SendInvoiceDialog";
 import { Mail as MailIcon } from "lucide-react";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 const HEADER_LANGS: { value: CustomerLang; flag: string; code: string; label: string }[] = [
   { value: "de", flag: "🇩🇪", code: "DE", label: "Deutsch" },

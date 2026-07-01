@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { CateringOrder, OrderStatus } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 export type OrdersBucket = "inbox" | "done" | "archive";
 

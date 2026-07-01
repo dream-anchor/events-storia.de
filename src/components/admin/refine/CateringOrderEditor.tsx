@@ -29,6 +29,7 @@ import { CancellationDialog } from "@/components/admin/shared/CancellationDialog
 import { PaymentBalanceCard } from "@/components/admin/shared/PaymentBalanceCard";
 import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
 import { MenuItemPicker } from "./MenuItemPicker";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 

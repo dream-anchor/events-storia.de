@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useEventInquiries, useUpdateInquiryStatus, useUpdateInquiryNotes, useDeleteInquiry, InquiryStatus, EventInquiry } from "@/hooks/useEventInquiries";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 const statusConfig: Record<InquiryStatus, { label: string; color: string; bg: string }> = {
   new: { label: "Neu", color: "text-amber-700", bg: "bg-amber-100" },

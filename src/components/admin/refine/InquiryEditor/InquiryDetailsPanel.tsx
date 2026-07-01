@@ -20,6 +20,7 @@ import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { InquiryPriority } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 interface InquiryDetailsPanelProps {
   inquiry: ExtendedInquiry;

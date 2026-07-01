@@ -14,6 +14,7 @@ import { useState, useMemo, useEffect } from "react";
 import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardList";
 import { OrdersKanbanView, OrdersBucket } from "./OrdersKanbanView";
 import { InviteCustomerIconButton } from "@/components/admin/shared/InviteCustomerIconButton";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 /**
  * Filter-Konzept (Senior CX Review 16.04.2026):

@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Phone, Mail, Building2, MapPin, Calendar, Clock, FileText, Ruler, Receipt, User, CreditCard, BadgeCheck, StickyNote, Save, Loader2 } from 'lucide-react';
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 interface CateringOrderDetailProps {
   order: CateringOrder | null;

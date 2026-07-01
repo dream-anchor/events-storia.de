@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useUpcomingTasks, useOverdueTasks, useTasks } from "@/hooks/useTasks";
 import { TaskWithInquiry, TaskPriority } from "@/types/tasks";
 import { supabase } from "@/integrations/supabase/client";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 interface TasksWidgetProps {
   className?: string;

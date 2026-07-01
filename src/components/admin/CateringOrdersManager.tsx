@@ -13,6 +13,7 @@ import { useCateringOrders, useUpdateOrderStatus, useUpdateOrderNotes, useDelete
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 const statusConfig: Record<OrderStatus, { label: string; color: string; bg: string }> = {
   pending: { label: "Neu", color: "text-amber-700", bg: "bg-amber-100" },
