@@ -591,7 +591,13 @@ export function useOfferBuilder({
           // erkannt, wird es hier als KI-Preview-Option A vorgezeigt. Auto-Save
           // persistiert sie wie jede normale Option — Operator sieht sie mit
           // aiOrigin-Badge und kann editieren oder verwerfen.
-          const pending = readPendingFreeformProgram(inquiryId);
+          let pending = readPendingFreeformProgram(inquiryId);
+          // Immer Text-Fallback lesen (auch wenn `pending` bereits gesetzt ist),
+          // damit der Key nicht als Leiche stehen bleibt.
+          const pendingText = readPendingFreeformText(inquiryId);
+          if (!pending && pendingText) {
+            pending = await retryParseFreeformFromText(pendingText);
+          }
           if (pending) {
             try {
               const mapped = freeformToMenuDays(pending);
