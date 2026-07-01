@@ -837,7 +837,7 @@ function MenuContent({
           onReorderCourses={(reordered) => {
             // Reorder muss auf den aktiven Tag angewendet werden (nicht auf die
             // aggregierte Flat-Liste), sonst würde die Tages-Struktur brechen.
-            const next = require('./menuDaysHelpers').withUpdatedDayCourses(
+            const next = withUpdatedDayCourses(
               option,
               activeDay?.id ?? activeDayId,
               () => reordered,
