@@ -228,9 +228,12 @@ export function OptionCard({
   };
 
   const handleCourseUpdate = (index: number, update: Partial<CourseSelection>) => {
-    const updated = [...option.menuSelection.courses];
-    updated[index] = { ...updated[index], ...update };
-    onUpdate({ menuSelection: { ...option.menuSelection, courses: updated } });
+    const next = withUpdatedDayCourses(option, activeDayId, (courses) => {
+      const updated = [...courses];
+      updated[index] = { ...updated[index], ...update };
+      return updated;
+    });
+    onUpdate({ menuSelection: next });
   };
 
   const handleCourseAdd = (courseType: CourseType, courseLabel: string) => {
@@ -248,17 +251,33 @@ export function OptionCard({
       itemSource: 'catering',
       isCustom: false,
     };
-    onUpdate({
-      menuSelection: {
-        ...option.menuSelection,
-        courses: [...option.menuSelection.courses, newCourse],
-      },
-    });
+    const next = withUpdatedDayCourses(option, activeDayId, (courses) => [...courses, newCourse]);
+    onUpdate({ menuSelection: next });
   };
 
   const handleCourseRemove = (index: number) => {
-    const updated = option.menuSelection.courses.filter((_, i) => i !== index);
-    onUpdate({ menuSelection: { ...option.menuSelection, courses: updated } });
+    const next = withUpdatedDayCourses(option, activeDayId, (courses) =>
+      courses.filter((_, i) => i !== index),
+    );
+    onUpdate({ menuSelection: next });
+  };
+
+  // --- Tages-Verwaltung (nur relevant für mehrtägige Menüs) ---
+  const handleAddDay = () => {
+    const nextIndex = daysView.length + 1;
+    const { menuSelection: next, newDayId } = withAddedDay(option, `Tag ${nextIndex}`);
+    onUpdate({ menuSelection: next });
+    setActiveDayId(newDayId);
+  };
+
+  const handleRemoveDay = (dayId: string) => {
+    const next = withRemovedDay(option, dayId);
+    onUpdate({ menuSelection: next });
+  };
+
+  const handleRenameActiveDay = (label: string) => {
+    const next = withUpdatedDayMeta(option, activeDayId, { dateLabel: label });
+    onUpdate({ menuSelection: next });
   };
 
   const handleDrinkUpdate = (index: number, update: Partial<DrinkSelection>) => {
