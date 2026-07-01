@@ -2,6 +2,27 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { flattenCourses } from './menuDaysHelpers';
 import { freeformToMenuDays } from './freeformToMenuDays';
+import type { FreeformProgram } from './types';
+
+/**
+ * SessionStorage-Übergabe aus dem Intake (OfferCreate). Enthält ein KI-geparstes
+ * Freitext-Programm, das beim ersten Öffnen des Editors als KI-Preview-Option
+ * A gezeigt werden soll. Wird sofort nach dem Konsum entfernt.
+ */
+const readPendingFreeformProgram = (inquiryId: string | null): FreeformProgram | null => {
+  if (!inquiryId || typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(`pending_freeform_program:${inquiryId}`);
+    if (!raw) return null;
+    window.sessionStorage.removeItem(`pending_freeform_program:${inquiryId}`);
+    const parsed = JSON.parse(raw) as FreeformProgram;
+    if (!parsed || !Array.isArray(parsed.days) || parsed.days.length === 0) return null;
+    return parsed;
+  } catch (e) {
+    console.warn('[useOfferBuilder] pending freeform program konnte nicht gelesen werden:', e);
+    return null;
+  }
+};
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
