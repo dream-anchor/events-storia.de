@@ -713,7 +713,7 @@ export function useOfferBuilder({
           };
 
           let dishAbs = 0;
-          for (const course of opt.menuSelection.courses) {
+          for (const course of flattenCourses(opt)) {
             if (course.overridePrice != null && course.overridePrice > 0) {
               const qty = course.quantity ?? 1;
               dishAbs += course.overridePrice * qty * lineMult(course.priceMode);
