@@ -121,10 +121,12 @@ serve(async (req) => {
     const msg = error instanceof Error ? error.message : String(error);
     logStep("FATAL ERROR", { message: msg });
     reportEdgeError({ source: 'edge:handle-stripe-webhook', severity: 'critical', message: msg });
-    // Return 200 even on error to prevent Stripe from retrying indefinitely
-    // Log the error for debugging but acknowledge receipt
-    return new Response(JSON.stringify({ received: true, error: msg }), {
-      status: 200,
+    // P2: Bei transienten Fehlern (Timeouts, 5xx bei LexOffice/DB) → 500 zurück,
+    // damit Stripe automatisch retryen kann. Bei permanenten/logischen Fehlern
+    // → 200, damit keine Endlos-Retries entstehen.
+    const transient = /timeout|timed out|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN|fetch failed|network|503|502|504|too many connections|deadlock/i.test(msg);
+    return new Response(JSON.stringify({ received: !transient, error: msg }), {
+      status: transient ? 500 : 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
