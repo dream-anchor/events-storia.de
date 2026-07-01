@@ -268,8 +268,6 @@ export const AdminOfferCreate = () => {
   const [step, setStep] = useState(1);
   const [rawText, setRawText] = useState("");
   const [formData, setFormData] = useState<DraftFormData>(initialFormData);
-  const [suggestions, setSuggestions] = useState<SuggestedPackage[]>([]);
-  const [suggestedItems, setSuggestedItems] = useState<SuggestedItem[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isHandingOff, setIsHandingOff] = useState(false);
   const [hasExtracted, setHasExtracted] = useState(false);
