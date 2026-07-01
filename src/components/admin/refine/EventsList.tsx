@@ -18,6 +18,7 @@ import { useTestMode } from "@/contexts/TestModeContext";
 import { BulkActionBar } from "@/components/admin/shared/BulkActionBar";
 import { cn } from "@/lib/utils";
 import { getAdminDisplayName, getAdminInitials } from "@/lib/adminDisplayNames";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { getInquiryActionState } from "@/lib/inquiryActionState";
