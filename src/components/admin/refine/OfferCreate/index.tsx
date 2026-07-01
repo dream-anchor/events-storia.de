@@ -10,8 +10,7 @@ import { supabase } from "@/integrations/supabase/typed-client";
 import { AdminLayout } from "../AdminLayout";
 import { ContactDataCard } from "./ContactDataCard";
 import { EventDetailsCard } from "./EventDetailsCard";
-import { AISuggestionsCard } from "./AISuggestionsCard";
-import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
+import { DraftFormData, ParsedInquiry } from "./types";
 import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/shared/SaveStatusContext";
 import type { FreeformProgram } from "../InquiryEditor/OfferBuilder/types";
 
@@ -20,21 +19,37 @@ import type { FreeformProgram } from "../InquiryEditor/OfferBuilder/types";
 // gelesen und danach entfernt.
 const pendingFreeformStorageKey = (inquiryId: string) =>
   `pending_freeform_program:${inquiryId}`;
+// Fallback-Key: wenn parse-freeform-offer im Intake nichts Verwertbares
+// zurückgibt, wird der Rohtext hier abgelegt und der Editor versucht ein
+// zweites Mal serverseitig zu parsen.
+const pendingFreeformTextStorageKey = (inquiryId: string) =>
+  `pending_freeform_text:${inquiryId}`;
 
-/** Programm hat mindestens EIN Item mit Preis ODER Pauschale ODER pricePerPerson. */
+/**
+ * Programm ist "übergabewürdig", sobald der Parser irgendetwas Konkretes
+ * erkannt hat: Items, Pauschale, pricePerPerson, mealLabel/guestCount,
+ * Zusatzleistungen, Leistungsumfang oder Notes.
+ */
 function isNonTrivialFreeformProgram(p: FreeformProgram | null | undefined): boolean {
-  if (!p || !Array.isArray(p.days) || p.days.length === 0) return false;
-  return p.days.some((d) =>
-    Array.isArray(d.meals) &&
-    d.meals.some((m) => {
+  if (!p) return false;
+  const hasServices = Array.isArray(p.additionalServices) && p.additionalServices.length > 0;
+  const hasScope = Array.isArray(p.scopeOfServices) && p.scopeOfServices.length > 0;
+  const hasNotes = Array.isArray(p.notes) && p.notes.length > 0;
+  if (hasServices || hasScope || hasNotes) return true;
+  if (!Array.isArray(p.days) || p.days.length === 0) return false;
+  return p.days.some((d) => {
+    if (!Array.isArray(d.meals) || d.meals.length === 0) return false;
+    return d.meals.some((m) => {
       const hasItems =
         Array.isArray(m.sections) &&
         m.sections.some((s) => Array.isArray(s.items) && s.items.length > 0);
       const hasFlat = Number(m.flatPriceNet) > 0;
       const hasPpp = Number(m.pricePerPersonNet) > 0;
-      return hasItems || hasFlat || hasPpp;
-    }),
-  );
+      const hasLabel = typeof m.label === 'string' && m.label.trim().length > 0;
+      const hasGuests = typeof m.guestCount === 'number' && m.guestCount > 0;
+      return hasItems || hasFlat || hasPpp || hasLabel || hasGuests;
+    });
+  });
 }
 
 // ─── Email Safety ──────────────────────────────────────────────────────────────
