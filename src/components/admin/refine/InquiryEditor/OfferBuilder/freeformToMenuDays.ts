@@ -38,6 +38,20 @@ function guessCourseType(heading?: string | null, meal?: string | null): CourseT
   return 'starter';
 }
 
+// Default-Labels pro CourseType — Fallback, wenn der Parser weder eine
+// Section-Überschrift noch ein Mahlzeit-Label liefert.
+const DEFAULT_COURSE_LABEL: Record<CourseType, string> = {
+  starter: 'Vorspeise',
+  pasta: 'Pasta',
+  main: 'Hauptgang',
+  main_fish: 'Fisch',
+  main_meat: 'Fleisch',
+  dessert: 'Dessert',
+  fingerfood: 'Fingerfood',
+  vegetarisch: 'Vegetarisch',
+  vegan: 'Vegan',
+};
+
 function mealToCourses(meal: FreeformProgramMeal): CourseSelection[] {
   const out: CourseSelection[] = [];
   let itemsSumNet = 0;
@@ -45,7 +59,9 @@ function mealToCourses(meal: FreeformProgramMeal): CourseSelection[] {
   for (const section of meal.sections ?? []) {
     const heading = section.heading ?? null;
     const courseType = guessCourseType(heading, meal.label);
-    const courseLabel = heading || meal.label || 'Speise';
+    // Wenn keine Section-Überschrift da ist, den Default-Label des erkannten
+    // Gangtyps benutzen — sonst hätten alle Zeilen z.B. „Abendessen" als Label.
+    const courseLabel = heading || DEFAULT_COURSE_LABEL[courseType] || meal.label || 'Speise';
     for (const item of section.items ?? []) {
       if (!item?.name) continue;
       const qty = Math.max(1, Number(item.quantity) || 1);
