@@ -214,6 +214,14 @@ export interface OfferBuilderOption {
     equipment?: EquipmentItem[];
     staff?: EquipmentItem[];
     freeformProgram?: FreeformProgram | null;
+    /**
+     * Optionale Tages-Struktur für mehrtägige Menüs. Wenn gesetzt (Länge ≥ 1),
+     * ist `days[]` die Quelle der Wahrheit — `courses[]` auf gleicher Ebene
+     * bleibt als Legacy-Feld erhalten und wird beim Bearbeiten gemirrort auf
+     * `days[0].courses` gehalten, damit alte Renderer (E-Mail, PDF, Public
+     * Offer) ohne Anpassung weiterlaufen.
+     */
+    days?: MenuDay[];
   };
   totalAmount: number;
   stripePaymentLinkId: string | null;
