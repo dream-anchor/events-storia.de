@@ -647,7 +647,8 @@ export const EventsList = () => {
             </p>
           )}
         </div>
-      ),
+        );
+      },
     },
 
     // Spalte 6: Kontakt (Mail + Telefon — analog Orders)
