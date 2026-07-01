@@ -195,9 +195,10 @@ interface Step2Props {
   suggestedItems: SuggestedItem[];
   hasExtracted: boolean;
   aiSummary: string;
+  freeformDetected: boolean;
 }
 
-const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems, hasExtracted, aiSummary }: Step2Props) => {
+const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems, hasExtracted, aiSummary, freeformDetected }: Step2Props) => {
   const addedPackageNames = formData.selected_packages.map(p => p.name);
 
   return (
@@ -207,6 +208,17 @@ const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems
           <div className="flex items-start gap-2">
             <Sparkles className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-amber-900 leading-relaxed">{aiSummary}</p>
+          </div>
+        </div>
+      )}
+      {freeformDetected && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+          <div className="flex items-start gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-emerald-900 leading-relaxed">
+              Die KI hat im Text auch ein Menü-Programm erkannt — es liegt in der
+              Angebotskonfiguration als KI-Entwurf für dich bereit.
+            </p>
           </div>
         </div>
       )}
