@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 
 interface WhatsAppAlertRequest {
-  type: 'new_order' | 'new_inquiry' | 'email_failed';
+  type: 'new_order' | 'new_inquiry' | 'email_failed' | 'payment_overdue';
   orderNumber?: string;
   customerName?: string;
   customerEmail?: string;
@@ -14,6 +14,9 @@ interface WhatsAppAlertRequest {
   errorDetails?: string;
   entityType?: string;
   entityId?: string;
+  paymentType?: string;
+  ageDays?: number;
+  bookingNumber?: string;
 }
 
 const formatPrice = (price: number) => price.toFixed(2).replace('.', ',') + ' €';
@@ -31,6 +34,20 @@ function buildMessage(data: WhatsAppAlertRequest): string {
       '',
       '→ Bitte sofort prüfen!',
       'https://events-storia.de/admin',
+    ].filter(Boolean).join('\n');
+  }
+
+  if (data.type === 'payment_overdue') {
+    return [
+      `⏰ Zahlung überfällig${data.ageDays ? ` (${data.ageDays} Tage)` : ''}`,
+      '',
+      data.bookingNumber ? `Buchung: ${data.bookingNumber}` : '',
+      data.customerName ? `Kunde: ${data.customerName}` : '',
+      data.paymentType ? `Typ: ${data.paymentType}` : '',
+      data.totalAmount ? `Offen: ${formatPrice(data.totalAmount)}` : '',
+      data.desiredDate ? `Event: ${data.desiredDate}` : '',
+      '',
+      '→ https://events-storia.de/admin',
     ].filter(Boolean).join('\n');
   }
 
