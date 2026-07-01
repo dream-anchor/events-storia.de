@@ -110,7 +110,14 @@ export function cleanDisplayText(value: unknown): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const normalized = trimmed.toLowerCase();
-  if (normalized === "null" || normalized === "undefined") return null;
+  // Placeholder-Werte, die technische Systeme (LexOffice, alte Imports, AI-Parser)
+  // gelegentlich in Firmen-/Kontaktfelder schreiben. Für die Anzeige behandeln
+  // wir diese wie "leer".
+  const PLACEHOLDERS = new Set([
+    "null", "undefined", "n/a", "n.a.", "na", "-", "--",
+    "unknown", "unbekannt", "keine angabe", "k.a.", "ka",
+  ]);
+  if (PLACEHOLDERS.has(normalized)) return null;
   return trimmed;
 }
 
