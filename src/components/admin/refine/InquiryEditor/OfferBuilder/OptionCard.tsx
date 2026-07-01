@@ -497,6 +497,12 @@ export function OptionCard({
               onCourseAdd={handleCourseAdd}
               onCourseRemove={handleCourseRemove}
               disabled={disabled}
+              daysView={daysView}
+              activeDayId={activeDayId}
+              onSelectDay={setActiveDayId}
+              onAddDay={handleAddDay}
+              onRemoveDay={handleRemoveDay}
+              onRenameActiveDay={handleRenameActiveDay}
             />
           )}
 
