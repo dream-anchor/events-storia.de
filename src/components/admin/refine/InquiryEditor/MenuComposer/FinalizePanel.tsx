@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { MenuSelection, CourseConfig, DrinkConfig, COURSE_ICONS, DRINK_ICONS } from "./types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 interface FinalizePanelProps {
   inquiry?: any;
@@ -60,8 +61,8 @@ export const FinalizePanel = ({
       const { data, error } = await supabase.functions.invoke('generate-inquiry-email', {
         body: {
           inquiryType: inquiry.inquiry_type || 'event',
-          contactName: inquiry.contact_name,
-          companyName: inquiry.company_name,
+          contactName: cleanDisplayText(inquiry?.contact_name) ?? "",
+          companyName: cleanDisplayText(inquiry?.company_name),
           eventType: inquiry.event_type,
           guestCount: inquiry.guest_count,
           preferredDate: inquiry.preferred_date,

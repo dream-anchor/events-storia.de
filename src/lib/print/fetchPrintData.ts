@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { PrintInquiry } from './types';
 import type { OfferBuilderOption } from '@/components/admin/refine/InquiryEditor/OfferBuilder/types';
+import { cleanDisplayText } from '@/types/inquiryRecord';
 
 /** Wandelt eine inquiry_offer_options-Row in OfferBuilderOption um (analog useOfferBuilder). */
 function rowToOption(row: any): OfferBuilderOption {
@@ -117,8 +118,8 @@ export async function fetchPrintInquiry(inquiryId: string): Promise<PrintInquiry
   return {
     id: String(inq.id),
     orderNumber: shortOrderNumber(String(inq.id)),
-    contactName: inq.contact_name || '',
-    companyName: inq.company_name,
+    contactName: cleanDisplayText(inq.contact_name) ?? '',
+    companyName: cleanDisplayText(inq.company_name),
     email: inq.email || '',
     phone: inq.phone,
     eventType: inq.event_type,
