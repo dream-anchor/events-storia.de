@@ -452,13 +452,6 @@ export const AdminOfferCreate = () => {
         message: parsed.original_message_summary || prev.message,
       }));
 
-      setSuggestions(
-        (parsed.suggested_packages || []).map(p => ({
-          ...p,
-          matched_keywords: p.matched_keywords || [],
-        }))
-      );
-      setSuggestedItems(parsed.suggested_items || []);
       setAiSummary(parsed.original_message_summary || "");
       setHasExtracted(true);
       if (detectedProgram) {
@@ -471,12 +464,32 @@ export const AdminOfferCreate = () => {
               pendingFreeformStorageKey(id),
               JSON.stringify(detectedProgram),
             );
+            // Falls das Programm später doch Lücken hat, kann der Editor
+            // aus dem Rohtext noch einmal parsen — Fallback räumt sich
+            // nach Konsum selbst auf.
+            sessionStorage.setItem(
+              pendingFreeformTextStorageKey(id),
+              rawText,
+            );
           } catch (storageErr) {
             console.warn('[OfferCreate] sessionStorage set fehlgeschlagen:', storageErr);
           }
         }
         toast.success('Daten extrahiert — Menü-Programm als KI-Entwurf bereit');
       } else {
+        // Kein verwertbares Programm im Intake — Rohtext trotzdem für
+        // einen Editor-Retry hinterlegen.
+        const id = await ensureDraft();
+        if (id) {
+          try {
+            sessionStorage.setItem(
+              pendingFreeformTextStorageKey(id),
+              rawText,
+            );
+          } catch (storageErr) {
+            console.warn('[OfferCreate] sessionStorage text set fehlgeschlagen:', storageErr);
+          }
+        }
         toast.success('Daten extrahiert!');
       }
 
