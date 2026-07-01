@@ -104,6 +104,17 @@ export function OptionCard({
   // --- Mode-Wechsel via Header-Dropdown: Confirm wenn Daten vorhanden ---
   const [pendingMode, setPendingMode] = useState<OfferMode | null>(null);
 
+  // --- Tages-Navigation (mehrtägige Menüs) ---
+  // Aktiver Tag für das MenuContent-Wizard. Fällt auf den ersten verfügbaren Tag
+  // zurück, wenn der bisher aktive gelöscht/nicht mehr existent ist.
+  const daysView = useMemo(() => getDaysView(option), [option]);
+  const [activeDayId, setActiveDayId] = useState<string>(() => daysView[0]?.id ?? 'default');
+  useEffect(() => {
+    if (!daysView.some((d) => d.id === activeDayId)) {
+      setActiveDayId(daysView[0]?.id ?? 'default');
+    }
+  }, [daysView, activeDayId]);
+
   const hasOptionData = useMemo(() => {
     if (option.offerMode === 'unselected') return false;
     return !!option.packageId
