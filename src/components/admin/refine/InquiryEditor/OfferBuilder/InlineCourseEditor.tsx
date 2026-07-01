@@ -328,17 +328,32 @@ function SortableCourseRow({
         ) : (
           <div className="flex items-center gap-1">
             <div className="flex-1 min-w-0">
-              <DishPicker
-                value={course.itemId ? { id: course.itemId, name: course.itemName } : null}
-                onSelect={(dish) => onDishSelect(idx, dish)}
-                menuItems={menuItems}
-                filterCategories={getFilterCategories(course.courseType)}
-                courseType={course.courseType}
-                placeholder={`${course.courseLabel} wählen...`}
-                disabled={disabled}
-              />
+              {course.isCustom && course.itemName && !course.itemId ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => { setTempName(course.itemName); setEditingName(true); }}
+                  className={cn(
+                    "w-full h-10 sm:h-8 rounded-md border border-input bg-background px-3 text-left text-sm text-foreground truncate",
+                    !disabled && "hover:bg-muted/40 cursor-text"
+                  )}
+                  title="Bezeichnung bearbeiten"
+                >
+                  {course.itemName}
+                </button>
+              ) : (
+                <DishPicker
+                  value={course.itemId ? { id: course.itemId, name: course.itemName } : null}
+                  onSelect={(dish) => onDishSelect(idx, dish)}
+                  menuItems={menuItems}
+                  filterCategories={getFilterCategories(course.courseType)}
+                  courseType={course.courseType}
+                  placeholder={`${course.courseLabel} wählen...`}
+                  disabled={disabled}
+                />
+              )}
             </div>
-            {!disabled && course.itemId && course.itemName && (
+            {!disabled && course.itemName && (course.itemId || course.isCustom) && (
               <button
                 onClick={() => { setTempName(course.itemName); setEditingName(true); }}
                 className="shrink-0 h-9 w-9 sm:h-auto sm:w-auto sm:p-1 inline-flex items-center justify-center rounded-md hover:bg-muted/50 transition-colors sm:opacity-0 sm:group-hover:opacity-100"
