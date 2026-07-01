@@ -67,9 +67,12 @@ REGELN (NICHT VERHANDELBAR):
     "Oktopussalat") als items[] hinein. Items sind reine Strings ohne Bullets,
     ohne "•", ohne führende Bindestriche. NIEMALS Speisen-Bulletpoints in
     notes[] oder scopeOfServices[] verschieben — die gehören in sections[].items[].
-12. PRO-PERSON-PREISE: Wenn im Text "X € pro Person" oder "ab X € pro Person" steht, setze
-    auf der Mahlzeit pricePerPersonNet=X und pricePerPersonPrefix wörtlich ("ab", "ca.", ""),
-    und lasse flatPriceNet=0. NIEMALS hochrechnen (kein guestCount × pricePerPersonNet).
+12. PRO-PERSON-PREISE: Erkenne pricePerPersonNet auf der Mahlzeit aus ALLEN dieser Formulierungen:
+    "X € pro Person", "X€/Person", "X € p.P.", "X€ p.P.", "ab X € pro Person",
+    "Budget X € pro Person", "Budget: X€/Person", "inklusive X € pro Person",
+    "max. X € pro Person". Zahlenwert 1:1 übernehmen; pricePerPersonPrefix nur setzen,
+    wenn der Text explizit "ab" oder "ca." sagt (sonst leerer String).
+    flatPriceNet bleibt 0. NIEMALS hochrechnen (kein guestCount × pricePerPersonNet).
 13. ZUSATZLEISTUNGEN (Service-Personal €/h, Auf-/Abbau €/h, Anfahrt/Abfahrt-Pauschalen,
     Equipment-Stückpreise, etc.) gehören in das TOP-LEVEL Array additionalServices[].
     Pro Eintrag: label (wörtlich), unitPriceNet (Zahl), unit ('hour'|'flat'|'piece'),
