@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
+import { requireAuth, AuthError } from '../_shared/auth.ts';
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -16,6 +17,10 @@ serve(async (req) => {
   }
 
   try {
+    // P3: Nur admin/staff dürfen Payment-Sessions erzeugen.
+    const auth = await requireAuth(req);
+    logStep("Auth OK", { userId: auth.userId, role: auth.role });
+
     const { payment_id } = await req.json();
     if (!payment_id) throw new Error('payment_id ist erforderlich');
 
@@ -120,11 +125,14 @@ serve(async (req) => {
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+    const status = err instanceof AuthError ? err.status : 400;
     logStep("ERROR", { error: msg });
-    reportEdgeError({ source: 'edge:create-event-payment-session', severity: 'critical', message: msg });
+    if (!(err instanceof AuthError)) {
+      reportEdgeError({ source: 'edge:create-event-payment-session', severity: 'critical', message: msg });
+    }
     return new Response(
       JSON.stringify({ error: msg }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status }
     );
   }
 });
