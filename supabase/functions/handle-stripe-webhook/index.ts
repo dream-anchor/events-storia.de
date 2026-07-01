@@ -788,7 +788,7 @@ async function handleMultiOptionPayment(
     }
   } catch { /* non-fatal */ }
 
-  const { error: paymentInsertError } = await supabase
+  const { data: insertedPayment, error: paymentInsertError } = await supabase
     .from('v2_payments')
     .insert({
       event_id: inquiryId,
@@ -799,11 +799,14 @@ async function handleMultiOptionPayment(
       stripe_payment_intent_id: (session.payment_intent as string) || null,
       paid_at: new Date().toISOString(),
       paid_via: paidVia,
-    });
+    })
+    .select('id')
+    .single();
 
   if (paymentInsertError) {
     logStep("v2_payments insert error", { error: paymentInsertError.message });
   }
+  const insertedPaymentId = insertedPayment?.id as string | undefined;
 
   // Booking-Nummer generieren falls nötig
   const { data: ev } = await supabase
@@ -827,23 +830,43 @@ async function handleMultiOptionPayment(
     logStep("Booking number generated", { bookingNumber });
   }
 
-  // LexOffice-Rechnung triggern (non-blocking)
+  // ── LexOffice: bei Anzahlung eine UStG-konforme Anzahlungsrechnung,
+  //    bei Vollzahlung eine reguläre Rechnung erzeugen (non-blocking).
   try {
-    const lexResp = await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-manual-invoice`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({ inquiryId, useSelectedQuantity: true }),
+    if (paymentType === 'deposit' && insertedPaymentId) {
+      const lexResp = await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-lexoffice-downpayment-invoice`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ payment_id: insertedPaymentId }),
+        }
+      );
+      if (lexResp.ok) {
+        logStep("LexOffice Anzahlungsrechnung getriggert", { paymentId: insertedPaymentId });
+      } else {
+        logStep("Anzahlungsrechnung failed (non-fatal)", { status: lexResp.status, body: await lexResp.text() });
       }
-    );
-    if (lexResp.ok) {
-      logStep("LexOffice invoice triggered for multi-option", { inquiryId });
     } else {
-      logStep("LexOffice invoice failed (non-fatal)", { status: lexResp.status });
+      const lexResp = await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-manual-invoice`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ inquiryId, useSelectedQuantity: true }),
+        }
+      );
+      if (lexResp.ok) {
+        logStep("LexOffice Rechnung getriggert (full)", { inquiryId });
+      } else {
+        logStep("LexOffice Rechnung failed (non-fatal)", { status: lexResp.status });
+      }
     }
   } catch (err) {
     logStep("LexOffice invoice error (non-fatal)", {
