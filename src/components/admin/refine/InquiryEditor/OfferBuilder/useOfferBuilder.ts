@@ -437,11 +437,15 @@ export function useOfferBuilder({
             if (opt.package_id && mode === 'menu') {
               mode = 'paket';
             }
-            // Defensive Hydration: Wenn `menu_selection.freeformProgram` vorliegt,
-            // erzwinge `freeform`-Modus — schützt vor Legacy-Rows ohne sauberen Mode
-            // (z.B. NULL nach Trigger-Bug vor der Migration).
-            if ((opt.menu_selection as Record<string, unknown> | null)?.freeformProgram) {
-              mode = 'freeform';
+            // Legacy-Hydration: Alte Rows mit `freeformProgram` werden in-memory in
+            // den Standard-Menü-Wizard (days[]) migriert — Ergebnis sieht identisch
+            // aus wie ein handgemachtes Menü mit Tages-Tabs. Persistiert wird erst,
+            // wenn der Operator die Option aktiv bearbeitet.
+            const legacyFreeform = (opt.menu_selection as Record<string, unknown> | null)?.freeformProgram as
+              | import('./types').FreeformProgram
+              | undefined;
+            if (legacyFreeform && !(opt.menu_selection as Record<string, unknown>)?.days) {
+              mode = 'menu';
             }
             // Paketnamen auflösen: Override aus menu_selection > packages-Prop > leer
             const menuSel = opt.menu_selection as Record<string, unknown> | null;
@@ -462,15 +466,39 @@ export function useOfferBuilder({
                   courses: migratedSelection.courses.map(c => ({ ...c, overridePrice: null })),
                 }
               : migratedSelection;
+            // Wenn wir eine Legacy-freeform-Row hydrieren, packen wir days[]
+            // + staff + tableNote in-memory rein. `freeformProgram` bleibt in
+            // menuSelection, damit der Editor bei einem harten Fehler noch
+            // fallback hätte — beim nächsten Save wird es gedroppt.
+            let hydratedSelection = cleanedSelection;
+            let hydratedTableNote: string | null = null;
+            let hydratedPackageName = pkgName;
+            if (legacyFreeform && !hydratedSelection?.days) {
+              try {
+                const { freeformToMenuDays } = await import('./freeformToMenuDays');
+                const mapped = freeformToMenuDays(legacyFreeform);
+                hydratedSelection = {
+                  ...hydratedSelection,
+                  days: mapped.days,
+                  courses: mapped.days.flatMap((d) => d.courses),
+                  staff: mapped.staff.length > 0 ? mapped.staff : hydratedSelection?.staff,
+                };
+                hydratedTableNote = mapped.tableNote;
+                if (!hydratedPackageName) hydratedPackageName = mapped.title;
+              } catch (e) {
+                console.warn('Legacy-Freeform-Hydration fehlgeschlagen:', e);
+                mode = 'freeform';
+              }
+            }
             return {
             id: opt.id,
             packageId: opt.package_id,
-            packageName: pkgName,
+            packageName: hydratedPackageName,
             optionLabel: opt.option_label,
             offerMode: mode,
             isActive: opt.is_active ?? true,
             guestCount: opt.guest_count,
-            menuSelection: cleanedSelection,
+            menuSelection: hydratedSelection,
             totalAmount: Number(opt.total_amount),
             stripePaymentLinkId: opt.stripe_payment_link_id,
             stripePaymentLinkUrl: opt.stripe_payment_link_url,
@@ -482,7 +510,7 @@ export function useOfferBuilder({
             discountPercent: ((opt.menu_selection as Record<string, unknown>)?.discountPercent as number) ?? 0,
             discountAmount: ((opt.menu_selection as Record<string, unknown>)?.discountAmount as number) ?? 0,
             attachMenu: false,
-            tableNote: null,
+            tableNote: hydratedTableNote,
           }; });
           setOptions(mappedOptions);
           setCurrentVersion(Math.max(...mappedOptions.map(o => o.offerVersion)));
