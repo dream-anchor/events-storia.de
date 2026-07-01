@@ -626,8 +626,6 @@ export const AdminOfferCreate = () => {
             <Step2KontaktEvent
               formData={formData}
               onFormChange={handleFormChange}
-              suggestions={suggestions}
-              suggestedItems={suggestedItems}
               hasExtracted={hasExtracted}
               aiSummary={aiSummary}
               freeformDetected={freeformDetected}
