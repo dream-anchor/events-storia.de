@@ -1,116 +1,60 @@
-
-# Freitext-Import → Standard-Menü-Wizard mit Tages-Tabs
-
 ## Ziel
-Der Freitext-Import erzeugt **exakt dasselbe Datenmodell und dieselbe UI** wie ein handgemachtes Menü. Der einzige Unterschied: bei mehrtägigen Angeboten sitzt ein Tages-Wahl-Header über dem Wizard, der zwischen den Tages-Menüs umschaltet. Bei 1 Tag ist der Header unsichtbar — 100 % identisch zum Handmenü.
+Beim Anlegen einer neuen Anfrage in Schritt 1 („Kunden-E-Mail einfügen") wird der eingegebene Text nicht nur durch den Kontakt-/Event-Parser geschickt, sondern parallel auch durch den Freitext-Offer-Parser. Erkennt dieser eine Menü-/Tagesstruktur, wird beim Übergang in den Editor automatisch eine Option A als KI-Vorschlag vorbereitet (aiOrigin, needsManualSave) — mit `menuSelection.days[]`, so wie ein handgemachtes Menü mit Tages-Tabs aussieht.
 
-Als Nebeneffekt verschwinden die im Audit vom letzten Turn gefundenen Freeform-Bugs (Fake-Content, Preis-Overwrite, unsichtbare Per-Person-Preise & Zusatzleistungen), weil das zweite Datenmodell komplett wegfällt.
+## Verhalten
 
----
+### Schritt 1: Text-Analyse
+- „Mit KI analysieren"-Button startet WEITERHIN nur einen sichtbaren Ladezustand, aber im Hintergrund laufen **beide** Edge-Functions parallel:
+  - `parse-inquiry-text` (heute) → Kontakt, Datum, Gäste, Paket-Suggestions
+  - `parse-freeform-offer` (neu im Intake) → FreeformProgram JSON, falls Menü/Preise erkennbar
+- Ergebnis von `parse-freeform-offer` wird **nicht** blockierend — schlägt der Parse fehl, wird still weiter navigiert. `parse-inquiry-text` bleibt der harte Erfolgs-Pfad.
+- Findings des Red-Team-Validators werden hier NICHT ausgeführt (schnellerer Intake). Validierung kann der Operator im Editor über den regulären Freitext-Import erneut anstoßen.
 
-## Datenmodell
+### Draft-Persistenz
+- Wenn `parse-freeform-offer` ein sinnvolles Programm liefert (mind. 1 Tag mit ≥1 Item ODER Pauschale > 0), wird es zusammen mit dem Draft in einer neuen Spalte `event_inquiries.pending_freeform_program jsonb` persistiert.
+- Kein sinnvolles Programm → Spalte bleibt NULL.
+- Migration liefert die Spalte + Kommentar; keine Indizes nötig.
 
-### Neu: `menuSelection.days[]`
-```ts
-interface MenuDay {
-  id: string;
-  dateLabel: string;       // "Mo 29.06." — leer bei 1-Tages-Menü
-  isoDate?: string | null;
-  mealLabel?: string;      // "Lunch" / "Dinner" — optional
-  guestCount?: number;     // pro Tag überschreibbar, sonst option.guestCount
-  courses: CourseSelection[];   // identisch zum Handmenü-Schema
-  // Getränke/Equipment/Staff bleiben auf option-Ebene (gelten für alle Tage)
-}
-```
+### Hand-off in den Editor
+- Beim Übergang zum Editor prüft `useOfferBuilder` beim ersten Load nach Options-Daten: wenn keine Options existieren (frische Anfrage) UND `inquiry.pending_freeform_program` gesetzt ist, wird eine Option A als KI-Preview eingefügt:
+  - `applyFreeformAsMenu` (aus Session 2) baut `menuSelection.days[]`
+  - `offerMode='menu'`, `aiOrigin=true`, `needsManualSave=true`
+  - Kein Auto-Save → Operator muss aktiv „KI-Vorschlag speichern" klicken (bestehender Flow)
+- Nach dem ersten Save wird `pending_freeform_program` in derselben Row auf NULL gesetzt (idempotent).
 
-`menuSelection.courses` bleibt als **Legacy-Feld** bestehen und wird bei Load automatisch in `days[0].courses` migriert. Neue Handmenüs schreiben sofort in `days: [{ id, dateLabel: '', courses: [...] }]`. So gibt es intern nur einen Pfad.
+### UI-Feedback in Schritt 1
+- Wenn Freitext-Parse erfolgreich war, zeigt Schritt 2 einen dezenten Hinweis-Badge: „KI hat auch ein Menü-Programm erkannt — als Vorschlag im Editor bereit". Kein Modal, kein Blocker.
+- Wenn der Parse fehlgeschlagen ist, kein UI-Feedback (still).
 
-### `freeformProgram` bleibt vorerst
-Wird beim Öffnen einer Alt-Anfrage einmalig in `days[]` gemappt (Migrationshelfer im Client) und danach nicht mehr geschrieben. Nach Verifikation im Betrieb kann `freeformProgram` in einer späteren Session ganz entfernt werden.
+## Technische Details
 
----
+### Neue Migration
+- `alter table event_inquiries add column pending_freeform_program jsonb;`
+- Kommentar erklärt Nutzung + Auto-Cleanup-Regel.
+- Keine RLS-Änderung nötig (bestehende Policies decken Spalte ab).
 
-## UI
+### Änderungen in `OfferCreate/index.tsx`
+- `handleExtract` startet beide Invokes via `Promise.allSettled`.
+- Extractor-Ergebnis wie heute (harte Fehlerbehandlung).
+- Freitext-Ergebnis: bei Erfolg + Non-Trivial-Programm → in Draft-Auto-Save mit übergeben (`pending_freeform_program`).
+- Neues State-Flag `freeformDetected: boolean` für den Badge in Schritt 2.
 
-### OptionCard (Admin)
-```
-┌──────────────────────────────────────────────────────────────┐
-│ [Mo 29.06. Lunch] [Mo 29.06. Dinner] [Di 30.06. Lunch] …  + │  ← Tabs (nur wenn days.length > 1)
-├──────────────────────────────────────────────────────────────┤
-│ Tages-Metadaten: Label │ Datum │ Gäste │ 🗑                   │  ← klein, nur bei Multi-Day
-├──────────────────────────────────────────────────────────────┤
-│ ← unveränderter MenuComposer (Gänge, Getränke-Sektion) →     │
-└──────────────────────────────────────────────────────────────┘
-```
+### Änderungen in `useOfferBuilder.ts`
+- Load-Pfad: wenn `optionsData.length === 0` UND `inquiry.pending_freeform_program` gesetzt → statt „leere Option A anlegen" wird eine Preview-Option via `applyFreeformAsMenu` erstellt, mit `aiOrigin=true`, `needsManualSave=true`. Analog zum bestehenden `addAiDraftPreview`-Pfad.
+- In `saveOptions` (oder direkt beim manuellen „Vorschlag speichern"): nach erfolgreichem ersten Save der Preview-Option auch `event_inquiries.pending_freeform_program = null` schreiben.
 
-- Neue Komponente `DayTabsBar` (Tab-Buttons + „+ Tag hinzufügen" + Reorder via Drag).
-- Der bestehende `MenuComposer` bekommt `courses` und `onCoursesChange` als Props (heute schon so) und wird pro aktivem Tag gemounted — kein UI-Umbau am Wizard selbst.
-- Bei `days.length === 1` UND `dateLabel === ''` werden Tabs + Tages-Metadaten-Zeile ausgeblendet → visuell identisch zum heutigen Handmenü.
+### Kosten & Rate-Limit
+- Zwei parallele AI-Calls pro Intake statt einem. `parse-freeform-offer` ist der teurere Call (Gemini + optionaler Validator). Validator läuft hier NICHT (nur Parser) → +1 Call, keine Verdopplung.
+- 402/429-Fehler beim Freitext-Parse werden geschluckt (nur Logging).
 
-### Public Offer
-`FreeformProgramSection.tsx` wird gelöscht. Der Public-Offer-Renderer rendert `menuSelection.days[]` mit der bestehenden Menü-Rendering-Logik, umschlossen von einem `<section>` pro Tag (Datum als H4-Header). Bei 1 Tag / leerem Label kein Header → identisch zum heutigen Handmenü-Rendering.
+## Nicht-Ziele
+- Kein Red-Team-Validator im Intake (Zeit- und Kosten-Grund).
+- Keine automatische Persistierung der Option (Operator entscheidet immer bewusst).
+- Kein Retry-Loop im Intake — der Editor-Freitext-Import behält die volle Pipeline inkl. Retry.
+- Kein neues Modal / kein Wizard-Extra-Schritt.
 
-Zusatzleistungen (Personal €/h, Anfahrt) werden als eigener Block unter allen Tagen gerendert — analog zu `equipment`/`staff` beim Handmenü. Kalkulation (Speisen-Netto, Services-Netto, Gesamt brutto) bleibt sichtbar, wird aber aus den Tagen zusammengerechnet (siehe Preislogik).
-
----
-
-## Parser-Umbau
-
-`supabase/functions/parse-freeform-offer/index.ts`:
-
-- **Tool-Schema neu**: statt `days[].meals[].sections[].items[]` liefert die KI direkt `days[].courses[]` mit `{ courseType, courseLabel, itemName, itemDescription, overridePrice, quantity, priceMode }` — identisch zum handgemachten `CourseSelection`. Dazu `days[].dateLabel`, `days[].mealLabel`, `days[].guestCount` sowie `additionalServices[]` und `discount`.
-- Prompt strikt: „Übernimm Preise 1:1, niemals rechnen. Fehlende Werte = 0 oder leerer String. NIEMALS erfinden."
-- Menu-Lookup (`enrichItemsFromMenu`) wird konservativ: nur `itemId` und `itemDescription` aus DB nachladen wenn Name exakt matched. **Preis und Name aus dem Text bleiben unantastbar.** Behebt Audit-Finding #1.
-- Alle deterministischen Client-Fallbacks (`extractMealSectionsFromText`, hartcodierte „Aperitivo mit italienischen Appetizern"-Strings, `backfillEmptyMeals`) werden ersatzlos gelöscht. Behebt Audit-Findings #2.
-- Input-Cap: 25 000 Zeichen → HTTP 400.
-
-Validator (`validate-freeform-offer`) wird auf das neue Schema angepasst; Enum um `additional_services` erweitert.
-
----
-
-## Preislogik
-
-`useOfferBuilder.ts` bekommt einen einzigen Recalc-Pfad für `offerMode === 'menu'`:
-
-```
-totalAmount =
-    Σ über alle days[]:
-        Σ course.overridePrice × (course.quantity ?? 1) × (priceMode==='flat' ? 1 : guests)
-  + Getränke-Summe (unverändert)
-  + Equipment/Staff (unverändert)
-  + Σ additionalServices[] wo quantity gesetzt (unit × qty)
-  − discount
-```
-
-`freeformProgram.totalsFromText` wird nur noch als Sanity-Check angezeigt („KI-Text sagte 12 450 € brutto — berechnet: 12 380 €. Abweichung prüfen?"), fließt aber nicht mehr in `totalAmount`. Behebt Audit-Finding #5.
-
----
-
-## Migrationsschritte (Reihenfolge)
-
-1. **Types + Migrations-Helper** (`OfferBuilder/types.ts`, neue `hydrateToDays()`): `MenuDay` einführen, `menuSelection.days` optional, alte `courses` bleiben. `useOfferBuilder` Load-Phase migriert Alt-Daten in-memory (kein DB-Write nötig — Persistenz via next Save).
-2. **DayTabsBar** + Integration in `OptionCard.tsx` (`MenuContent`). Bei 1 Tag: Tabs versteckt.
-3. **Recalc-Umbau** in `useOfferBuilder.ts` — iteriert über `days[]` statt `courses[]`.
-4. **Parser + Prompt umbauen** — liefert `days[].courses[]` + `additionalServices[]`.
-5. **Client-Import-Panel** aufräumen: alle deterministischen Fake-Sections/Bullet-Backfill raus. Ergebnis wird direkt in `menuSelection.days[]` gemerged, `offerMode='menu'` gesetzt (nicht mehr `freeform`).
-6. **Public Offer**: `FreeformProgramSection.tsx` durch Tages-Loop um bestehende Menü-Rendering-Komponente ersetzen. Zusatzleistungen-Block ergänzen.
-7. **Freeform-Hydration**: Alt-Anfragen mit `freeformProgram` beim Load in `days[]` mappen — sichtbar identisch zu neuen Importen.
-8. **Regressionstest** manuell: bestehende Anfrage mit Freeform-Daten öffnen, neuer Freitext-Import (1 Tag + Mehrtag), Handmenü, jeweils Public-Offer-Preview.
-
-Kein DB-Migration nötig — `menu_selection` ist JSONB. Alt-Datensätze werden read-side migriert.
-
----
-
-## Aus-Scope (bewusst weggelassen)
-- PDF-Renderer für Tages-Gruppierung (kann als Follow-up, sobald neue Struktur live ist).
-- Vollständiges Löschen von `freeformProgram`-Feld — erst nach 1–2 Wochen Betrieb.
-- Rückwirkende DB-Migration der Alt-Anfragen — passiert automatisch beim ersten Save nach Bearbeitung.
-
----
-
-## Aufwand
-Ca. 2 Build-Sessions:
-- Session 1: Schritte 1–3 + 7 (Datenmodell, DayTabsBar, Recalc, Alt-Daten-Hydration) — Handmenü und Alt-Freeform funktionieren wie bisher, aber intern über `days[]`.
-- Session 2: Schritte 4–6 + 8 (Parser, Public Offer, Testrunde).
-
-Sag mir „go Session 1" und ich starte mit dem Datenmodell + DayTabsBar.
+## Dateien (voraussichtlich)
+- `supabase/migrations/YYYYMMDDHHMMSS_add_pending_freeform_program.sql` (neu)
+- `src/components/admin/refine/OfferCreate/index.tsx` (parallel invoke + Draft-Feld + Badge)
+- `src/components/admin/refine/InquiryEditor/OfferBuilder/useOfferBuilder.ts` (Preview-Injection + Cleanup)
+- optional: `src/pages/public-offer/types.ts` / Refine-Types falls `pending_freeform_program` typisiert werden soll

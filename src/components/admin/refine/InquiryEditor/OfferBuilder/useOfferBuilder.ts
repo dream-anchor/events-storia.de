@@ -2,6 +2,27 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { flattenCourses } from './menuDaysHelpers';
 import { freeformToMenuDays } from './freeformToMenuDays';
+import type { FreeformProgram } from './types';
+
+/**
+ * SessionStorage-Übergabe aus dem Intake (OfferCreate). Enthält ein KI-geparstes
+ * Freitext-Programm, das beim ersten Öffnen des Editors als KI-Preview-Option
+ * A gezeigt werden soll. Wird sofort nach dem Konsum entfernt.
+ */
+const readPendingFreeformProgram = (inquiryId: string | null): FreeformProgram | null => {
+  if (!inquiryId || typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(`pending_freeform_program:${inquiryId}`);
+    if (!raw) return null;
+    window.sessionStorage.removeItem(`pending_freeform_program:${inquiryId}`);
+    const parsed = JSON.parse(raw) as FreeformProgram;
+    if (!parsed || !Array.isArray(parsed.days) || parsed.days.length === 0) return null;
+    return parsed;
+  } catch (e) {
+    console.warn('[useOfferBuilder] pending freeform program konnte nicht gelesen werden:', e);
+    return null;
+  }
+};
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
@@ -533,15 +554,61 @@ export function useOfferBuilder({
             }
           }
 
-          // Wenn Kunde bereits ein Paket gewählt hat → direkt im paket-Modus.
-          // Sonst startet Karte A ohne Modus (Typ-Auswahl-Kacheln werden gezeigt).
-          setOptions([{
-            id: crypto.randomUUID(),
-            ...createEmptyOption('A', guestCountRef.current, customerPackageId ? 'paket' : 'unselected'),
-            packageId: customerPackageId,
-            packageName: initialPackageName,
-            totalAmount: initialTotal,
-          }]);
+          // Übergabe aus dem Intake: hat die KI dort bereits ein Freitext-Programm
+          // erkannt, wird es hier als KI-Preview-Option A vorgezeigt. Auto-Save
+          // persistiert sie wie jede normale Option — Operator sieht sie mit
+          // aiOrigin-Badge und kann editieren oder verwerfen.
+          const pending = readPendingFreeformProgram(inquiryId);
+          if (pending) {
+            try {
+              const mapped = freeformToMenuDays(pending);
+              const primaryGuests =
+                mapped.days.find((d) => (d.guestCount ?? 0) > 0)?.guestCount ?? null;
+              const emptyA = {
+                id: crypto.randomUUID(),
+                ...createEmptyOption('A', primaryGuests ?? guestCountRef.current, 'menu'),
+              };
+              setOptions([
+                {
+                  ...emptyA,
+                  packageId: null,
+                  packageName: mapped.title,
+                  guestCount: primaryGuests ?? guestCountRef.current,
+                  menuSelection: {
+                    ...emptyA.menuSelection,
+                    days: mapped.days,
+                    courses: mapped.days.flatMap((d) => d.courses),
+                    staff: mapped.staff.length > 0 ? mapped.staff : emptyA.menuSelection.staff,
+                  },
+                  tableNote: mapped.tableNote ?? null,
+                  aiOrigin: true,
+                },
+              ]);
+              // Trigger Auto-Save (analog addAiDraftPreview), damit die Option
+              // sofort persistiert wird — sonst geht sie beim Refresh verloren.
+              isDirtyRef.current = true;
+              dirtySourceRef.current = 'ai_import';
+            } catch (e) {
+              console.warn('Intake-Freeform-Injection fehlgeschlagen:', e);
+              setOptions([{
+                id: crypto.randomUUID(),
+                ...createEmptyOption('A', guestCountRef.current, customerPackageId ? 'paket' : 'unselected'),
+                packageId: customerPackageId,
+                packageName: initialPackageName,
+                totalAmount: initialTotal,
+              }]);
+            }
+          } else {
+            // Wenn Kunde bereits ein Paket gewählt hat → direkt im paket-Modus.
+            // Sonst startet Karte A ohne Modus (Typ-Auswahl-Kacheln werden gezeigt).
+            setOptions([{
+              id: crypto.randomUUID(),
+              ...createEmptyOption('A', guestCountRef.current, customerPackageId ? 'paket' : 'unselected'),
+              packageId: customerPackageId,
+              packageName: initialPackageName,
+              totalAmount: initialTotal,
+            }]);
+          }
         }
 
         // 2. History laden

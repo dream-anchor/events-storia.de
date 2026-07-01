@@ -13,6 +13,29 @@ import { EventDetailsCard } from "./EventDetailsCard";
 import { AISuggestionsCard } from "./AISuggestionsCard";
 import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
 import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/shared/SaveStatusContext";
+import type { FreeformProgram } from "../InquiryEditor/OfferBuilder/types";
+
+// SessionStorage-Key für die Übergabe eines KI-geparsten Freitext-Programms
+// vom Intake in den Editor. Wird beim ersten Öffnen der Options-Liste
+// gelesen und danach entfernt.
+const pendingFreeformStorageKey = (inquiryId: string) =>
+  `pending_freeform_program:${inquiryId}`;
+
+/** Programm hat mindestens EIN Item mit Preis ODER Pauschale ODER pricePerPerson. */
+function isNonTrivialFreeformProgram(p: FreeformProgram | null | undefined): boolean {
+  if (!p || !Array.isArray(p.days) || p.days.length === 0) return false;
+  return p.days.some((d) =>
+    Array.isArray(d.meals) &&
+    d.meals.some((m) => {
+      const hasItems =
+        Array.isArray(m.sections) &&
+        m.sections.some((s) => Array.isArray(s.items) && s.items.length > 0);
+      const hasFlat = Number(m.flatPriceNet) > 0;
+      const hasPpp = Number(m.pricePerPersonNet) > 0;
+      return hasItems || hasFlat || hasPpp;
+    }),
+  );
+}
 
 // ─── Email Safety ──────────────────────────────────────────────────────────────
 const TEST_REDIRECT_EMAIL = "antoine@monot.com";
@@ -172,9 +195,10 @@ interface Step2Props {
   suggestedItems: SuggestedItem[];
   hasExtracted: boolean;
   aiSummary: string;
+  freeformDetected: boolean;
 }
 
-const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems, hasExtracted, aiSummary }: Step2Props) => {
+const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems, hasExtracted, aiSummary, freeformDetected }: Step2Props) => {
   const addedPackageNames = formData.selected_packages.map(p => p.name);
 
   return (
@@ -184,6 +208,17 @@ const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems
           <div className="flex items-start gap-2">
             <Sparkles className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-amber-900 leading-relaxed">{aiSummary}</p>
+          </div>
+        </div>
+      )}
+      {freeformDetected && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+          <div className="flex items-start gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-emerald-900 leading-relaxed">
+              Die KI hat im Text auch ein Menü-Programm erkannt — es liegt in der
+              Angebotskonfiguration als KI-Entwurf für dich bereit.
+            </p>
           </div>
         </div>
       )}
@@ -248,6 +283,7 @@ export const AdminOfferCreate = () => {
   const [hasExtracted, setHasExtracted] = useState(false);
   const [aiSummary, setAiSummary] = useState("");
   const [isTest, setIsTest] = useState(false);
+  const [freeformDetected, setFreeformDetected] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
@@ -368,21 +404,49 @@ export const AdminOfferCreate = () => {
   const handleExtract = async () => {
     if (!rawText.trim()) return;
     setIsExtracting(true);
+    setFreeformDetected(false);
     try {
-      const { data, error } = await supabase.functions.invoke('parse-inquiry-text', {
-        body: {
-          rawText,
-          existingPackageNames: [
-            'Business Dinner – Exclusive',
-            'Network Aperitivo',
-            'Full Buyout'
-          ]
-        },
-      });
+      // Beide Parser parallel: Kontakt/Event-Extraktor (Pflicht) + Freitext-Offer-Parser
+      // (best effort — für den KI-Preview im Editor).
+      const [inquiryRes, freeformRes] = await Promise.allSettled([
+        supabase.functions.invoke('parse-inquiry-text', {
+          body: {
+            rawText,
+            existingPackageNames: [
+              'Business Dinner – Exclusive',
+              'Network Aperitivo',
+              'Full Buyout',
+            ],
+          },
+        }),
+        supabase.functions.invoke('parse-freeform-offer', {
+          body: { text: rawText },
+        }),
+      ]);
+
+      if (inquiryRes.status !== 'fulfilled') {
+        throw new Error(inquiryRes.reason?.message || 'Analyse fehlgeschlagen');
+      }
+      const { data, error } = inquiryRes.value;
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Analyse fehlgeschlagen');
 
       const parsed: ParsedInquiry = data.data;
+
+      // Freitext-Offer: bei Erfolg + Non-Trivial-Programm für den Editor merken.
+      // Fehler still ignorieren — kein Blocker für die Anfrage-Erstellung.
+      let detectedProgram: FreeformProgram | null = null;
+      if (freeformRes.status === 'fulfilled') {
+        const { data: ffData, error: ffError } = freeformRes.value;
+        if (!ffError && ffData?.success && ffData?.program) {
+          const prog = ffData.program as FreeformProgram;
+          if (isNonTrivialFreeformProgram(prog)) {
+            detectedProgram = prog;
+          }
+        }
+      } else {
+        console.warn('[OfferCreate] Freitext-Parser fehlgeschlagen (still):', freeformRes.reason);
+      }
 
       setFormData(prev => ({
         ...prev,
@@ -407,7 +471,24 @@ export const AdminOfferCreate = () => {
       setSuggestedItems(parsed.suggested_items || []);
       setAiSummary(parsed.original_message_summary || "");
       setHasExtracted(true);
-      toast.success("Daten extrahiert!");
+      if (detectedProgram) {
+        setFreeformDetected(true);
+        // Draft muss existieren, damit wir mit der passenden inquiryId speichern.
+        const id = await ensureDraft();
+        if (id) {
+          try {
+            sessionStorage.setItem(
+              pendingFreeformStorageKey(id),
+              JSON.stringify(detectedProgram),
+            );
+          } catch (storageErr) {
+            console.warn('[OfferCreate] sessionStorage set fehlgeschlagen:', storageErr);
+          }
+        }
+        toast.success('Daten extrahiert — Menü-Programm als KI-Entwurf bereit');
+      } else {
+        toast.success('Daten extrahiert!');
+      }
 
       setStep(2);
     } catch (err) {
@@ -546,6 +627,7 @@ export const AdminOfferCreate = () => {
               suggestedItems={suggestedItems}
               hasExtracted={hasExtracted}
               aiSummary={aiSummary}
+              freeformDetected={freeformDetected}
             />
           )}
         </div>
