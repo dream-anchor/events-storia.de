@@ -13,6 +13,29 @@ import { EventDetailsCard } from "./EventDetailsCard";
 import { AISuggestionsCard } from "./AISuggestionsCard";
 import { DraftFormData, ParsedInquiry, SuggestedPackage, SuggestedItem } from "./types";
 import { useRegisterSaveStatus, type SaveStatus } from "@/components/admin/shared/SaveStatusContext";
+import type { FreeformProgram } from "../InquiryEditor/OfferBuilder/types";
+
+// SessionStorage-Key für die Übergabe eines KI-geparsten Freitext-Programms
+// vom Intake in den Editor. Wird beim ersten Öffnen der Options-Liste
+// gelesen und danach entfernt.
+const pendingFreeformStorageKey = (inquiryId: string) =>
+  `pending_freeform_program:${inquiryId}`;
+
+/** Programm hat mindestens EIN Item mit Preis ODER Pauschale ODER pricePerPerson. */
+function isNonTrivialFreeformProgram(p: FreeformProgram | null | undefined): boolean {
+  if (!p || !Array.isArray(p.days) || p.days.length === 0) return false;
+  return p.days.some((d) =>
+    Array.isArray(d.meals) &&
+    d.meals.some((m) => {
+      const hasItems =
+        Array.isArray(m.sections) &&
+        m.sections.some((s) => Array.isArray(s.items) && s.items.length > 0);
+      const hasFlat = Number(m.flatPriceNet) > 0;
+      const hasPpp = Number(m.pricePerPersonNet) > 0;
+      return hasItems || hasFlat || hasPpp;
+    }),
+  );
+}
 
 // ─── Email Safety ──────────────────────────────────────────────────────────────
 const TEST_REDIRECT_EMAIL = "antoine@monot.com";
