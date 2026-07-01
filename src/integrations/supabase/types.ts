@@ -4674,12 +4674,15 @@ export type Database = {
       }
       v2_event_offer_history: {
         Row: {
+          address_snapshot: Json | null
           created_at: string
           email_content: string | null
           email_html: string | null
           event_id: string
           id: string
+          inquiry_snapshot: Json | null
           options_snapshot: Json
+          payment_terms_snapshot: Json | null
           pdf_url: string | null
           sent_at: string
           sent_by: string | null
@@ -4688,12 +4691,15 @@ export type Database = {
           version: number
         }
         Insert: {
+          address_snapshot?: Json | null
           created_at?: string
           email_content?: string | null
           email_html?: string | null
           event_id: string
           id?: string
+          inquiry_snapshot?: Json | null
           options_snapshot: Json
+          payment_terms_snapshot?: Json | null
           pdf_url?: string | null
           sent_at?: string
           sent_by?: string | null
@@ -4702,12 +4708,15 @@ export type Database = {
           version: number
         }
         Update: {
+          address_snapshot?: Json | null
           created_at?: string
           email_content?: string | null
           email_html?: string | null
           event_id?: string
           id?: string
+          inquiry_snapshot?: Json | null
           options_snapshot?: Json
+          payment_terms_snapshot?: Json | null
           pdf_url?: string | null
           sent_at?: string
           sent_by?: string | null
@@ -6294,36 +6303,45 @@ export type Database = {
       }
       inquiry_offer_history: {
         Row: {
+          address_snapshot: Json | null
           created_at: string | null
           email_content: string | null
           email_html: string | null
           id: string | null
           inquiry_id: string | null
+          inquiry_snapshot: Json | null
           options_snapshot: Json | null
+          payment_terms_snapshot: Json | null
           pdf_url: string | null
           sent_at: string | null
           sent_by: string | null
           version: number | null
         }
         Insert: {
+          address_snapshot?: Json | null
           created_at?: string | null
           email_content?: string | null
           email_html?: string | null
           id?: string | null
           inquiry_id?: string | null
+          inquiry_snapshot?: Json | null
           options_snapshot?: Json | null
+          payment_terms_snapshot?: Json | null
           pdf_url?: string | null
           sent_at?: string | null
           sent_by?: string | null
           version?: number | null
         }
         Update: {
+          address_snapshot?: Json | null
           created_at?: string | null
           email_content?: string | null
           email_html?: string | null
           id?: string | null
           inquiry_id?: string | null
+          inquiry_snapshot?: Json | null
           options_snapshot?: Json | null
+          payment_terms_snapshot?: Json | null
           pdf_url?: string | null
           sent_at?: string | null
           sent_by?: string | null
