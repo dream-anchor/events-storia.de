@@ -7,9 +7,13 @@ import "@schedule-x/theme-default/dist/index.css";
 import type { DashOperation } from "@/hooks/useDashboardData";
 import "./schedule-x-theme.css";
 
-function pad(n: number) { return String(n).padStart(2, "0"); }
-function fmtSx(d: Date) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+// Schedule-X v4 erwartet echte Temporal-Objekte (nicht mehr Strings).
+const TZ = "Europe/Berlin";
+function toZoned(y: number, m: number, d: number, hh: number, mm: number) {
+  // @ts-expect-error – Temporal via Polyfill (siehe src/main.tsx)
+  return globalThis.Temporal.ZonedDateTime.from({
+    year: y, month: m, day: d, hour: hh, minute: mm, timeZone: TZ,
+  });
 }
 
 function buildEvents(operations: DashOperation[], todayKey: string) {
@@ -18,16 +22,16 @@ function buildEvents(operations: DashOperation[], todayKey: string) {
     .map(op => {
       const [y, m, d] = op.date.split("-").map(Number);
       const [hh, mm] = (op.time || "12:00").split(":").map(Number);
-      const start = new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0);
-      const end = new Date(start.getTime() + 90 * 60_000);
+      const start = toZoned(y, m || 1, d || 1, hh || 0, mm || 0);
+      const end = start.add({ minutes: 90 });
       return {
         id: `${op.kind}-${op.id}`,
         title:
           op.kind === "catering"
             ? `${op.isPickup ? "Abh." : "Lieferung"} · ${op.customerName}`
             : op.customerName,
-        start: fmtSx(start),
-        end: fmtSx(end),
+        start,
+        end,
         _navigate: op.navigateTo,
       } as const;
     });
