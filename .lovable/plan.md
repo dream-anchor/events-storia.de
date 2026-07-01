@@ -1,79 +1,116 @@
+
+# Freitext-Import → Standard-Menü-Wizard mit Tages-Tabs
+
 ## Ziel
-Systematisch alle geschäftskritischen Flows von StoriaMaestro auf Fehler prüfen — nicht "alles auf einmal", sondern in klar priorisierter Reihenfolge mit reproduzierbarem Ergebnis pro Flow (✅ / ⚠️ / ❌ + Fundstellen).
+Der Freitext-Import erzeugt **exakt dasselbe Datenmodell und dieselbe UI** wie ein handgemachtes Menü. Der einzige Unterschied: bei mehrtägigen Angeboten sitzt ein Tages-Wahl-Header über dem Wizard, der zwischen den Tages-Menüs umschaltet. Bei 1 Tag ist der Header unsichtbar — 100 % identisch zum Handmenü.
 
-## Warum nicht "alles auf einmal"
-Ein pauschaler "prüfe alles"-Durchlauf produziert entweder oberflächliche Checks oder eine unlesbare 200-Punkte-Liste. Wir gehen deshalb in **drei Ebenen**:
+Als Nebeneffekt verschwinden die im Audit vom letzten Turn gefundenen Freeform-Bugs (Fake-Content, Preis-Overwrite, unsichtbare Per-Person-Preise & Zusatzleistungen), weil das zweite Datenmodell komplett wegfällt.
 
-```text
-Ebene 1  Statische Analyse       (findet Kategorien von Bugs — 30 Min)
-Ebene 2  Kritische Happy Paths    (findet echte Prod-Bugs — priorisiert)
-Ebene 3  Edge Cases pro Flow      (nur für Flows, die Ebene 2 überleben)
+---
+
+## Datenmodell
+
+### Neu: `menuSelection.days[]`
+```ts
+interface MenuDay {
+  id: string;
+  dateLabel: string;       // "Mo 29.06." — leer bei 1-Tages-Menü
+  isoDate?: string | null;
+  mealLabel?: string;      // "Lunch" / "Dinner" — optional
+  guestCount?: number;     // pro Tag überschreibbar, sonst option.guestCount
+  courses: CourseSelection[];   // identisch zum Handmenü-Schema
+  // Getränke/Equipment/Staff bleiben auf option-Ebene (gelten für alle Tage)
+}
 ```
 
-## Ebene 1 — Statische Analyse (Basis-Hygiene)
-Läuft ohne Klick durchs UI. Ergebnis: eine Liste "verdächtiger Stellen":
-- TypeScript-Build (`tsgo`) — echte Typfehler
-- ESLint auf `src/` — tote Referenzen, ungenutzte States, falsche Hook-Deps
-- `supabase--linter` — RLS/Grants/Security-Warnungen der DB
-- Grep-Sweeps für bekannte Fehlerklassen:
-  - `console.error`/`toast.error`-Aufrufe → welche Fehler werden dem User aktuell wirklich gezeigt
-  - `TODO` / `FIXME` / `HACK` / `@ts-ignore` / `as any`
-  - Direkte Feldzugriffe ohne Null-Check auf `company_name`, `contact_name`, `amount_total`, `preferred_date` (Klassiker für "null"-Anzeige)
-- Edge-Function-Logs der letzten 7 Tage — welche Functions haben Fehlerrate > 0
+`menuSelection.courses` bleibt als **Legacy-Feld** bestehen und wird bei Load automatisch in `days[0].courses` migriert. Neue Handmenüs schreiben sofort in `days: [{ id, dateLabel: '', courses: [...] }]`. So gibt es intern nur einen Pfad.
 
-## Ebene 2 — Priorisierte Flow-Checks
-Wir definieren **die kritischen Flows** und arbeiten sie in dieser Reihenfolge ab. Jeder Flow wird per Playwright im Sandbox-Browser end-to-end durchgeklickt, mit Screenshot + Console-/Network-Log-Auswertung. Ergebnis pro Flow: **eine Zeile** — funktioniert / kaputt / kaputt in Detail X.
+### `freeformProgram` bleibt vorerst
+Wird beim Öffnen einer Alt-Anfrage einmalig in `days[]` gemappt (Migrationshelfer im Client) und danach nicht mehr geschrieben. Nach Verifikation im Betrieb kann `freeformProgram` in einer späteren Session ganz entfernt werden.
 
-**Priorität P0 (Umsatz-relevant, jede Störung = Geldverlust):**
-1. Anfrage kommt rein (Kontaktformular → `event_inquiries` → Benachrichtigung Admin + WhatsApp)
-2. Angebot erstellen (OfferBuilder: Menu/Paket/Freitext) → Speichern → Versand
-3. Public-Offer-Seite (Kunde sieht Angebot, wählt Option, akzeptiert)
-4. Zahlung (Stripe-Session → Webhook → Status → LexOffice-Rechnung)
-5. Restzahlung / Balance-Payment-Link
-6. Gutschein-Verkauf & Einlösung
+---
 
-**Priorität P1 (Admin-Alltag, Störung blockiert Team):**
-7. Kanban-Board & Filter (Kartentitel, Drag&Drop, Archivieren)
-8. E-Mail-Kommunikation (Posteingang, Antworten, Anhänge, Bilingual-Template)
-9. Rechnungen-Liste + LexOffice-Sync
-10. Bestellungen (Catering-Orders)
-11. Reisegruppen-Anfragen
-12. Cost-Acceptance / Kostenübernahme
+## UI
 
-**Priorität P2 (wichtig, aber selten):**
-13. Fotoalbum + Menü-Verwaltung
-14. Auth (Login, Password-Reset, User-Rollen)
-15. System-Health-Dashboard
-16. Cookie-Consent / Analytics-Loading
-
-## Ebene 3 — Edge Cases (nur wo Ebene 2 hält)
-Pro Flow gezielt: leere Felder, sehr lange Texte, gelöschte Referenzen, abgelaufene Sessions, Netz-Timeouts, mehrsprachig, Test-Mode-Flag.
-
-## Reporting-Format
-Ich lege pro Prüfrunde eine Markdown-Datei unter `docs/audit/YYYY-MM-DD-audit.md` an:
-
-```text
-## P0-1  Anfrage → Admin-Notification
-Status: ⚠️  Teil-defekt
-Fund:   WhatsApp-Alarm feuert, aber E-Mail-Bestätigung an Kunde
-        fehlt bei event_type = "catering" (siehe supabase Function
-        `send-lead-notify`, Zeile 142 — company_name null)
-Repro:  Playwright-Script docs/audit/p0-1-repro.py
-Fix:    (leer, wird in Build-Mode angegangen)
+### OptionCard (Admin)
+```
+┌──────────────────────────────────────────────────────────────┐
+│ [Mo 29.06. Lunch] [Mo 29.06. Dinner] [Di 30.06. Lunch] …  + │  ← Tabs (nur wenn days.length > 1)
+├──────────────────────────────────────────────────────────────┤
+│ Tages-Metadaten: Label │ Datum │ Gäste │ 🗑                   │  ← klein, nur bei Multi-Day
+├──────────────────────────────────────────────────────────────┤
+│ ← unveränderter MenuComposer (Gänge, Getränke-Sektion) →     │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-Das ist der einzige Ort, wo alle Findings zentral landen — nicht in 50 einzelnen Chat-Nachrichten.
+- Neue Komponente `DayTabsBar` (Tab-Buttons + „+ Tag hinzufügen" + Reorder via Drag).
+- Der bestehende `MenuComposer` bekommt `courses` und `onCoursesChange` als Props (heute schon so) und wird pro aktivem Tag gemounted — kein UI-Umbau am Wizard selbst.
+- Bei `days.length === 1` UND `dateLabel === ''` werden Tabs + Tages-Metadaten-Zeile ausgeblendet → visuell identisch zum heutigen Handmenü.
 
-## Was ich in dieser Session tue (wenn du "OK" sagst)
-1. Ebene 1 komplett ausführen (statische Analyse + Lint + Grep-Sweeps + Edge-Function-Log-Auswertung 7 Tage). Ergebnis: erste `docs/audit/…-audit.md` mit den auffälligen Kategorien.
-2. Aus Ebene 1 die **Top 10 konkret verdächtigen Stellen** ableiten und dir zeigen.
-3. Danach entscheidest du: entweder wir starten sofort mit P0-1 (Playwright-Runs) oder du willst zuerst die Top 10 aus Ebene 1 fixen.
+### Public Offer
+`FreeformProgramSection.tsx` wird gelöscht. Der Public-Offer-Renderer rendert `menuSelection.days[]` mit der bestehenden Menü-Rendering-Logik, umschlossen von einem `<section>` pro Tag (Datum als H4-Header). Bei 1 Tag / leerem Label kein Header → identisch zum heutigen Handmenü-Rendering.
 
-## Was ich in dieser Session **nicht** tue
-- Keine Fixes (das ist Build-Mode).
-- Keine 100-Punkte-Bug-Liste ohne Priorisierung.
-- Keine Aussage "läuft" ohne Screenshot-/Log-Beleg.
+Zusatzleistungen (Personal €/h, Anfahrt) werden als eigener Block unter allen Tagen gerendert — analog zu `equipment`/`staff` beim Handmenü. Kalkulation (Speisen-Netto, Services-Netto, Gesamt brutto) bleibt sichtbar, wird aber aus den Tagen zusammengerechnet (siehe Preislogik).
 
-## Offene Frage vor Start
-- **Scope**: Soll ich mich strikt auf das **Admin-Panel + Public-Offer + Zahlungen** konzentrieren (dort steckt der Umsatz), oder auch die öffentliche Website (SEO-Seiten, Katering-Seiten, Reservierung) mitprüfen?
-- **Test-Daten**: Darf ich in P0-Flows echte Aktionen auslösen (z.B. Test-Anfrage anlegen, Test-Angebot versenden im Test-Mode)? Ohne echtes Auslösen kann ich Webhooks & LexOffice-Sync nicht validieren.
+---
+
+## Parser-Umbau
+
+`supabase/functions/parse-freeform-offer/index.ts`:
+
+- **Tool-Schema neu**: statt `days[].meals[].sections[].items[]` liefert die KI direkt `days[].courses[]` mit `{ courseType, courseLabel, itemName, itemDescription, overridePrice, quantity, priceMode }` — identisch zum handgemachten `CourseSelection`. Dazu `days[].dateLabel`, `days[].mealLabel`, `days[].guestCount` sowie `additionalServices[]` und `discount`.
+- Prompt strikt: „Übernimm Preise 1:1, niemals rechnen. Fehlende Werte = 0 oder leerer String. NIEMALS erfinden."
+- Menu-Lookup (`enrichItemsFromMenu`) wird konservativ: nur `itemId` und `itemDescription` aus DB nachladen wenn Name exakt matched. **Preis und Name aus dem Text bleiben unantastbar.** Behebt Audit-Finding #1.
+- Alle deterministischen Client-Fallbacks (`extractMealSectionsFromText`, hartcodierte „Aperitivo mit italienischen Appetizern"-Strings, `backfillEmptyMeals`) werden ersatzlos gelöscht. Behebt Audit-Findings #2.
+- Input-Cap: 25 000 Zeichen → HTTP 400.
+
+Validator (`validate-freeform-offer`) wird auf das neue Schema angepasst; Enum um `additional_services` erweitert.
+
+---
+
+## Preislogik
+
+`useOfferBuilder.ts` bekommt einen einzigen Recalc-Pfad für `offerMode === 'menu'`:
+
+```
+totalAmount =
+    Σ über alle days[]:
+        Σ course.overridePrice × (course.quantity ?? 1) × (priceMode==='flat' ? 1 : guests)
+  + Getränke-Summe (unverändert)
+  + Equipment/Staff (unverändert)
+  + Σ additionalServices[] wo quantity gesetzt (unit × qty)
+  − discount
+```
+
+`freeformProgram.totalsFromText` wird nur noch als Sanity-Check angezeigt („KI-Text sagte 12 450 € brutto — berechnet: 12 380 €. Abweichung prüfen?"), fließt aber nicht mehr in `totalAmount`. Behebt Audit-Finding #5.
+
+---
+
+## Migrationsschritte (Reihenfolge)
+
+1. **Types + Migrations-Helper** (`OfferBuilder/types.ts`, neue `hydrateToDays()`): `MenuDay` einführen, `menuSelection.days` optional, alte `courses` bleiben. `useOfferBuilder` Load-Phase migriert Alt-Daten in-memory (kein DB-Write nötig — Persistenz via next Save).
+2. **DayTabsBar** + Integration in `OptionCard.tsx` (`MenuContent`). Bei 1 Tag: Tabs versteckt.
+3. **Recalc-Umbau** in `useOfferBuilder.ts` — iteriert über `days[]` statt `courses[]`.
+4. **Parser + Prompt umbauen** — liefert `days[].courses[]` + `additionalServices[]`.
+5. **Client-Import-Panel** aufräumen: alle deterministischen Fake-Sections/Bullet-Backfill raus. Ergebnis wird direkt in `menuSelection.days[]` gemerged, `offerMode='menu'` gesetzt (nicht mehr `freeform`).
+6. **Public Offer**: `FreeformProgramSection.tsx` durch Tages-Loop um bestehende Menü-Rendering-Komponente ersetzen. Zusatzleistungen-Block ergänzen.
+7. **Freeform-Hydration**: Alt-Anfragen mit `freeformProgram` beim Load in `days[]` mappen — sichtbar identisch zu neuen Importen.
+8. **Regressionstest** manuell: bestehende Anfrage mit Freeform-Daten öffnen, neuer Freitext-Import (1 Tag + Mehrtag), Handmenü, jeweils Public-Offer-Preview.
+
+Kein DB-Migration nötig — `menu_selection` ist JSONB. Alt-Datensätze werden read-side migriert.
+
+---
+
+## Aus-Scope (bewusst weggelassen)
+- PDF-Renderer für Tages-Gruppierung (kann als Follow-up, sobald neue Struktur live ist).
+- Vollständiges Löschen von `freeformProgram`-Feld — erst nach 1–2 Wochen Betrieb.
+- Rückwirkende DB-Migration der Alt-Anfragen — passiert automatisch beim ersten Save nach Bearbeitung.
+
+---
+
+## Aufwand
+Ca. 2 Build-Sessions:
+- Session 1: Schritte 1–3 + 7 (Datenmodell, DayTabsBar, Recalc, Alt-Daten-Hydration) — Handmenü und Alt-Freeform funktionieren wie bisher, aber intern über `days[]`.
+- Session 2: Schritte 4–6 + 8 (Parser, Public Offer, Testrunde).
+
+Sag mir „go Session 1" und ich starte mit dem Datenmodell + DayTabsBar.

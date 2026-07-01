@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/typed-client";
+import { flattenCourses } from './menuDaysHelpers';
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
@@ -712,7 +713,7 @@ export function useOfferBuilder({
           };
 
           let dishAbs = 0;
-          for (const course of opt.menuSelection.courses) {
+          for (const course of flattenCourses(opt)) {
             if (course.overridePrice != null && course.overridePrice > 0) {
               const qty = course.quantity ?? 1;
               dishAbs += course.overridePrice * qty * lineMult(course.priceMode);

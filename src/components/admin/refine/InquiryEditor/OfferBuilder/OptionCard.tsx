@@ -35,6 +35,14 @@ import { PriceBreakdown } from "./PriceBreakdown";
 import { FreeformImportPanel } from "./FreeformImportPanel";
 import { FreeformProgramEditor } from "./FreeformProgramEditor";
 import type { FreeformProgram } from "./types";
+import { DayTabsBar } from "./DayTabsBar";
+import {
+  getDaysView,
+  withUpdatedDayCourses,
+  withAddedDay,
+  withRemovedDay,
+  withUpdatedDayMeta,
+} from "./menuDaysHelpers";
 import type {
   OfferBuilderOption,
   OfferMode,
@@ -95,6 +103,17 @@ export function OptionCard({
 
   // --- Mode-Wechsel via Header-Dropdown: Confirm wenn Daten vorhanden ---
   const [pendingMode, setPendingMode] = useState<OfferMode | null>(null);
+
+  // --- Tages-Navigation (mehrtägige Menüs) ---
+  // Aktiver Tag für das MenuContent-Wizard. Fällt auf den ersten verfügbaren Tag
+  // zurück, wenn der bisher aktive gelöscht/nicht mehr existent ist.
+  const daysView = useMemo(() => getDaysView(option), [option]);
+  const [activeDayId, setActiveDayId] = useState<string>(() => daysView[0]?.id ?? 'default');
+  useEffect(() => {
+    if (!daysView.some((d) => d.id === activeDayId)) {
+      setActiveDayId(daysView[0]?.id ?? 'default');
+    }
+  }, [daysView, activeDayId]);
 
   const hasOptionData = useMemo(() => {
     if (option.offerMode === 'unselected') return false;
@@ -209,9 +228,12 @@ export function OptionCard({
   };
 
   const handleCourseUpdate = (index: number, update: Partial<CourseSelection>) => {
-    const updated = [...option.menuSelection.courses];
-    updated[index] = { ...updated[index], ...update };
-    onUpdate({ menuSelection: { ...option.menuSelection, courses: updated } });
+    const next = withUpdatedDayCourses(option, activeDayId, (courses) => {
+      const updated = [...courses];
+      updated[index] = { ...updated[index], ...update };
+      return updated;
+    });
+    onUpdate({ menuSelection: next });
   };
 
   const handleCourseAdd = (courseType: CourseType, courseLabel: string) => {
@@ -229,17 +251,33 @@ export function OptionCard({
       itemSource: 'catering',
       isCustom: false,
     };
-    onUpdate({
-      menuSelection: {
-        ...option.menuSelection,
-        courses: [...option.menuSelection.courses, newCourse],
-      },
-    });
+    const next = withUpdatedDayCourses(option, activeDayId, (courses) => [...courses, newCourse]);
+    onUpdate({ menuSelection: next });
   };
 
   const handleCourseRemove = (index: number) => {
-    const updated = option.menuSelection.courses.filter((_, i) => i !== index);
-    onUpdate({ menuSelection: { ...option.menuSelection, courses: updated } });
+    const next = withUpdatedDayCourses(option, activeDayId, (courses) =>
+      courses.filter((_, i) => i !== index),
+    );
+    onUpdate({ menuSelection: next });
+  };
+
+  // --- Tages-Verwaltung (nur relevant für mehrtägige Menüs) ---
+  const handleAddDay = () => {
+    const nextIndex = daysView.length + 1;
+    const { menuSelection: next, newDayId } = withAddedDay(option, `Tag ${nextIndex}`);
+    onUpdate({ menuSelection: next });
+    setActiveDayId(newDayId);
+  };
+
+  const handleRemoveDay = (dayId: string) => {
+    const next = withRemovedDay(option, dayId);
+    onUpdate({ menuSelection: next });
+  };
+
+  const handleRenameActiveDay = (label: string) => {
+    const next = withUpdatedDayMeta(option, activeDayId, { dateLabel: label });
+    onUpdate({ menuSelection: next });
   };
 
   const handleDrinkUpdate = (index: number, update: Partial<DrinkSelection>) => {
@@ -459,6 +497,12 @@ export function OptionCard({
               onCourseAdd={handleCourseAdd}
               onCourseRemove={handleCourseRemove}
               disabled={disabled}
+              daysView={daysView}
+              activeDayId={activeDayId}
+              onSelectDay={setActiveDayId}
+              onAddDay={handleAddDay}
+              onRemoveDay={handleRemoveDay}
+              onRenameActiveDay={handleRenameActiveDay}
             />
           )}
 
@@ -721,6 +765,12 @@ function MenuContent({
   onCourseAdd,
   onCourseRemove,
   disabled,
+  daysView,
+  activeDayId,
+  onSelectDay,
+  onAddDay,
+  onRemoveDay,
+  onRenameActiveDay,
 }: {
   option: OfferBuilderOption;
   courseConfigs: CourseConfig[];
@@ -730,25 +780,69 @@ function MenuContent({
   onCourseAdd: (type: CourseType, label: string) => void;
   onCourseRemove: (idx: number) => void;
   disabled: boolean;
+  daysView: import('./menuDaysHelpers').DayView[];
+  activeDayId: string;
+  onSelectDay: (dayId: string) => void;
+  onAddDay: () => void;
+  onRemoveDay: (dayId: string) => void;
+  onRenameActiveDay: (label: string) => void;
 }) {
+  const activeDay = daysView.find((d) => d.id === activeDayId) ?? daysView[0];
+  const activeCourses = activeDay?.courses ?? [];
+  const showTabs = daysView.length > 1;
   return (
     <div className="space-y-4">
+      {/* Tages-Tabs (nur bei mehrtägigen Menüs sichtbar) */}
+      {showTabs && (
+        <DayTabsBar
+          days={daysView}
+          activeDayId={activeDay?.id ?? activeDayId}
+          onSelect={onSelectDay}
+          onAdd={onAddDay}
+          onRemove={onRemoveDay}
+          onRenameActive={onRenameActiveDay}
+          disabled={disabled}
+        />
+      )}
       {/* Gänge */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             Menü
+            {showTabs && activeDay?.dateLabel ? (
+              <span className="ml-2 normal-case tracking-normal text-muted-foreground/70">
+                — {activeDay.dateLabel}
+              </span>
+            ) : null}
           </h4>
+          {!showTabs && (
+            <button
+              type="button"
+              onClick={onAddDay}
+              disabled={disabled}
+              className="text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-40"
+              title="Zweiten Tag hinzufügen (mehrtägiges Menü)"
+            >
+              + Weiterer Tag
+            </button>
+          )}
         </div>
         <InlineCourseEditor
-          courses={option.menuSelection.courses}
+          courses={activeCourses}
           courseConfigs={courseConfigs}
           menuItems={menuItems}
           onUpdateCourse={onCourseUpdate}
           onAddCourse={onCourseAdd}
           onRemoveCourse={onCourseRemove}
           onReorderCourses={(reordered) => {
-            onUpdate({ menuSelection: { ...option.menuSelection, courses: reordered } });
+            // Reorder muss auf den aktiven Tag angewendet werden (nicht auf die
+            // aggregierte Flat-Liste), sonst würde die Tages-Struktur brechen.
+            const next = withUpdatedDayCourses(
+              option,
+              activeDay?.id ?? activeDayId,
+              () => reordered,
+            );
+            onUpdate({ menuSelection: next });
           }}
           pricingMode={option.pricingMode ?? 'per_person'}
           disabled={disabled}

@@ -122,6 +122,29 @@ export interface FreeformProgram {
   additionalServices?: FreeformAdditionalService[] | null;
 }
 
+/**
+ * Ein Tages-Menü innerhalb einer Angebots-Option. Erlaubt mehrtägige Programme
+ * (z.B. Spike-Weeks) im Standard-Menü-Wizard: jeder Tag hat seine eigene
+ * `courses[]`-Liste — sonst identisch zum Handmenü.
+ *
+ * Bei 1 Tag mit leerem `dateLabel` verhält sich der Wizard exakt wie heute
+ * (Tabs sind unsichtbar). Erst bei mehreren Tagen wird die Tages-Tab-Leiste
+ * über dem Wizard sichtbar.
+ */
+export interface MenuDay {
+  id: string;
+  /** Anzeigelabel im Tab, z.B. "Mo 29.06." — leer bei implizitem Ein-Tag-Menü. */
+  dateLabel: string;
+  /** Optionales ISO-Datum (YYYY-MM-DD) für strukturierte Verwendung. */
+  isoDate?: string | null;
+  /** Optionaler Mahlzeit-Suffix, z.B. "Lunch" / "Dinner". */
+  mealLabel?: string | null;
+  /** Optionale Gästezahl pro Tag; fällt sonst auf `option.guestCount` zurück. */
+  guestCount?: number | null;
+  /** Gang-Liste — identisch zum handgemachten Menü. */
+  courses: import('../MenuComposer/types').CourseSelection[];
+}
+
 /** Zusatzleistung (Personal nach Stunden, Anfahrt-Pauschale, Equipment-Stück etc.). */
 export interface FreeformAdditionalService {
   id: string;
@@ -191,6 +214,14 @@ export interface OfferBuilderOption {
     equipment?: EquipmentItem[];
     staff?: EquipmentItem[];
     freeformProgram?: FreeformProgram | null;
+    /**
+     * Optionale Tages-Struktur für mehrtägige Menüs. Wenn gesetzt (Länge ≥ 1),
+     * ist `days[]` die Quelle der Wahrheit — `courses[]` auf gleicher Ebene
+     * bleibt als Legacy-Feld erhalten und wird beim Bearbeiten gemirrort auf
+     * `days[0].courses` gehalten, damit alte Renderer (E-Mail, PDF, Public
+     * Offer) ohne Anpassung weiterlaufen.
+     */
+    days?: MenuDay[];
   };
   totalAmount: number;
   stripePaymentLinkId: string | null;
