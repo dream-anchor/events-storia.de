@@ -628,13 +628,16 @@ export const EventsList = () => {
       id: "customer",
       accessorFn: (row) => (row.company_name || row.contact_name || "").toLowerCase(),
       header: sortableHeader<EventInquiry>("Kunde"),
-      cell: ({ row }) => (
+      cell: ({ row }) => {
+        const contact = cleanDisplayText(row.original.contact_name);
+        const company = cleanDisplayText(row.original.company_name);
+        return (
         <div className="max-w-[240px] min-w-[160px]">
-          <p className="font-medium text-sm">{row.original.contact_name}</p>
-          {row.original.company_name && (
+          <p className="font-medium text-sm">{contact ?? company ?? '—'}</p>
+          {company && contact && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Building2 className="h-3 w-3" />
-              {row.original.company_name}
+              {company}
             </p>
           )}
           {row.original.message && (
@@ -644,7 +647,8 @@ export const EventsList = () => {
             </p>
           )}
         </div>
-      ),
+        );
+      },
     },
 
     // Spalte 6: Kontakt (Mail + Telefon — analog Orders)

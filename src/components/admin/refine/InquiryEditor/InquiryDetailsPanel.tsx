@@ -20,6 +20,7 @@ import { TaskManager } from "@/components/admin/shared/TaskManager";
 import { InquiryPriority } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchLatestInquiryDocument } from "@/lib/lexofficeDocument";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 interface InquiryDetailsPanelProps {
   inquiry: ExtendedInquiry;
@@ -176,15 +177,18 @@ export const InquiryDetailsPanel = ({
             </div>
 
             {/* Company */}
-            {inquiry.company_name && (
-              <div className="flex items-start gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Firma</p>
-                  <p className="text-sm font-medium">{inquiry.company_name}</p>
+            {(() => {
+              const c = cleanDisplayText(inquiry.company_name);
+              return c ? (
+                <div className="flex items-start gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Firma</p>
+                    <p className="text-sm font-medium">{c}</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : null;
+            })()}
 
             {/* Event Type */}
             {inquiry.event_type && (

@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useEventInquiries, useUpdateInquiryStatus, useUpdateInquiryNotes, useDeleteInquiry, InquiryStatus, EventInquiry } from "@/hooks/useEventInquiries";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 const statusConfig: Record<InquiryStatus, { label: string; color: string; bg: string }> = {
   new: { label: "Neu", color: "text-amber-700", bg: "bg-amber-100" },
@@ -380,10 +381,18 @@ const EventInquiriesManager = () => {
                           Kontakt
                         </h4>
                         <div className="space-y-1 text-sm">
-                          <p className="font-medium">{inquiry.contact_name}</p>
-                          {inquiry.company_name && (
-                            <p className="text-muted-foreground">{inquiry.company_name}</p>
-                          )}
+                          {(() => {
+                            const contact = cleanDisplayText(inquiry.contact_name);
+                            const company = cleanDisplayText(inquiry.company_name);
+                            return (
+                              <>
+                                <p className="font-medium">{contact ?? company ?? '—'}</p>
+                                {contact && company && (
+                                  <p className="text-muted-foreground">{company}</p>
+                                )}
+                              </>
+                            );
+                          })()}
                           <p className="flex items-center gap-2">
                             <Mail className="h-3 w-3" />
                             <a href={`mailto:${inquiry.email}`} className="text-primary hover:underline">

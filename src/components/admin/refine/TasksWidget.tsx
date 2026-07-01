@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useUpcomingTasks, useOverdueTasks, useTasks } from "@/hooks/useTasks";
 import { TaskWithInquiry, TaskPriority } from "@/types/tasks";
 import { supabase } from "@/integrations/supabase/client";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 interface TasksWidgetProps {
   className?: string;
@@ -128,18 +129,21 @@ export function TasksWidget({ className }: TasksWidgetProps) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate">{task.title}</p>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {task.inquiry && (
-                        <span className="flex items-center gap-1 truncate max-w-[140px]">
-                          {task.inquiry.company_name ? (
-                            <>
-                              <Building2 className="h-3 w-3 shrink-0" />
-                              {task.inquiry.company_name}
-                            </>
-                          ) : (
-                            task.inquiry.contact_name
-                          )}
-                        </span>
-                      )}
+                      {task.inquiry && (() => {
+                        const c = cleanDisplayText(task.inquiry.company_name);
+                        const p = cleanDisplayText(task.inquiry.contact_name);
+                        if (!c && !p) return null;
+                        return (
+                          <span className="flex items-center gap-1 truncate max-w-[140px]">
+                            {c ? (
+                              <>
+                                <Building2 className="h-3 w-3 shrink-0" />
+                                {c}
+                              </>
+                            ) : p}
+                          </span>
+                        );
+                      })()}
                       {task.due_date && (
                         <span
                           className={cn(

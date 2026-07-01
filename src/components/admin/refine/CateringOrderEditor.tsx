@@ -29,6 +29,7 @@ import { CancellationDialog } from "@/components/admin/shared/CancellationDialog
 import { PaymentBalanceCard } from "@/components/admin/shared/PaymentBalanceCard";
 import { InviteCustomerAccountButton } from "@/components/admin/shared/InviteCustomerAccountButton";
 import { MenuItemPicker } from "./MenuItemPicker";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
@@ -796,13 +797,21 @@ export const CateringOrderEditor = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <p className="font-medium text-lg">{order.customer_name}</p>
-                    {order.company_name && (
-                      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building2 className="h-4 w-4" />
-                        {order.company_name}
-                      </p>
-                    )}
+                    {(() => {
+                      const cust = cleanDisplayText(order.customer_name);
+                      const comp = cleanDisplayText(order.company_name);
+                      return (
+                        <>
+                          <p className="font-medium text-lg">{cust ?? comp ?? '—'}</p>
+                          {cust && comp && (
+                            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Building2 className="h-4 w-4" />
+                              {comp}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
                     <a href={`mailto:${order.customer_email}`} className="flex items-start gap-2 text-sm text-primary hover:underline break-all">
                       <Mail className="h-4 w-4 mt-0.5 shrink-0" />
                       <span>{order.customer_email}</span>

@@ -19,6 +19,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
+import { cleanDisplayText } from "@/types/inquiryRecord";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -151,13 +152,14 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
                         <CalendarDays className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                       </div>
                       <div>
-                        <p className="font-medium">
-                          {event.company_name || event.contact_name || 'Ohne Name'}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {event.company_name && event.contact_name && (
-                            <span>{event.contact_name}</span>
-                          )}
+                        {(() => {
+                          const c = cleanDisplayText(event.company_name);
+                          const p = cleanDisplayText(event.contact_name);
+                          return (
+                            <>
+                              <p className="font-medium">{c ?? p ?? 'Ohne Name'}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {c && p && <span>{p}</span>}
                           {event.preferred_date && (
                             <span>{format(parseISO(event.preferred_date), "dd.MM.yy", { locale: de })}</span>
                           )}
@@ -170,7 +172,10 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
                           {event.email && (
                             <span className="truncate max-w-[200px]">{event.email}</span>
                           )}
-                        </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -198,18 +203,22 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
                         <FileText className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                       </div>
                       <div>
-                        <p className="font-medium">
-                          {order.company_name || order.customer_name}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {order.company_name && order.customer_name && (
-                            <span>{order.customer_name}</span>
-                          )}
+                        {(() => {
+                          const c = cleanDisplayText(order.company_name);
+                          const p = cleanDisplayText(order.customer_name);
+                          return (
+                            <>
+                              <p className="font-medium">{c ?? p ?? 'Ohne Name'}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {c && p && <span>{p}</span>}
                           <span className="font-mono">{order.order_number}</span>
                           {order.desired_date && (
                             <span>{format(parseISO(order.desired_date), "dd.MM.yy", { locale: de })}</span>
                           )}
-                        </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
