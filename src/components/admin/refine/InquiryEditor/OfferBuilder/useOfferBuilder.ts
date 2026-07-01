@@ -480,7 +480,7 @@ export function useOfferBuilder({
                 hydratedSelection = {
                   ...hydratedSelection,
                   days: mapped.days,
-                  courses: mapped.days.flatMap((d) => d.courses),
+                  courses: mapped.days.flatMap((d: import('./types').MenuDay) => d.courses),
                   staff: mapped.staff.length > 0 ? mapped.staff : hydratedSelection?.staff,
                 };
                 hydratedTableNote = mapped.tableNote;
