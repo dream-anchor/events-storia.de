@@ -33,6 +33,7 @@ import { DrinkSection } from "./DrinkSection";
 import { InlineServiceEditor } from "./InlineServiceEditor";
 import { PriceBreakdown } from "./PriceBreakdown";
 import { FreeformImportPanel } from "./FreeformImportPanel";
+import { applyFreeformAsMenu } from "./freeformToMenuDays";
 import { FreeformProgramEditor } from "./FreeformProgramEditor";
 import type { FreeformProgram } from "./types";
 import { DayTabsBar } from "./DayTabsBar";
