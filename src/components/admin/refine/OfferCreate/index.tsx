@@ -206,16 +206,12 @@ unser Firmenjubiläum bei Ihnen feiern..."`}
 interface Step2Props {
   formData: DraftFormData;
   onFormChange: (updates: Partial<DraftFormData>) => void;
-  suggestions: SuggestedPackage[];
-  suggestedItems: SuggestedItem[];
   hasExtracted: boolean;
   aiSummary: string;
   freeformDetected: boolean;
 }
 
-const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems, hasExtracted, aiSummary, freeformDetected }: Step2Props) => {
-  const addedPackageNames = formData.selected_packages.map(p => p.name);
-
+const Step2KontaktEvent = ({ formData, onFormChange, hasExtracted, aiSummary, freeformDetected }: Step2Props) => {
   return (
     <div className="space-y-4">
       {hasExtracted && aiSummary && (
@@ -261,25 +257,6 @@ const Step2KontaktEvent = ({ formData, onFormChange, suggestions, suggestedItems
         onGuestCountChange={(v) => onFormChange({ guest_count: v })}
         onEventTypeChange={(v) => onFormChange({ event_type: v })}
       />
-
-      {hasExtracted && (
-        <AISuggestionsCard
-          suggestions={suggestions}
-          suggestedItems={suggestedItems}
-          addedPackages={addedPackageNames}
-          onAddPackage={(name) => {
-            if (!addedPackageNames.includes(name)) {
-              onFormChange({
-                selected_packages: [
-                  ...formData.selected_packages,
-                  { id: `suggested-${Date.now()}`, name, price: 0 }
-                ]
-              });
-            }
-          }}
-          onSearch={() => {}}
-        />
-      )}
     </div>
   );
 };
