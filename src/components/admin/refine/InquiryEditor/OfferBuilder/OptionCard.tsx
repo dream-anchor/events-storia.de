@@ -35,6 +35,14 @@ import { PriceBreakdown } from "./PriceBreakdown";
 import { FreeformImportPanel } from "./FreeformImportPanel";
 import { FreeformProgramEditor } from "./FreeformProgramEditor";
 import type { FreeformProgram } from "./types";
+import { DayTabsBar } from "./DayTabsBar";
+import {
+  getDaysView,
+  withUpdatedDayCourses,
+  withAddedDay,
+  withRemovedDay,
+  withUpdatedDayMeta,
+} from "./menuDaysHelpers";
 import type {
   OfferBuilderOption,
   OfferMode,
