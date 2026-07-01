@@ -687,19 +687,26 @@ function FreeformContent({
 
   const setProgram = (p: FreeformProgram | null, newFindings?: import("./types").ValidationFinding[]) => {
     setFindings(newFindings ?? []);
-    onUpdate({
-      offerMode: p ? 'freeform' : option.offerMode,
-      menuSelection: { ...option.menuSelection, freeformProgram: p },
-      // totalAmount aus brutto übernehmen (Maestro-Prinzip: 1:1)
-      totalAmount: p?.totalsFromText?.gross ?? 0,
-      packageName: p?.title || option.packageName || 'Catering-Programm',
-    });
+    if (p) {
+      // Neuer Import: FreeformProgram direkt in den Standard-Menü-Wizard
+      // (menuSelection.days[]) mappen. Ergebnis sieht exakt wie ein
+      // handgemachtes Menü aus, nur mit Tages-Tabs darüber.
+      onUpdate(applyFreeformAsMenu(option, p));
+    } else {
+      // Zurücksetzen: freeformProgram entfernen, Modus bleibt wie er ist.
+      onUpdate({
+        menuSelection: { ...option.menuSelection, freeformProgram: null },
+      });
+    }
   };
 
   if (!program) {
     return <FreeformImportPanel onParsed={(p, f) => setProgram(p, f)} disabled={disabled} />;
   }
 
+  // Legacy-Pfad: Alte Angebote mit persistiertem freeformProgram werden
+  // weiterhin im FreeformProgramEditor bearbeitet, damit historische Daten
+  // ohne Zwangsmigration lesbar bleiben.
   return (
     <FreeformProgramEditor
       program={program}
