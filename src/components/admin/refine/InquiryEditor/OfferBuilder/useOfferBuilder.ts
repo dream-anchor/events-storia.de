@@ -1144,6 +1144,41 @@ export function useOfferBuilder({
     const { data: { user } } = await supabase.auth.getUser();
     const now = new Date().toISOString();
 
+    // Snapshot: kompletten Angebots-Zustand einfrieren, damit Adresse,
+    // Zahlungsbedingungen, Kontakt- und Event-Basics pro Version immutable
+    // bleiben (unabhängig von späteren Bearbeitungen der Inquiry).
+    const { data: inqRow } = await supabase
+      .from("event_inquiries")
+      .select(
+        "contact_name, company_name, email, phone, guest_count, event_type, preferred_date, event_end_date, time_slot, customer_language, location_type, location_name, location_street, location_postal_code, location_city, location_country, company_street, company_postal_code, company_city, company_country, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, billing_country, deposit_percent, deposit_amount, deposit_due_days, offer_validity_days, payment_method, invoice_due_days"
+      )
+      .eq("id", inquiryId)
+      .maybeSingle();
+
+    const inq = (inqRow as Record<string, unknown> | null) ?? {};
+    const pick = (keys: string[]) =>
+      keys.reduce<Record<string, unknown>>((acc, k) => {
+        if (k in inq) acc[k] = inq[k];
+        return acc;
+      }, {});
+
+    const inquirySnapshot = pick([
+      "contact_name", "company_name", "email", "phone",
+      "guest_count", "event_type", "preferred_date", "event_end_date",
+      "time_slot", "customer_language",
+    ]);
+    const addressSnapshot = pick([
+      "location_type", "location_name", "location_street",
+      "location_postal_code", "location_city", "location_country",
+      "company_street", "company_postal_code", "company_city", "company_country",
+      "billing_address_different", "billing_company_name",
+      "billing_street", "billing_postal_code", "billing_city", "billing_country",
+    ]);
+    const paymentTermsSnapshot = pick([
+      "deposit_percent", "deposit_amount", "deposit_due_days",
+      "offer_validity_days", "payment_method", "invoice_due_days",
+    ]);
+
     // History-Eintrag (Fehler weiterwerfen — ohne History kein sauberer Versand-Zustand)
     const { error: historyErr } = await (supabase as any).from("inquiry_offer_history").insert({
       inquiry_id: inquiryId,
@@ -1151,6 +1186,9 @@ export function useOfferBuilder({
       sent_by: user?.email || null,
       email_content: emailContent,
       options_snapshot: options,
+      inquiry_snapshot: inquirySnapshot,
+      address_snapshot: addressSnapshot,
+      payment_terms_snapshot: paymentTermsSnapshot,
     });
     if (historyErr) {
       console.error('[createNewVersion] inquiry_offer_history insert failed:', historyErr);
