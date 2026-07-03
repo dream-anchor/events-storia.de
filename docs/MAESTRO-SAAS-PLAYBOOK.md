@@ -4,10 +4,16 @@ Erstellt: 2026-07-03
 Status: Track A läuft parallel zu Track B · Neon-Projekt `events-storia.de` (Frankfurt, Neon Auth aktiv) angelegt
 
 Jeder Abschnitt unten ist **ein vollständiger, in sich geschlossener Block**:
-Modell + Reasoning-Stärke + kompletter Projekt-Kontext + Auftrag + Abnahme.
-Einfach den ganzen Block kopieren und in eine **neue** Claude-Code-Session
-einfügen — nichts weiter ergänzen, nichts aus anderen Abschnitten dazu mischen.
-Vor dem Einfügen das genannte Modell mit `/model` einstellen.
+Modell + Reasoning-Stärke + kompletter Projekt-Kontext + Auftrag + Abnahme +
+Abschluss-Schritte. Einfach den ganzen Block kopieren und in eine **neue**
+Claude-Code-Session einfügen — nichts weiter ergänzen, nichts aus anderen
+Abschnitten dazu mischen. Vor dem Einfügen das genannte Modell mit `/model`
+einstellen.
+
+Jeder Block endet mit einem `ABSCHLUSS`-Abschnitt: die Session committet/pusht,
+hakt ihr Kästchen im Fortschritts-Tracking (unten) ab und schreibt eine kurze
+Zusammenfassung. So bleibt der Stand in Git, nicht in einem Chatverlauf, und
+offene „Rücksprache"-Punkte werden sichtbar zurückgemeldet.
 
 Reihenfolge: Track A (Sicherheit, sofort) läuft parallel zu Track B
 (Neuaufbau, sequenziell — B-Nummern der Reihe nach abarbeiten, nicht
@@ -68,6 +74,16 @@ Nur das heutige Repo, KEIN Umzug, KEINE neuen Features. Einzeln, kleine Commits:
 ABNAHME: build läuft grün; die genannten Endpunkte lehnen unsignierte
 Requests ab; kurzer Report, was geändert wurde. Storia-Betrieb bleibt
 funktionsfähig.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### A2 — Löschkonzept & Betroffenenrechte (DSGVO-Minimum)
@@ -110,6 +126,16 @@ nie im Code oder Prompt.
 ABNAHME: purge-retention läuft im Dry-Run zuerst gegen Testdaten, dann scharf;
 Export/Löschung sind als admin-only Edge Functions aufrufbar und getestet.
 NICHT eigenmächtig scharf schalten ohne Rücksprache — Vorschlag zuerst zeigen.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### A3 — Async-Zahlungen & Refunds im Stripe-Webhook
@@ -154,6 +180,16 @@ dieser Fall wird nirgends behandelt (Zahlungen bleiben "offen" obwohl bezahlt).
 ABNAHME: Mit Stripe-Test-Events (SEPA-Testkarten/Test-IBANs) durchspielen;
 bestehende Zahlungspfade (Karte) dürfen sich nicht ändern. Report mit den
 getesteten Event-Typen.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ---
@@ -202,6 +238,16 @@ nie im Code oder Prompt.
 ABNAHME: Health-Check-Worker antwortet, Login gegen Neon Auth funktioniert
 lokal und in einer Cloudflare-Preview-Deployment. Kein Bezug zu
 Storia-Fachlogik in diesem Schritt.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B2 — Multi-Tenant-Isolationsarchitektur entwerfen
@@ -258,6 +304,16 @@ Liefere ein Architektur-Dokument, keine Implementierung.
 ABNAHME: Entscheidungsdokument mit Begründung pro Punkt + konkreter,
 priorisierter Schritt-Liste für den Spike. Wird vor Umsetzung zur Freigabe
 vorgelegt.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B3 — Spike: dünner vertikaler Durchstich
@@ -309,6 +365,16 @@ ABNAHME: Zwei-Mandanten-Test dokumentiert und bestanden (A sieht B nicht,
 B sieht A nicht — auch nicht über direkten API-Aufruf mit gültigem Token
 des jeweils anderen Mandanten). Das ist das wichtigste Abnahmekriterium
 im ganzen Projekt — nicht überspringen oder oberflächlich testen.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B4 — Datenschicht: Refine-Data-Provider für Neon
@@ -357,6 +423,16 @@ spricht direkt mit Supabase/PostgREST. Das gibt es auf Neon nicht 1:1.
 ABNAHME: Alle Ressourcen aus der Liste haben CRUD-Tests grün, alle
 Cross-Tenant-Negativtests grün. Kein Refine-Resource-Zugriff ohne
 Tenant-Filter möglich.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B5 — Auth-Port: Login, Rollen, Session
@@ -403,6 +479,16 @@ wiederholt).
 ABNAHME: Login/Logout/Rollenwechsel funktionieren; ein "Staff" kann keine
 Owner-Aktionen ausführen (serverseitig getestet, nicht nur UI-verborgen);
 Einladungs-Flow funktioniert end-to-end mit Test-E-Mail.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B6 — Kern-Workflow portieren (Anfrage → Angebot → Auftrag → Zahlung)
@@ -451,6 +537,16 @@ WICHTIG — nicht 1:1 kopieren, sondern bereinigt portieren:
 ABNAHME: Ein Testmandant kann end-to-end eine Anfrage erfassen, ein Angebot
 bauen und senden, eine Testzahlung auslösen (Stripe Test-Mode) — alles im
 neuen Stack, ohne Bezug zum Altsystem.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B7 — Storage: Buckets → R2
@@ -493,6 +589,16 @@ Uploads, signierte Kostenübernahme-PDFs (6 Buckets laut Audit).
 
 ABNAHME: Upload/Download funktioniert pro Tenant, Cross-Tenant-Zugriffstest
 auf R2-Pfade schlägt fehl wie erwartet (403/404).
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B8 — Realtime-Ersatz
@@ -536,6 +642,16 @@ KUNDEN-Frontend, nicht nur Admin!).
 ABNAHME: Zahlungsstatus-Änderung wird im Kunden-Frontend live sichtbar
 (oder via Kurz-Polling binnen weniger Sekunden); Cross-Tenant-Leck-Test auf
 den Kanal negativ.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B9 — Edge Functions → Workers (modulweise, pro Modul wiederholen)
@@ -588,6 +704,16 @@ d. Auth-Check: JEDE Function prüft Auth + Tenant, keine Ausnahmen wie im
 ABNAHME PRO MODUL: Funktionstest im neuen Stack für einen Testmandanten;
 Modul lässt sich für einen anderen Testmandanten deaktivieren und ist dann
 nicht aufrufbar (403), nicht nur UI-verborgen.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B10 — Modul-Registry
@@ -629,6 +755,16 @@ nie im Code oder Prompt.
 ABNAHME: Modul lässt sich pro Tenant unabhängig von anderen Tenants
 schalten; deaktiviertes Modul ist serverseitig blockiert, nicht nur
 UI-versteckt.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B11 — Onboarding & Provisioning für neue Restaurants
@@ -670,6 +806,16 @@ nie im Code oder Prompt.
 ABNAHME: Ein komplett neues Test-Restaurant kann sich selbst anlegen und
 landet in einem isolierten, funktionsfähigen Zustand mit nur den
 Kern-Modulen aktiv — ohne dass ich manuell in der DB etwas anlegen muss.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B12 — Billing/Subscription-Infrastruktur
@@ -714,6 +860,16 @@ RESTAURANTS — nicht die Restaurant→Endkunde-Zahlungen aus dem Kern-Workflow.
 ABNAHME: Test-Abo abschließen/kündigen funktioniert; Modul-Zugriff wird bei
 Kündigung/Zahlungsausfall korrekt entzogen (mit Kulanzfrist, keine
 sofortige Kaltabschaltung).
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B13 — PWA / Offline / Push
@@ -756,6 +912,16 @@ Worker aktiv deregistriert (Gegenteil vom Ziel).
 
 ABNAHME: App installierbar auf iOS/Android-Homescreen; Test-Push-
 Benachrichtigung kommt an, wenn App im Hintergrund/geschlossen ist.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### B14 — i18n-Grundgerüst
@@ -792,6 +958,16 @@ nie im Code oder Prompt.
 
 ABNAHME: Sprachwechsel funktioniert für die getesteten Bereiche; keine
 hartkodierten deutschen Strings mehr in den portierten Kern-Komponenten.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ---
@@ -838,6 +1014,16 @@ nie im Code oder Prompt.
 ABNAHME: Dry-Run-Report zeigt vollständige, validierte Übernahme der
 lebenden Daten. KEINE Ausführung gegen Produktions-Neon ohne meine
 ausdrückliche Freigabe des Dry-Run-Reports.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### C2 — Finaler Security- & Isolations-Review
@@ -885,6 +1071,16 @@ Prüfe den GESAMTEN neuen Stack, als würdest du versuchen, ihn zu brechen:
 ABNAHME: Schriftlicher Befund mit Schweregrad je Finding. Bei JEDEM
 "kritisch"-Finding: Cutover verschiebt sich, bis behoben. Kein Kompromiss
 bei Cross-Tenant-Findings.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### C3 — Parallelbetrieb & Monitoring
@@ -926,6 +1122,16 @@ Findings mehr offen.
 
 ABNAHME: Monitoring aktiv, Parallelbetrieb-Zeitraum definiert und von mir
 freigegeben, bevor der eigentliche Cutover startet.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ### C4 — Cut-over
@@ -965,6 +1171,16 @@ nie im Code oder Prompt.
 ABNAHME: Rollback-Plan getestet (Trockenübung); der Cutover-Zeitpunkt wird
 vom Nutzer entschieden. Altsystem wird NICHT abgeschaltet, bis der neue
 Stack mindestens 1–2 Wochen fehlerfrei produktiv lief.
+
+ABSCHLUSS (immer am Ende dieser Aufgabe):
+1. Arbeit committen + auf den Branch pushen.
+2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
+   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
+   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
+   der sie überträgt).
+3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
+   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen).
 ```
 
 ---
