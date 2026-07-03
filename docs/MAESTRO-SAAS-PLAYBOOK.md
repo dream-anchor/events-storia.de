@@ -1237,7 +1237,14 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         setzen + `supabase db push` für die Migration.
   - [ ] A1b create-event-quotation/imap-diagnose Auth + .env aus Git (Rest aus A1)
   - [~] A2 Löschkonzept + Betroffenenrechte — in Arbeit (Sonnet, Branch `claude/dsgvo-loeschkonzept`)
-  - [~] A3 Async-Zahlungen/Refunds im Webhook — in Arbeit (Opus, Branch `claude/stripe-async-payments`)
+  - [x] A3 Async-Zahlungen/Refunds im Webhook — PR #4 (Draft, `claude/stripe-async-payments`).
+        Umgesetzt: async_payment_succeeded/failed, charge.refunded/dispute.created,
+        apiVersion bereits einheitlich (2025-08-27.basil). Kartenpfade unverändert.
+        TODO (Folge): LexOffice-Storno bei Refund (void-lexoffice-invoice ist admin-auth-gated,
+        aus Service-Role-Webhook nicht aufrufbar) → aktuell Operator-Mail; Kunden-Mail bei
+        Zahlungs-Fehlschlag fehlt (nur Operator-Alert). Dispute ändert bewusst keinen Status.
+        GATE: manuelle Stripe-Test-Mode-Checkliste (SEPA-Erfolg/-Fehlschlag, Dispute, Refunds,
+        Idempotenz) + neue Event-Typen am Webhook-Endpoint aktivieren.
 - [ ] **Track B** — Neuer Stack
   - [ ] B1 Infra-Grundgerüst
   - [ ] B2 Isolationsarchitektur entworfen & freigegeben
