@@ -60,52 +60,23 @@ serve(async (req) => {
     );
 
     // ─── Route by event type ───
-    if (event.type === "checkout.session.completed") {
+    if (
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded"
+    ) {
+      // Kartenzahlungen melden Erfolg über 'completed'. Asynchrone Methoden
+      // (z.B. SEPA-Lastschrift) melden Erfolg erst über 'async_payment_succeeded'.
+      // Beide durchlaufen exakt dieselbe Nachverarbeitung: processCheckoutPaid
+      // routet anhand derselben Metadata-Logik an den korrekten der 7 Pfade.
+      // Idempotenz stellt jeder Pfad selbst sicher (Status-Check vor Verarbeitung),
+      // sodass ein doppeltes bzw. nachgelagertes Event eine bereits bezahlte
+      // Zahlung nicht erneut verarbeitet.
       const session = event.data.object as Stripe.Checkout.Session;
-      const metadata = session.metadata || {};
-
-      logStep("Checkout completed", {
-        sessionId: session.id,
-        paymentStatus: session.payment_status,
-        metadata,
-      });
-
-      // Only process if payment is actually received
-      if (session.payment_status !== "paid") {
-        logStep("Payment not yet received, skipping", {
-          paymentStatus: session.payment_status,
-        });
+      const result = await processCheckoutPaid(supabase, stripe, session, event.type);
+      if (result.skippedUnpaid) {
         return new Response(JSON.stringify({ received: true, action: "skipped_unpaid" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      }
-
-      const orderType = metadata.order_type;
-      const orderNumber = metadata.order_number;
-
-      if (orderType === "catering" && orderNumber) {
-        // ━━━ CATERING ORDER PAYMENT ━━━
-        await handleCateringPayment(supabase, session, orderNumber, metadata);
-      } else if (metadata.option_id && metadata.inquiry_id) {
-        // ━━━ EVENT OFFER PAYMENT ━━━
-        await handleEventOfferPayment(supabase, stripe, session, metadata);
-      } else if (metadata.option_quantities && metadata.inquiry_id) {
-        // ━━━ MULTI-OPTION EVENT PAYMENT (create-payment-session) ━━━
-        await handleMultiOptionPayment(supabase, stripe, session, metadata);
-      } else if (orderType === "event" && orderNumber) {
-        // ━━━ EVENT BOOKING DIRECT PAYMENT ━━━
-        await handleEventBookingPayment(supabase, session, orderNumber, metadata);
-      } else if (metadata.payment_id && metadata.source === 'maestro') {
-        // ━━━ MAESTRO PAYMENT (Anzahlung / Vorauszahlung via Admin) ━━━
-        await handleMaestroPayment(supabase, stripe, session, metadata);
-      } else if (metadata.kind === 'prepayment_per_person' && metadata.event_id) {
-        // ━━━ PREPAYMENT mit anpassbarer Personenzahl ━━━
-        await handlePrepaymentPerPerson(supabase, stripe, session, metadata);
-      } else if (metadata.order_type === 'voucher' && metadata.voucher_id) {
-        // ━━━ GUTSCHEIN-KAUF ━━━
-        await handleVoucherPayment(supabase, session, metadata);
-      } else {
-        logStep("Unknown payment type, no matching metadata", { metadata });
       }
     } else if (event.type === "checkout.session.expired") {
       logStep("Checkout session expired", { sessionId: (event.data.object as Stripe.Checkout.Session).id });
@@ -131,6 +102,74 @@ serve(async (req) => {
     });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SHARED: Nachverarbeitung einer bezahlten Checkout-Session
+//
+// Gemeinsame Verarbeitung für 'checkout.session.completed' (Karte) und
+// 'checkout.session.async_payment_succeeded' (SEPA & andere asynchrone
+// Zahlungsarten). Routet anhand derselben Metadata-Logik an genau einen
+// der 7 bestehenden Zahlungspfade. Das Verhalten für Kartenzahlungen bleibt
+// unverändert (identische Verzweigung wie zuvor).
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// deno-lint-ignore no-explicit-any
+async function processCheckoutPaid(
+  supabase: any,
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+  eventType: string,
+): Promise<{ skippedUnpaid: boolean }> {
+  const metadata = session.metadata || {};
+
+  logStep("Processing paid checkout", {
+    eventType,
+    sessionId: session.id,
+    paymentStatus: session.payment_status,
+    metadata,
+  });
+
+  // Only process if payment is actually received. Bei Kartenzahlung ist dies
+  // bereits bei 'completed' der Fall; bei SEPA erst bei 'async_payment_succeeded'
+  // (bei 'completed' ist die Session dann noch 'unpaid' → hier korrekt geskippt).
+  if (session.payment_status !== "paid") {
+    logStep("Payment not yet received, skipping", {
+      eventType,
+      paymentStatus: session.payment_status,
+    });
+    return { skippedUnpaid: true };
+  }
+
+  const orderType = metadata.order_type;
+  const orderNumber = metadata.order_number;
+
+  if (orderType === "catering" && orderNumber) {
+    // ━━━ CATERING ORDER PAYMENT ━━━
+    await handleCateringPayment(supabase, session, orderNumber, metadata);
+  } else if (metadata.option_id && metadata.inquiry_id) {
+    // ━━━ EVENT OFFER PAYMENT ━━━
+    await handleEventOfferPayment(supabase, stripe, session, metadata);
+  } else if (metadata.option_quantities && metadata.inquiry_id) {
+    // ━━━ MULTI-OPTION EVENT PAYMENT (create-payment-session) ━━━
+    await handleMultiOptionPayment(supabase, stripe, session, metadata);
+  } else if (orderType === "event" && orderNumber) {
+    // ━━━ EVENT BOOKING DIRECT PAYMENT ━━━
+    await handleEventBookingPayment(supabase, session, orderNumber, metadata);
+  } else if (metadata.payment_id && metadata.source === 'maestro') {
+    // ━━━ MAESTRO PAYMENT (Anzahlung / Vorauszahlung via Admin) ━━━
+    await handleMaestroPayment(supabase, stripe, session, metadata);
+  } else if (metadata.kind === 'prepayment_per_person' && metadata.event_id) {
+    // ━━━ PREPAYMENT mit anpassbarer Personenzahl ━━━
+    await handlePrepaymentPerPerson(supabase, stripe, session, metadata);
+  } else if (metadata.order_type === 'voucher' && metadata.voucher_id) {
+    // ━━━ GUTSCHEIN-KAUF ━━━
+    await handleVoucherPayment(supabase, session, metadata);
+  } else {
+    logStep("Unknown payment type, no matching metadata", { metadata });
+  }
+
+  return { skippedUnpaid: false };
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CATERING ORDER: Update status + LexOffice + notifications
