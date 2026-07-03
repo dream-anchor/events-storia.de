@@ -1216,11 +1216,12 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
 
 | Entscheidung | Relevant ab | Empfehlung |
 |---|---|---|
-| Stripe Connect vs. eigener Account pro Restaurant | B12 | Connect (einfacheres Onboarding, Plattform-Gebühr integriert) |
-| Preis-/Modul-Tarifstufen | B10/B12 | Vorschlag: Basis (Kern) + Add-ons (LexOffice, KI, eSignatures, WhatsApp) einzeln buchbar |
-| IMAP/E-Mail-Architektur auf Workers | B9 (Modul 2) | Deno-IMAP-Libraries laufen nicht nativ in Workers — externer Relay oder Cloudflare Email Workers nötig, vorab entscheiden |
-| Domain-Schema pro Tenant | B11 | `<slug>.maestro-app.de` initial, Custom-Domain als späteres Upsell-Feature |
-| Zero-Downtime-Anforderung fürs Cutover | C4 | Aktuell: kurzes Wartungsfenster akzeptabel (siehe Parallelbetrieb-Strategie) |
+| Stripe Connect vs. eigener Account pro Restaurant | B12 | ✅ ENTSCHIEDEN (2026-07-03): **Stripe Connect** — Restaurants als verbundene Konten; in B2 (Secret-Isolation) + B12 einplanen |
+| Domain-Schema pro Tenant | B11 | ✅ ENTSCHIEDEN (2026-07-03): **Subdomain zuerst** (`<slug>.maestro-app.de`), Custom-Domain später als Upsell |
+| Preis-/Modul-Tarifstufen | B10/B12 | ⏳ SPÄTER (Nutzer, 2026-07-03): Modul-Registry technisch bauen (an/aus pro Mandant), Preiszuordnung erst bei B10/B12 festlegen |
+| IMAP/E-Mail-Architektur auf Workers | B9 (Modul 2) | OFFEN: Deno-IMAP-Libraries laufen nicht nativ in Workers — externer Relay oder Cloudflare Email Workers nötig, vorab entscheiden |
+| Retention-Fristen (DSGVO) | A2 | OFFEN: kommt mit A2s PR-Vorschlag, dann Nutzer-Freigabe |
+| Zero-Downtime-Anforderung fürs Cutover | C4 | OFFEN: aktuell kurzes Wartungsfenster akzeptabel (siehe Parallelbetrieb-Strategie) |
 
 ## Fortschritts-Tracking
 
