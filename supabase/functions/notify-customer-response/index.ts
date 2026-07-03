@@ -341,6 +341,11 @@ events-storia.de
             headers: {
               'Authorization': `Bearer ${supabaseServiceKey}`,
               'Content-Type': 'application/json',
+              // create-event-quotation erfordert jetzt Auth (requireAuth) ODER
+              // dieses interne Secret — dieser Aufruf hat keinen echten
+              // User-JWT (wird u. a. von der oeffentlichen Angebotsseite
+              // ausgeloest, wenn ein Kunde ein invoice_after-Angebot annimmt).
+              'x-webhook-secret': Deno.env.get('MAESTRO_INTERNAL_FUNCTION_SECRET') ?? '',
             },
             body: JSON.stringify({
               inquiryId,

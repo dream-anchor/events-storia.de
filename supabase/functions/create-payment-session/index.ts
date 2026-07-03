@@ -278,8 +278,12 @@ serve(async (req) => {
       // Verbindliches LexOffice-Angebot erst JETZT mit den finalen Mengen erzeugen.
       // Fehler nicht hochbubbeln — Stripe-Checkout darf nicht blockiert werden.
       try {
+        // create-event-quotation erfordert jetzt Auth (requireAuth) ODER das
+        // interne Secret — dieser Aufruf laeuft mit dem Service-Role-Key statt
+        // einem echten User-JWT (Checkout kann auch anonym gestartet werden).
         await supabase.functions.invoke('create-event-quotation', {
           body: { inquiryId, useSelectedQuantity: true },
+          headers: { 'x-webhook-secret': Deno.env.get('MAESTRO_INTERNAL_FUNCTION_SECRET') ?? '' },
         });
       } catch (quotErr) {
         console.error('create-event-quotation (selected) failed:', quotErr);

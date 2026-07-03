@@ -678,6 +678,21 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const diagnose = url.searchParams.get("diagnose") === "1";
 
+  // Der ?diagnose=1-Zweig leakt Ordnerliste + Betreff/Absender der letzten
+  // Mails jedes Ordners. imap-sync selbst bleibt verify_jwt=false (Cron-Job
+  // ruft ohne Auth-Header auf) — der reguläre Sync-Betrieb ist davon NICHT
+  // betroffen. Nur der Debug-Zweig wird hinter ein eigenes Secret gelegt.
+  if (diagnose) {
+    const diagnoseSecret = Deno.env.get("IMAP_SYNC_DIAGNOSE_SECRET");
+    const providedSecret = req.headers.get("x-webhook-secret");
+    if (!diagnoseSecret || providedSecret !== diagnoseSecret) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+  }
+
   let client: ImapFlow | null = null;
   try {
     client = new ImapFlow({
