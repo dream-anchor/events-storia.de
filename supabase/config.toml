@@ -3,6 +3,12 @@ project_id = "sovlfqncotxcjqseeawp"
 [functions.purge-retention]
 verify_jwt = true
 
+[functions.export-customer-data]
+verify_jwt = true
+
+[functions.delete-customer-data]
+verify_jwt = true
+
 [functions.imap-sync]
 verify_jwt = false
 

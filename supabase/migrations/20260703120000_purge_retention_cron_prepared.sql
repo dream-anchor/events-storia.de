@@ -1,0 +1,63 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- VORBEREITUNG: pg_cron-Trigger für purge-retention (nur Dry-Run)
+--
+-- STATUS: DEAKTIVIERT. Diese Migration ist reine Vorbereitung/Dokumentation
+-- für eine spätere, bewusste Freigabe durch Speranza GmbH / DSB. Alle
+-- Statements unten sind absichtlich auskommentiert und werden beim Anwenden
+-- dieser Migration NICHT ausgeführt — die Migration selbst ist ein No-Op.
+--
+-- ERST NACH FREIGABE (siehe PR-Beschreibung, Abschnitt "SCHARFSCHALTUNG —
+-- erst nach Freigabe") darf jemand bewusst:
+--   0) purge-retention um einen Service-Auth-Pfad erweitern. Aktuell prüft
+--      die Function requireAuth() → einen ECHTEN Admin-User-JWT. Ein
+--      pg_cron/pg_net-Aufruf hat keinen Nutzer-JWT, nur den Service-Role-Key.
+--      Ohne diese Erweiterung schlägt der Cron-Aufruf mit 401 fehl (das ist
+--      aktuell so gewollt — kein Aufruf ohne Admin-Auth).
+--   1) die Extensions unten aktivieren (falls nicht schon vorhanden),
+--   2) den PURGE_DRY_RUN-Secret der purge-retention-Function weiterhin auf
+--      "true" (Default) belassen — der Cron-Job unten ruft ohnehin nur
+--      mode:"dry" auf, unabhängig vom Secret,
+--   3) UND den cron.schedule(...)-Aufruf unten einkommentieren.
+--
+-- Ein Wechsel auf mode:"hard" für den Cron-Job ist ausdrücklich NICHT Teil
+-- dieser Vorbereitung und erfordert einen separaten, noch bewussteren Schritt
+-- (inkl. Freigabe der Retention-Fristen je Scope, siehe PR-Beschreibung).
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- -- 1) Benötigte Extensions (idempotent, für sich allein unschädlich):
+-- CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA extensions;
+-- CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+
+-- -- 2) Service-Role-Key als Vault-Secret hinterlegen (einmalig, im Dashboard
+-- --    oder per SQL — NICHT im Klartext in einer Migration committen):
+-- --    select vault.create_secret('<SERVICE_ROLE_KEY>', 'purge_retention_cron_service_key');
+
+-- -- 3) Täglicher Dry-Run-Aufruf um 03:15 Uhr UTC. Ruft purge-retention für
+-- --    jeden Scope im mode="dry" auf. Es werden NUR Kandidatenzahlen ermittelt
+-- --    und ein Audit-Eintrag in data_purge_audit geschrieben — siehe
+-- --    Sicherheitsdesign in supabase/functions/purge-retention/index.ts.
+-- --    <PROJECT_REF> durch die tatsächliche Projekt-Referenz ersetzen.
+-- select cron.schedule(
+--   'purge-retention-daily-dry-run',
+--   '15 3 * * *',
+--   $$
+--   select net.http_post(
+--     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/purge-retention',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'Authorization', 'Bearer ' || (
+--         select decrypted_secret from vault.decrypted_secrets
+--         where name = 'purge_retention_cron_service_key'
+--       )
+--     ),
+--     body := jsonb_build_object('scope', scope_name, 'mode', 'dry')
+--   )
+--   from unnest(array[
+--     'inquiry_non_converted', 'inquiry_declined', 'email_delivery_logs',
+--     'inquiry_attachments', 'ai_conversations'
+--   ]) as scope_name;
+--   $$
+-- );
+
+-- -- Zum Deaktivieren (falls später doch wieder ausgeschaltet werden soll):
+-- -- select cron.unschedule('purge-retention-daily-dry-run');
