@@ -1260,7 +1260,12 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Idempotenz) + neue Event-Typen am Webhook-Endpoint aktivieren.
 - [ ] **Track B** — Neuer Stack
   - [ ] B1 Infra-Grundgerüst
-  - [ ] B2 Isolationsarchitektur entworfen & freigegeben
+  - [x] B2 Isolationsarchitektur entworfen — docs/ARCHITECTURE-MULTITENANCY.md (Opus).
+        Kern: Neon RLS (JWT org_id via pg_session_jwt) primär + FORCE RLS default-deny;
+        einziger DB-Zugang via withTenant(), keine RLS-umgehende Rolle im Request-Pfad;
+        Jobs/Webhooks minten tenant-scopedte System-Token; Stripe nur account_id (kein Secret);
+        Secrets envelope-encrypted in tenant_secrets; PublicOffer per Subdomain + 128-Bit-Token.
+        FREIGABE durch Nutzer offen; dann B3-Spike.
   - [ ] B3 Spike bestanden (Cross-Tenant-Test grün)
   - [ ] B4 Data-Provider
   - [ ] B5 Auth-Port
