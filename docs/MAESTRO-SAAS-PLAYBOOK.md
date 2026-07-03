@@ -1225,7 +1225,7 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
 
 ## Fortschritts-Tracking
 
-- [~] **Track A** — Altsystem absichern
+- [~] **Track A** — Altsystem absichern (Code fertig; offen: Merges sequenziell + manuelle Secrets/Aktivierung)
   - [x] A1 Sicherheitslücken geschlossen — PR #2 (Draft, `claude/security-fixes-current-5jj62e`).
         Umgesetzt: lex-inspect entfernt, x-webhook-secret erzwungen (401),
         Kundendaten-Preview gelöscht, RLS v2_events/v2_event_emails verschärft,
@@ -1242,7 +1242,14 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         imap-sync: nur der ?diagnose=1-Zweig hinter IMAP_SYNC_DIAGNOSE_SECRET (Sync-Betrieb unangetastet).
         .env: aus Git-Tracking entfernt (nur öffentliche VITE_-Keys, keine Rotation nötig, kein History-Rewrite).
         MANUELL vor Merge-Wirkung: 2 Supabase-Secrets setzen (MAESTRO_INTERNAL_FUNCTION_SECRET, IMAP_SYNC_DIAGNOSE_SECRET).
-  - [~] A2 Löschkonzept + Betroffenenrechte — in Arbeit (Sonnet, Branch `claude/dsgvo-loeschkonzept`)
+  - [x] A2 Löschkonzept + Betroffenenrechte — PR #6 (Draft, `claude/dsgvo-loeschkonzept`).
+        purge-retention: admin-only + echter mode="hard" hinter 3 Sperren (env PURGE_DRY_RUN=false
+        + Policy enabled/dry_run=false + expliziter Request), Buchhaltungs-Bezug immer ausgeschlossen.
+        Neu: export-customer-data (Art. 15/20, read-only), delete-customer-data (Art. 17, default Preview,
+        Ausführung nur mit GDPR_ERASURE_ENABLED=true + execute + confirm; Buchhaltungsdaten anonymisiert
+        statt gelöscht, 10 J. HGB/AO). pg_cron-Migration vorbereitet aber AUSKOMMENTIERT (No-Op).
+        GATE (Nutzer): Retention-Fristen-Tabelle im PR mit Speranza GmbH/DSB/Steuerberater abstimmen,
+        dann bewusst scharfschalten (Checkliste im PR-Abschnitt "SCHARFSCHALTUNG"). Nichts ist aktiv.
   - [x] A3 Async-Zahlungen/Refunds im Webhook — PR #4 (Draft, `claude/stripe-async-payments`).
         Umgesetzt: async_payment_succeeded/failed, charge.refunded/dispute.created,
         apiVersion bereits einheitlich (2025-08-27.basil). Kartenpfade unverändert.
