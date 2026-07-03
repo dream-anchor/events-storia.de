@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (never commit — see PR notes on git history exposure)
+.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
