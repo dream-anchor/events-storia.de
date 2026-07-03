@@ -78,6 +78,12 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    } else if (event.type === "checkout.session.async_payment_failed") {
+      // ━━━ SEPA / asynchrone Zahlung FEHLGESCHLAGEN ━━━
+      // Wird ausschließlich für asynchrone Methoden ausgelöst, NIE für Karten
+      // → bestehende Kartenpfade sind hiervon nicht betroffen.
+      const session = event.data.object as Stripe.Checkout.Session;
+      await processCheckoutFailed(supabase, session);
     } else if (event.type === "checkout.session.expired") {
       logStep("Checkout session expired", { sessionId: (event.data.object as Stripe.Checkout.Session).id });
       // Could update order status to 'expired' here if needed
@@ -169,6 +175,150 @@ async function processCheckoutPaid(
   }
 
   return { skippedUnpaid: false };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ASYNC PAYMENT FAILED (SEPA-Lastschrift etc.)
+//
+// Spiegelt einen fehlgeschlagenen asynchronen Zahlungsversuch. Ein 'failed'-
+// Status wird NUR dort gesetzt, wo das jeweilige Schema diesen Wert kennt:
+//   • v2_payments.status            → Enum enthält 'failed'
+//   • catering_orders.payment_status → freies Text-Feld (kein CHECK)
+// Tabellen ohne 'failed'-Wert (event_payments, event_bookings, vouchers) werden
+// bewusst NICHT im Status verändert (kein ungültiger Enum-Wert), sondern nur per
+// activity_log/Operator-Alert gespiegelt. Ein fehlgeschlagener SEPA-Versuch kann
+// vom Kunden i.d.R. erneut angestoßen werden.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// deno-lint-ignore no-explicit-any
+async function processCheckoutFailed(
+  supabase: any,
+  session: Stripe.Checkout.Session,
+) {
+  const metadata = session.metadata || {};
+  const sessId = session.id;
+  const piId = (session.payment_intent as string) || null;
+
+  logStep("Async payment FAILED", {
+    sessionId: sessId,
+    paymentStatus: session.payment_status,
+    metadata,
+  });
+
+  const reflected: string[] = [];
+
+  // 1) v2_payments (Angebot / Multi-Option / Prepayment / Balance) — Enum kennt 'failed'.
+  //    Falls für diese Session bereits eine Zeile existiert (i.d.R. wird sie erst
+  //    bei Erfolg angelegt) und noch nicht bezahlt/erstattet ist → 'failed'.
+  {
+    const { data: rows } = await supabase
+      .from("v2_payments")
+      .select("id, status, event_id, notes")
+      .eq("stripe_checkout_session_id", sessId);
+    for (const row of rows ?? []) {
+      if (row.status === "paid" || row.status === "refunded") continue;
+      await supabase
+        .from("v2_payments")
+        .update({
+          status: "failed",
+          notes: appendNote(row.notes, `Async/SEPA payment failed (session ${sessId})`),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+      reflected.push(`v2_payments:${row.id}`);
+      if (row.event_id) {
+        await logActivity(supabase, {
+          entity_type: "event_inquiry",
+          entity_id: row.event_id,
+          action: "async_payment_failed",
+          description: `Asynchrone Zahlung fehlgeschlagen (Session ${sessId})`,
+          metadata: { stripe_session_id: sessId, stripe_payment_intent: piId },
+        });
+      }
+    }
+  }
+
+  // 2) catering_orders — payment_status ist freies Text-Feld (kein 'paid' überschreiben)
+  if (metadata.order_type === "catering" && metadata.order_number) {
+    const { data: order } = await supabase
+      .from("catering_orders")
+      .select("id, payment_status")
+      .eq("order_number", metadata.order_number)
+      .maybeSingle();
+    if (order && order.payment_status !== "paid" && order.payment_status !== "refunded") {
+      await supabase
+        .from("catering_orders")
+        .update({ payment_status: "failed" })
+        .eq("id", order.id);
+      reflected.push(`catering_orders:${order.id}`);
+      await logActivity(supabase, {
+        entity_type: "catering_order",
+        entity_id: order.id,
+        action: "async_payment_failed",
+        description: `Asynchrone Zahlung fehlgeschlagen (Session ${sessId})`,
+        metadata: { stripe_session_id: sessId, stripe_payment_intent: piId },
+      });
+    }
+  }
+
+  if (reflected.length === 0) {
+    // event_payments/maestro, event_bookings, vouchers: kein 'failed'-Status im
+    // Schema → nur protokolliert. (Siehe Banner-Kommentar oben.)
+    logStep("Async fail: no 'failed'-capable status for this path, logged only", { metadata });
+  }
+
+  // Operator-Benachrichtigung über bestehenden Resend-Mechanismus.
+  await sendOperatorAlert(
+    `Zahlung fehlgeschlagen (SEPA/async) · Session ${sessId}`,
+    `<p>Eine asynchrone Zahlung ist fehlgeschlagen.</p>
+     <ul>
+       <li><strong>Session:</strong> ${esc(sessId)}</li>
+       <li><strong>PaymentIntent:</strong> ${esc(piId ?? "—")}</li>
+       <li><strong>Metadata:</strong> ${esc(JSON.stringify(metadata))}</li>
+       <li><strong>Reflektiert in:</strong> ${esc(reflected.join(", ") || "nur Log")}</li>
+     </ul>`,
+  );
+
+  // TODO(A3): Dedizierte Kunden-Benachrichtigung bei fehlgeschlagener Zahlung.
+  // Im bestehenden Code existiert KEIN Kunden-Fehlschlag-Mailer
+  // (send-payment-confirmation-v2 ist ausschließlich für Erfolg gedacht).
+  // Bewusst NICHT erfunden – bei Bedarf eigene Function/Template ergänzen.
+
+  logStep("Async payment failed processing complete", { sessId, reflected });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Shared Helpers für Async-Fail / Refund / Dispute
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/** Hängt eine zeitgestempelte Notizzeile an ein bestehendes notes-Feld an. */
+function appendNote(existing: string | null | undefined, addition: string): string {
+  const line = `[${new Date().toISOString()}] ${addition}`;
+  return existing ? `${existing}\n${line}` : line;
+}
+
+/** Operator-Alert per Resend (nutzt denselben Mechanismus wie der Prepayment-Pfad). */
+async function sendOperatorAlert(subject: string, html: string) {
+  try {
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendKey) {
+      logStep("RESEND_API_KEY missing, skipping operator alert (non-fatal)");
+      return;
+    }
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      body: JSON.stringify({
+        from: "STORIA Events <info@events-storia.de>",
+        to: ["info@events-storia.de"],
+        subject,
+        html,
+      }),
+    });
+    logStep("Operator alert sent", { subject });
+  } catch (e) {
+    logStep("Operator alert failed (non-fatal)", { error: e instanceof Error ? e.message : String(e) });
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
