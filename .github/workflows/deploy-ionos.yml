@@ -30,6 +30,14 @@ jobs:
 
       - name: Build project
         run: bun run build      # erzeugt ./dist
+        env:
+          # Oeffentliche Supabase-Client-Werte (Anon-Key + URL) — liegen ohnehin
+          # im ausgelieferten Bundle. Seit .env nicht mehr im Repo ist, braucht
+          # der Build sie hier (sonst schlaegt scripts/fetch-menu-data.ts fehl).
+          # Bei Bedarf spaeter auf GitHub Secrets umstellen.
+          VITE_SUPABASE_URL: "https://sovlfqncotxcjqseeawp.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvdmxmcW5jb3R4Y2pxc2VlYXdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NTM5NjMsImV4cCI6MjA4MDUyOTk2M30.t7WJB1ysn4QNDHpXIJ3Gzo5bxuXiTJpJJ-8DSkVpRyc"
+          VITE_SUPABASE_PROJECT_ID: "sovlfqncotxcjqseeawp"
 
       - name: Deploy via SFTP to IONOS
         uses: wlixcc/SFTP-Deploy-Action@v1.2.6
@@ -54,4 +62,3 @@ jobs:
           local_path: "./public/.htaccess"
           remote_path: "/events-storia-de/.htaccess"
           delete_remote_files: false
-
