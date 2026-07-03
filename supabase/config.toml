@@ -40,7 +40,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.create-event-quotation]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-offer-payment-link]
 verify_jwt = true

@@ -114,6 +114,9 @@ serve(async (req) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
           apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          // create-event-quotation erfordert jetzt Auth (requireAuth) ODER
+          // dieses interne Secret, da wir hier keinen echten User-JWT haben.
+          "x-webhook-secret": Deno.env.get("MAESTRO_INTERNAL_FUNCTION_SECRET") ?? "",
         },
         body: JSON.stringify({
           inquiryId,

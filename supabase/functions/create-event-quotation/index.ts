@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { requireAuth, AuthError } from '../_shared/auth.ts';
 import {
   loadBusinessData,
   resolveLocationAddress,
@@ -996,6 +997,34 @@ serve(async (req) => {
   }
 
   try {
+    // ── Auth ─────────────────────────────────────────────────────────────
+    // Diese Function erzeugt echte LexOffice-Angebote/-Rechnungen mit dem
+    // globalen LEXOFFICE_API_KEY. Sie hatte bisher verify_jwt=false UND
+    // keinerlei internen Auth-Check (nur inquiryId) → anonym missbrauchbar.
+    //
+    // Aufrufer sind (siehe A1b-Recherche):
+    //  (a) Admin-UI im Browser (EventEdit, OfferBuilder, MultiOfferComposer,
+    //      SmartInquiryEditor, OfferSendPreview) — echter User-Login, sendet
+    //      per supabase.functions.invoke() automatisch den User-JWT.
+    //  (b) Server-zu-Server aus anderen Edge Functions (create-lexoffice-
+    //      final-invoice, notify-customer-response), die mit dem
+    //      SUPABASE_SERVICE_ROLE_KEY statt einem echten User-Login aufrufen.
+    //      notify-customer-response wird transitiv sogar von der oeffentlichen
+    //      Angebotsseite ausgeloest (Kunde akzeptiert invoice_after-Angebot) —
+    //      requireAuth() hart zu erzwingen wuerde diesen legitimen Fluss
+    //      brechen, da dort kein Admin-User-JWT vorliegt.
+    //
+    // Loesung: interner Aufrufer weist sich per Secret-Header aus (analog zur
+    // x-webhook-secret-Pruefung bei inbound-maestro-email, PR #2). Ist das
+    // Secret nicht gesetzt/falsch, greift der normale requireAuth()-Check
+    // (admin/staff User-JWT erforderlich) — schliesst damit den anonymen Weg.
+    const internalSecret = Deno.env.get('MAESTRO_INTERNAL_FUNCTION_SECRET');
+    const providedSecret = req.headers.get('x-webhook-secret');
+    const isTrustedInternalCall = !!internalSecret && providedSecret === internalSecret;
+    if (!isTrustedInternalCall) {
+      await requireAuth(req);
+    }
+
     const {
       inquiryId,
       useSelectedQuantity,
@@ -1553,6 +1582,12 @@ serve(async (req) => {
     );
 
   } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return new Response(
+        JSON.stringify({ success: false, error: error.message }),
+        { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error:', message);
     return new Response(
