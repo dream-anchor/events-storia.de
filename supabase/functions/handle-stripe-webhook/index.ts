@@ -60,53 +60,36 @@ serve(async (req) => {
     );
 
     // ─── Route by event type ───
-    if (event.type === "checkout.session.completed") {
+    if (
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded"
+    ) {
+      // Kartenzahlungen melden Erfolg über 'completed'. Asynchrone Methoden
+      // (z.B. SEPA-Lastschrift) melden Erfolg erst über 'async_payment_succeeded'.
+      // Beide durchlaufen exakt dieselbe Nachverarbeitung: processCheckoutPaid
+      // routet anhand derselben Metadata-Logik an den korrekten der 7 Pfade.
+      // Idempotenz stellt jeder Pfad selbst sicher (Status-Check vor Verarbeitung),
+      // sodass ein doppeltes bzw. nachgelagertes Event eine bereits bezahlte
+      // Zahlung nicht erneut verarbeitet.
       const session = event.data.object as Stripe.Checkout.Session;
-      const metadata = session.metadata || {};
-
-      logStep("Checkout completed", {
-        sessionId: session.id,
-        paymentStatus: session.payment_status,
-        metadata,
-      });
-
-      // Only process if payment is actually received
-      if (session.payment_status !== "paid") {
-        logStep("Payment not yet received, skipping", {
-          paymentStatus: session.payment_status,
-        });
+      const result = await processCheckoutPaid(supabase, stripe, session, event.type);
+      if (result.skippedUnpaid) {
         return new Response(JSON.stringify({ received: true, action: "skipped_unpaid" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
-      const orderType = metadata.order_type;
-      const orderNumber = metadata.order_number;
-
-      if (orderType === "catering" && orderNumber) {
-        // ━━━ CATERING ORDER PAYMENT ━━━
-        await handleCateringPayment(supabase, session, orderNumber, metadata);
-      } else if (metadata.option_id && metadata.inquiry_id) {
-        // ━━━ EVENT OFFER PAYMENT ━━━
-        await handleEventOfferPayment(supabase, stripe, session, metadata);
-      } else if (metadata.option_quantities && metadata.inquiry_id) {
-        // ━━━ MULTI-OPTION EVENT PAYMENT (create-payment-session) ━━━
-        await handleMultiOptionPayment(supabase, stripe, session, metadata);
-      } else if (orderType === "event" && orderNumber) {
-        // ━━━ EVENT BOOKING DIRECT PAYMENT ━━━
-        await handleEventBookingPayment(supabase, session, orderNumber, metadata);
-      } else if (metadata.payment_id && metadata.source === 'maestro') {
-        // ━━━ MAESTRO PAYMENT (Anzahlung / Vorauszahlung via Admin) ━━━
-        await handleMaestroPayment(supabase, stripe, session, metadata);
-      } else if (metadata.kind === 'prepayment_per_person' && metadata.event_id) {
-        // ━━━ PREPAYMENT mit anpassbarer Personenzahl ━━━
-        await handlePrepaymentPerPerson(supabase, stripe, session, metadata);
-      } else if (metadata.order_type === 'voucher' && metadata.voucher_id) {
-        // ━━━ GUTSCHEIN-KAUF ━━━
-        await handleVoucherPayment(supabase, session, metadata);
-      } else {
-        logStep("Unknown payment type, no matching metadata", { metadata });
-      }
+    } else if (event.type === "checkout.session.async_payment_failed") {
+      // ━━━ SEPA / asynchrone Zahlung FEHLGESCHLAGEN ━━━
+      // Wird ausschließlich für asynchrone Methoden ausgelöst, NIE für Karten
+      // → bestehende Kartenpfade sind hiervon nicht betroffen.
+      const session = event.data.object as Stripe.Checkout.Session;
+      await processCheckoutFailed(supabase, session);
+    } else if (event.type === "charge.refunded") {
+      // ━━━ RÜCKERSTATTUNG (voll oder teilweise) ━━━
+      await handleChargeRefunded(supabase, event.data.object as Stripe.Charge);
+    } else if (event.type === "charge.dispute.created") {
+      // ━━━ CHARGEBACK / DISPUTE eröffnet ━━━
+      await handleChargeDisputeCreated(supabase, event.data.object as Stripe.Dispute);
     } else if (event.type === "checkout.session.expired") {
       logStep("Checkout session expired", { sessionId: (event.data.object as Stripe.Checkout.Session).id });
       // Could update order status to 'expired' here if needed
@@ -131,6 +114,449 @@ serve(async (req) => {
     });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SHARED: Nachverarbeitung einer bezahlten Checkout-Session
+//
+// Gemeinsame Verarbeitung für 'checkout.session.completed' (Karte) und
+// 'checkout.session.async_payment_succeeded' (SEPA & andere asynchrone
+// Zahlungsarten). Routet anhand derselben Metadata-Logik an genau einen
+// der 7 bestehenden Zahlungspfade. Das Verhalten für Kartenzahlungen bleibt
+// unverändert (identische Verzweigung wie zuvor).
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function processCheckoutPaid(
+  supabase: ReturnType<typeof createClient>,
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+  eventType: string,
+): Promise<{ skippedUnpaid: boolean }> {
+  const metadata = session.metadata || {};
+
+  logStep("Processing paid checkout", {
+    eventType,
+    sessionId: session.id,
+    paymentStatus: session.payment_status,
+    metadata,
+  });
+
+  // Only process if payment is actually received. Bei Kartenzahlung ist dies
+  // bereits bei 'completed' der Fall; bei SEPA erst bei 'async_payment_succeeded'
+  // (bei 'completed' ist die Session dann noch 'unpaid' → hier korrekt geskippt).
+  if (session.payment_status !== "paid") {
+    logStep("Payment not yet received, skipping", {
+      eventType,
+      paymentStatus: session.payment_status,
+    });
+    return { skippedUnpaid: true };
+  }
+
+  const orderType = metadata.order_type;
+  const orderNumber = metadata.order_number;
+
+  if (orderType === "catering" && orderNumber) {
+    // ━━━ CATERING ORDER PAYMENT ━━━
+    await handleCateringPayment(supabase, session, orderNumber, metadata);
+  } else if (metadata.option_id && metadata.inquiry_id) {
+    // ━━━ EVENT OFFER PAYMENT ━━━
+    await handleEventOfferPayment(supabase, stripe, session, metadata);
+  } else if (metadata.option_quantities && metadata.inquiry_id) {
+    // ━━━ MULTI-OPTION EVENT PAYMENT (create-payment-session) ━━━
+    await handleMultiOptionPayment(supabase, stripe, session, metadata);
+  } else if (orderType === "event" && orderNumber) {
+    // ━━━ EVENT BOOKING DIRECT PAYMENT ━━━
+    await handleEventBookingPayment(supabase, session, orderNumber, metadata);
+  } else if (metadata.payment_id && metadata.source === 'maestro') {
+    // ━━━ MAESTRO PAYMENT (Anzahlung / Vorauszahlung via Admin) ━━━
+    await handleMaestroPayment(supabase, stripe, session, metadata);
+  } else if (metadata.kind === 'prepayment_per_person' && metadata.event_id) {
+    // ━━━ PREPAYMENT mit anpassbarer Personenzahl ━━━
+    await handlePrepaymentPerPerson(supabase, stripe, session, metadata);
+  } else if (metadata.order_type === 'voucher' && metadata.voucher_id) {
+    // ━━━ GUTSCHEIN-KAUF ━━━
+    await handleVoucherPayment(supabase, session, metadata);
+  } else {
+    logStep("Unknown payment type, no matching metadata", { metadata });
+  }
+
+  return { skippedUnpaid: false };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ASYNC PAYMENT FAILED (SEPA-Lastschrift etc.)
+//
+// Spiegelt einen fehlgeschlagenen asynchronen Zahlungsversuch. Ein 'failed'-
+// Status wird NUR dort gesetzt, wo das jeweilige Schema diesen Wert kennt:
+//   • v2_payments.status            → Enum enthält 'failed'
+//   • catering_orders.payment_status → freies Text-Feld (kein CHECK)
+// Tabellen ohne 'failed'-Wert (event_payments, event_bookings, vouchers) werden
+// bewusst NICHT im Status verändert (kein ungültiger Enum-Wert), sondern nur per
+// activity_log/Operator-Alert gespiegelt. Ein fehlgeschlagener SEPA-Versuch kann
+// vom Kunden i.d.R. erneut angestoßen werden.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function processCheckoutFailed(
+  supabase: ReturnType<typeof createClient>,
+  session: Stripe.Checkout.Session,
+) {
+  const metadata = session.metadata || {};
+  const sessId = session.id;
+  const piId = (session.payment_intent as string) || null;
+
+  logStep("Async payment FAILED", {
+    sessionId: sessId,
+    paymentStatus: session.payment_status,
+    metadata,
+  });
+
+  const reflected: string[] = [];
+
+  // 1) v2_payments (Angebot / Multi-Option / Prepayment / Balance) — Enum kennt 'failed'.
+  //    Falls für diese Session bereits eine Zeile existiert (i.d.R. wird sie erst
+  //    bei Erfolg angelegt) und noch nicht bezahlt/erstattet ist → 'failed'.
+  {
+    const { data: rows } = await supabase
+      .from("v2_payments")
+      .select("id, status, event_id, notes")
+      .eq("stripe_checkout_session_id", sessId);
+    for (const row of rows ?? []) {
+      if (row.status === "paid" || row.status === "refunded") continue;
+      await supabase
+        .from("v2_payments")
+        .update({
+          status: "failed",
+          notes: appendNote(row.notes, `Async/SEPA payment failed (session ${sessId})`),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+      reflected.push(`v2_payments:${row.id}`);
+      if (row.event_id) {
+        await logActivity(supabase, {
+          entity_type: "event_inquiry",
+          entity_id: row.event_id,
+          action: "async_payment_failed",
+          description: `Asynchrone Zahlung fehlgeschlagen (Session ${sessId})`,
+          metadata: { stripe_session_id: sessId, stripe_payment_intent: piId },
+        });
+      }
+    }
+  }
+
+  // 2) catering_orders — payment_status ist freies Text-Feld (kein 'paid' überschreiben)
+  if (metadata.order_type === "catering" && metadata.order_number) {
+    const { data: order } = await supabase
+      .from("catering_orders")
+      .select("id, payment_status")
+      .eq("order_number", metadata.order_number)
+      .maybeSingle();
+    if (order && order.payment_status !== "paid" && order.payment_status !== "refunded") {
+      await supabase
+        .from("catering_orders")
+        .update({ payment_status: "failed" })
+        .eq("id", order.id);
+      reflected.push(`catering_orders:${order.id}`);
+      await logActivity(supabase, {
+        entity_type: "catering_order",
+        entity_id: order.id,
+        action: "async_payment_failed",
+        description: `Asynchrone Zahlung fehlgeschlagen (Session ${sessId})`,
+        metadata: { stripe_session_id: sessId, stripe_payment_intent: piId },
+      });
+    }
+  }
+
+  if (reflected.length === 0) {
+    // event_payments/maestro, event_bookings, vouchers: kein 'failed'-Status im
+    // Schema → nur protokolliert. (Siehe Banner-Kommentar oben.)
+    logStep("Async fail: no 'failed'-capable status for this path, logged only", { metadata });
+  }
+
+  // Operator-Benachrichtigung über bestehenden Resend-Mechanismus.
+  await sendOperatorAlert(
+    `Zahlung fehlgeschlagen (SEPA/async) · Session ${sessId}`,
+    `<p>Eine asynchrone Zahlung ist fehlgeschlagen.</p>
+     <ul>
+       <li><strong>Session:</strong> ${esc(sessId)}</li>
+       <li><strong>PaymentIntent:</strong> ${esc(piId ?? "—")}</li>
+       <li><strong>Metadata:</strong> ${esc(JSON.stringify(metadata))}</li>
+       <li><strong>Reflektiert in:</strong> ${esc(reflected.join(", ") || "nur Log")}</li>
+     </ul>`,
+  );
+
+  // TODO(A3): Dedizierte Kunden-Benachrichtigung bei fehlgeschlagener Zahlung.
+  // Im bestehenden Code existiert KEIN Kunden-Fehlschlag-Mailer
+  // (send-payment-confirmation-v2 ist ausschließlich für Erfolg gedacht).
+  // Bewusst NICHT erfunden – bei Bedarf eigene Function/Template ergänzen.
+
+  logStep("Async payment failed processing complete", { sessId, reflected });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Shared Helpers für Async-Fail / Refund / Dispute
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/** Hängt eine zeitgestempelte Notizzeile an ein bestehendes notes-Feld an. */
+function appendNote(existing: string | null | undefined, addition: string): string {
+  const line = `[${new Date().toISOString()}] ${addition}`;
+  return existing ? `${existing}\n${line}` : line;
+}
+
+/** Operator-Alert per Resend (nutzt denselben Mechanismus wie der Prepayment-Pfad). */
+async function sendOperatorAlert(subject: string, html: string) {
+  try {
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendKey) {
+      logStep("RESEND_API_KEY missing, skipping operator alert (non-fatal)");
+      return;
+    }
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+      body: JSON.stringify({
+        from: "STORIA Events <info@events-storia.de>",
+        to: ["info@events-storia.de"],
+        subject,
+        html,
+      }),
+    });
+    logStep("Operator alert sent", { subject });
+  } catch (e) {
+    logStep("Operator alert failed (non-fatal)", { error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CHARGE REFUNDED
+//
+// Spiegelt eine Stripe-Rückerstattung in Maestro. Refunds sind nicht an die
+// Checkout-Metadata gebunden → das Matching erfolgt über den PaymentIntent
+// (charge.payment_intent), der in allen Zahlungstabellen als
+// stripe_payment_intent_id gespeichert ist.
+//   • Vollständige Rückerstattung → Status 'refunded' (bzw. catering: 'refunded')
+//   • Teilweise Rückerstattung   → v2_payments/event_payments: kein passender
+//     Enum-Wert ⇒ nur Notiz + Log; catering/event_bookings: 'partial'.
+// Idempotent: bereits 'refunded' markierte Zeilen werden übersprungen.
+//
+// LexOffice-Storno: void-lexoffice-invoice EXISTIERT, ist aber admin-auth-gated
+// (requireAuth erwartet ein User-JWT) und daher NICHT aus dem Service-Role-
+// Webhook-Kontext aufrufbar (würde 403 liefern). Deshalb hier bewusst KEIN
+// Auto-Storno; die nötigen IDs werden geloggt/gemailt (siehe TODO unten).
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function handleChargeRefunded(
+  supabase: ReturnType<typeof createClient>,
+  charge: Stripe.Charge,
+) {
+  const piId = (charge.payment_intent as string) || null;
+  const amount = charge.amount ?? 0;
+  const amountRefunded = charge.amount_refunded ?? 0;
+  const fully = amount > 0 && amountRefunded >= amount;
+  const partialStatus = fully ? "refunded" : "partial";
+
+  logStep("Charge refunded", {
+    chargeId: charge.id,
+    paymentIntent: piId,
+    amount,
+    amountRefunded,
+    fully,
+  });
+
+  if (!piId) {
+    logStep("Charge without payment_intent – cannot map to a payment, logged only", { chargeId: charge.id });
+    return;
+  }
+
+  const note = `Stripe refund ${fully ? "(voll)" : "(teilweise)"}: ${formatEUR(amountRefunded / 100)} von ${formatEUR(amount / 100)} (charge ${charge.id})`;
+  const reflected: string[] = [];
+  const lexofficeToVoid: Array<{ orderId: string; voucherId: string }> = [];
+
+  // v2_payments (Enum kennt 'refunded'; kein 'partial')
+  {
+    const { data: rows } = await supabase
+      .from("v2_payments")
+      .select("id, status, event_id, notes, lexoffice_invoice_id")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.status === "refunded") continue; // idempotent
+      const update: Record<string, unknown> = {
+        notes: appendNote(row.notes, note),
+        updated_at: new Date().toISOString(),
+      };
+      if (fully) update.status = "refunded"; // Teil-Refund: kein Enum-Wert → nur Notiz
+      await supabase.from("v2_payments").update(update).eq("id", row.id);
+      reflected.push(`v2_payments:${row.id}`);
+      if (row.event_id) {
+        await logActivity(supabase, {
+          entity_type: "event_inquiry",
+          entity_id: row.event_id,
+          action: fully ? "payment_refunded" : "payment_partially_refunded",
+          description: note,
+          metadata: {
+            stripe_charge_id: charge.id,
+            stripe_payment_intent: piId,
+            amount_refunded_cents: amountRefunded,
+          },
+        });
+        if (fully && row.lexoffice_invoice_id) {
+          lexofficeToVoid.push({ orderId: row.event_id, voucherId: row.lexoffice_invoice_id });
+        }
+      }
+    }
+  }
+
+  // event_payments / Maestro (Enum kennt 'refunded', kein 'partial'/'failed')
+  {
+    const { data: rows } = await supabase
+      .from("event_payments")
+      .select("id, status")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.status === "refunded") continue;
+      if (fully) {
+        await supabase
+          .from("event_payments")
+          .update({ status: "refunded", updated_at: new Date().toISOString() })
+          .eq("id", row.id);
+        reflected.push(`event_payments:${row.id}`);
+      }
+    }
+  }
+
+  // catering_orders (payment_status freies Text-Feld → 'refunded' / 'partial')
+  {
+    const { data: rows } = await supabase
+      .from("catering_orders")
+      .select("id, payment_status")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.payment_status === "refunded") continue;
+      await supabase.from("catering_orders").update({ payment_status: partialStatus }).eq("id", row.id);
+      reflected.push(`catering_orders:${row.id}`);
+      await logActivity(supabase, {
+        entity_type: "catering_order",
+        entity_id: row.id,
+        action: fully ? "payment_refunded" : "payment_partially_refunded",
+        description: note,
+        metadata: { stripe_charge_id: charge.id, amount_refunded_cents: amountRefunded },
+      });
+    }
+  }
+
+  // event_bookings (CHECK-Enum kennt 'refunded' und 'partial')
+  {
+    const { data: rows } = await supabase
+      .from("event_bookings")
+      .select("id, payment_status")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.payment_status === "refunded") continue;
+      await supabase.from("event_bookings").update({ payment_status: partialStatus }).eq("id", row.id);
+      reflected.push(`event_bookings:${row.id}`);
+    }
+  }
+
+  // TODO(A3): LexOffice-Storno anstoßen. void-lexoffice-invoice existiert, ist
+  // aber admin-auth-gated und daher nicht aus dem Webhook (Service-Role) aufrufbar.
+  // Optionen: (a) void-lexoffice-invoice um einen service-role-tauglichen,
+  // signaturgeschützten Pfad erweitern, oder (b) Admin storniert manuell anhand
+  // der hier geloggten orderId/voucherId. Bewusst nicht selbst implementiert.
+  if (lexofficeToVoid.length > 0) {
+    logStep("TODO: LexOffice void required (admin/manual) — void-lexoffice-invoice is admin-auth-gated", { lexofficeToVoid });
+  }
+
+  await sendOperatorAlert(
+    `Refund eingegangen: ${formatEUR(amountRefunded / 100)} (charge ${charge.id})`,
+    `<p>Stripe hat eine Rückerstattung gemeldet.</p>
+     <ul>
+       <li><strong>Charge:</strong> ${esc(charge.id)}</li>
+       <li><strong>PaymentIntent:</strong> ${esc(piId)}</li>
+       <li><strong>Erstattet:</strong> ${formatEUR(amountRefunded / 100)} / ${formatEUR(amount / 100)} ${fully ? "(voll)" : "(teilweise)"}</li>
+       <li><strong>Reflektiert in:</strong> ${esc(reflected.join(", ") || "nichts gefunden")}</li>
+       ${lexofficeToVoid.length ? `<li><strong>LexOffice-Storno nötig (manuell):</strong> ${esc(JSON.stringify(lexofficeToVoid))}</li>` : ""}
+     </ul>`,
+  );
+
+  logStep("Charge refund processing complete", { chargeId: charge.id, reflected });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CHARGE DISPUTE CREATED (Chargeback)
+//
+// Bewusste konservative Annahme: Ein Dispute ist noch KEIN endgültiger Verlust,
+// und das v2_payment_status-Enum kennt keinen 'disputed'-Wert. Um Downstream-
+// Views (die 'paid' als vereinnahmt werten) nicht zu verfälschen, wird der
+// Zahlungsstatus NICHT verändert. Der Dispute wird per notes + activity_log +
+// Operator-Alert gespiegelt, damit das Team fristgerecht reagieren kann.
+// LexOffice-Reaktion (Storno/Gutschrift) bleibt bewusst manuell.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function handleChargeDisputeCreated(
+  supabase: ReturnType<typeof createClient>,
+  dispute: Stripe.Dispute,
+) {
+  const piId = (dispute.payment_intent as string) || null;
+  const chargeId = (dispute.charge as string) || null;
+
+  logStep("Charge dispute created", {
+    disputeId: dispute.id,
+    charge: chargeId,
+    paymentIntent: piId,
+    reason: dispute.reason,
+    status: dispute.status,
+    amount: dispute.amount,
+  });
+
+  const note = `Stripe DISPUTE eröffnet (${dispute.reason}, Status ${dispute.status}): ${formatEUR((dispute.amount ?? 0) / 100)} — dispute ${dispute.id}`;
+  const reflected: string[] = [];
+
+  if (piId) {
+    const { data: rows } = await supabase
+      .from("v2_payments")
+      .select("id, event_id, notes")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      await supabase
+        .from("v2_payments")
+        .update({ notes: appendNote(row.notes, note), updated_at: new Date().toISOString() })
+        .eq("id", row.id);
+      reflected.push(`v2_payments:${row.id}`);
+      if (row.event_id) {
+        await logActivity(supabase, {
+          entity_type: "event_inquiry",
+          entity_id: row.event_id,
+          action: "payment_disputed",
+          description: note,
+          metadata: {
+            dispute_id: dispute.id,
+            stripe_charge_id: chargeId,
+            reason: dispute.reason,
+            status: dispute.status,
+          },
+        });
+      }
+    }
+  }
+
+  // TODO(A3): LexOffice-Reaktion auf Dispute bewusst NICHT automatisiert
+  // (void-lexoffice-invoice admin-auth-gated; Dispute ≠ Verlust). Team entscheidet.
+
+  await sendOperatorAlert(
+    `⚠️ Zahlungs-Dispute eröffnet (${dispute.reason})`,
+    `<p>Für eine Zahlung wurde ein Dispute/Chargeback eröffnet.</p>
+     <ul>
+       <li><strong>Dispute:</strong> ${esc(dispute.id)}</li>
+       <li><strong>Charge:</strong> ${esc(chargeId ?? "—")}</li>
+       <li><strong>PaymentIntent:</strong> ${esc(piId ?? "—")}</li>
+       <li><strong>Grund:</strong> ${esc(dispute.reason ?? "—")}</li>
+       <li><strong>Status:</strong> ${esc(dispute.status ?? "—")}</li>
+       <li><strong>Betrag:</strong> ${formatEUR((dispute.amount ?? 0) / 100)}</li>
+       <li><strong>Reflektiert in:</strong> ${esc(reflected.join(", ") || "nichts gefunden")}</li>
+     </ul>
+     <p>Bitte Fristen in Stripe beachten und ggf. Beweise einreichen.</p>`,
+  );
+
+  logStep("Dispute processing complete", { disputeId: dispute.id, reflected });
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CATERING ORDER: Update status + LexOffice + notifications
