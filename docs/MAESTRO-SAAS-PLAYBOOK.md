@@ -1224,10 +1224,19 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
 
 ## Fortschritts-Tracking
 
-- [ ] **Track A** — Altsystem absichern
-  - [ ] A1 Sicherheitslücken geschlossen
-  - [ ] A2 Löschkonzept + Betroffenenrechte
-  - [ ] A3 Async-Zahlungen/Refunds im Webhook
+- [~] **Track A** — Altsystem absichern
+  - [x] A1 Sicherheitslücken geschlossen — PR #2 (Draft, `claude/security-fixes-current-5jj62e`).
+        Umgesetzt: lex-inspect entfernt, x-webhook-secret erzwungen (401),
+        Kundendaten-Preview gelöscht, RLS v2_events/v2_event_emails verschärft,
+        Clarity hinter Consent.
+        OFFEN (Lücke ggü. Vollversion): create-event-quotation + imap-sync
+        `?diagnose=1` Auth-Check (Punkt 5) und `.env` aus Git entfernen (Punkt 7)
+        wurden NICHT umgesetzt → siehe Folgeaufgabe A1b.
+        MANUELL vor Merge-Wirkung: MAESTRO_WEBHOOK_SECRET als Supabase-Secret
+        setzen + `supabase db push` für die Migration.
+  - [ ] A1b create-event-quotation/imap-diagnose Auth + .env aus Git (Rest aus A1)
+  - [~] A2 Löschkonzept + Betroffenenrechte — in Arbeit (Sonnet, Branch `claude/dsgvo-loeschkonzept`)
+  - [~] A3 Async-Zahlungen/Refunds im Webhook — in Arbeit (Opus, Branch `claude/stripe-async-payments`)
 - [ ] **Track B** — Neuer Stack
   - [ ] B1 Infra-Grundgerüst
   - [ ] B2 Isolationsarchitektur entworfen & freigegeben
