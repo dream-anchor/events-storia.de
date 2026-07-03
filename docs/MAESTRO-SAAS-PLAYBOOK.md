@@ -1235,7 +1235,13 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         wurden NICHT umgesetzt → siehe Folgeaufgabe A1b.
         MANUELL vor Merge-Wirkung: MAESTRO_WEBHOOK_SECRET als Supabase-Secret
         setzen + `supabase db push` für die Migration.
-  - [ ] A1b create-event-quotation/imap-diagnose Auth + .env aus Git (Rest aus A1)
+  - [x] A1b create-event-quotation/imap-diagnose Auth + .env aus Git — PR #5 (Draft, `claude/security-fixes-rest-a1b`).
+        create-event-quotation: Hybrid — requireAuth (admin/staff) default + x-webhook-secret-Bypass
+        (separates Secret MAESTRO_INTERNAL_FUNCTION_SECRET) für 3 interne Aufrufer, weil einer
+        (notify-customer-response) von der öffentlichen Angebotsseite getriggert wird; verify_jwt=true.
+        imap-sync: nur der ?diagnose=1-Zweig hinter IMAP_SYNC_DIAGNOSE_SECRET (Sync-Betrieb unangetastet).
+        .env: aus Git-Tracking entfernt (nur öffentliche VITE_-Keys, keine Rotation nötig, kein History-Rewrite).
+        MANUELL vor Merge-Wirkung: 2 Supabase-Secrets setzen (MAESTRO_INTERNAL_FUNCTION_SECRET, IMAP_SYNC_DIAGNOSE_SECRET).
   - [~] A2 Löschkonzept + Betroffenenrechte — in Arbeit (Sonnet, Branch `claude/dsgvo-loeschkonzept`)
   - [x] A3 Async-Zahlungen/Refunds im Webhook — PR #4 (Draft, `claude/stripe-async-payments`).
         Umgesetzt: async_payment_succeeded/failed, charge.refunded/dispute.created,
