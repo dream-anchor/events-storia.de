@@ -6,6 +6,15 @@ serve(async (req) => {
     return new Response("ok", { status: 200 });
   }
 
+  const webhookSecret = Deno.env.get("MAESTRO_WEBHOOK_SECRET");
+  const providedSecret = req.headers.get("x-webhook-secret");
+  if (!webhookSecret || providedSecret !== webhookSecret) {
+    return new Response(JSON.stringify({ error: "Invalid or missing x-webhook-secret" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,

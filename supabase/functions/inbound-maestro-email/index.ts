@@ -36,6 +36,12 @@ function extractName(from: unknown, email: string): string {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const webhookSecret = Deno.env.get("MAESTRO_WEBHOOK_SECRET");
+  const providedSecret = req.headers.get("x-webhook-secret");
+  if (!webhookSecret || providedSecret !== webhookSecret) {
+    return json({ error: "Invalid or missing x-webhook-secret" }, 401);
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
