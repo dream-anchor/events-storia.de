@@ -16,6 +16,7 @@ import { AdminLoader } from "./components/admin/AdminLoader";
 import FloatingActions from "./components/FloatingActions";
 import MobileStickyActionBar from "./components/MobileStickyActionBar";
 import GoogleAnalytics from "./components/GoogleAnalytics";
+import MicrosoftClarity from "./components/MicrosoftClarity";
 import CookieBanner from "./components/CookieBanner";
 import CookieSettingsButton from "./components/CookieSettingsButton";
 import ScrollToTop from "./components/ScrollToTop";
@@ -75,6 +76,7 @@ const FrontendGlobals = () => {
       <>
         {/* Nur die wirklich globalen Elemente — kein Warenkorb */}
         <GoogleAnalytics />
+        <MicrosoftClarity />
         <CookieBanner />
         <CookieSettingsButton />
       </>
@@ -84,6 +86,7 @@ const FrontendGlobals = () => {
   return (
     <>
       <GoogleAnalytics />
+      <MicrosoftClarity />
       <FloatingActions />
       <MobileStickyActionBar />
       <CartButton />
