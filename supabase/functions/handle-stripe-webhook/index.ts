@@ -84,6 +84,12 @@ serve(async (req) => {
       // → bestehende Kartenpfade sind hiervon nicht betroffen.
       const session = event.data.object as Stripe.Checkout.Session;
       await processCheckoutFailed(supabase, session);
+    } else if (event.type === "charge.refunded") {
+      // ━━━ RÜCKERSTATTUNG (voll oder teilweise) ━━━
+      await handleChargeRefunded(supabase, event.data.object as Stripe.Charge);
+    } else if (event.type === "charge.dispute.created") {
+      // ━━━ CHARGEBACK / DISPUTE eröffnet ━━━
+      await handleChargeDisputeCreated(supabase, event.data.object as Stripe.Dispute);
     } else if (event.type === "checkout.session.expired") {
       logStep("Checkout session expired", { sessionId: (event.data.object as Stripe.Checkout.Session).id });
       // Could update order status to 'expired' here if needed
@@ -119,9 +125,8 @@ serve(async (req) => {
 // unverändert (identische Verzweigung wie zuvor).
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// deno-lint-ignore no-explicit-any
 async function processCheckoutPaid(
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   stripe: Stripe,
   session: Stripe.Checkout.Session,
   eventType: string,
@@ -190,9 +195,8 @@ async function processCheckoutPaid(
 // vom Kunden i.d.R. erneut angestoßen werden.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// deno-lint-ignore no-explicit-any
 async function processCheckoutFailed(
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   session: Stripe.Checkout.Session,
 ) {
   const metadata = session.metadata || {};
@@ -319,6 +323,239 @@ async function sendOperatorAlert(subject: string, html: string) {
   } catch (e) {
     logStep("Operator alert failed (non-fatal)", { error: e instanceof Error ? e.message : String(e) });
   }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CHARGE REFUNDED
+//
+// Spiegelt eine Stripe-Rückerstattung in Maestro. Refunds sind nicht an die
+// Checkout-Metadata gebunden → das Matching erfolgt über den PaymentIntent
+// (charge.payment_intent), der in allen Zahlungstabellen als
+// stripe_payment_intent_id gespeichert ist.
+//   • Vollständige Rückerstattung → Status 'refunded' (bzw. catering: 'refunded')
+//   • Teilweise Rückerstattung   → v2_payments/event_payments: kein passender
+//     Enum-Wert ⇒ nur Notiz + Log; catering/event_bookings: 'partial'.
+// Idempotent: bereits 'refunded' markierte Zeilen werden übersprungen.
+//
+// LexOffice-Storno: void-lexoffice-invoice EXISTIERT, ist aber admin-auth-gated
+// (requireAuth erwartet ein User-JWT) und daher NICHT aus dem Service-Role-
+// Webhook-Kontext aufrufbar (würde 403 liefern). Deshalb hier bewusst KEIN
+// Auto-Storno; die nötigen IDs werden geloggt/gemailt (siehe TODO unten).
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function handleChargeRefunded(
+  supabase: ReturnType<typeof createClient>,
+  charge: Stripe.Charge,
+) {
+  const piId = (charge.payment_intent as string) || null;
+  const amount = charge.amount ?? 0;
+  const amountRefunded = charge.amount_refunded ?? 0;
+  const fully = amount > 0 && amountRefunded >= amount;
+  const partialStatus = fully ? "refunded" : "partial";
+
+  logStep("Charge refunded", {
+    chargeId: charge.id,
+    paymentIntent: piId,
+    amount,
+    amountRefunded,
+    fully,
+  });
+
+  if (!piId) {
+    logStep("Charge without payment_intent – cannot map to a payment, logged only", { chargeId: charge.id });
+    return;
+  }
+
+  const note = `Stripe refund ${fully ? "(voll)" : "(teilweise)"}: ${formatEUR(amountRefunded / 100)} von ${formatEUR(amount / 100)} (charge ${charge.id})`;
+  const reflected: string[] = [];
+  const lexofficeToVoid: Array<{ orderId: string; voucherId: string }> = [];
+
+  // v2_payments (Enum kennt 'refunded'; kein 'partial')
+  {
+    const { data: rows } = await supabase
+      .from("v2_payments")
+      .select("id, status, event_id, notes, lexoffice_invoice_id")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.status === "refunded") continue; // idempotent
+      const update: Record<string, unknown> = {
+        notes: appendNote(row.notes, note),
+        updated_at: new Date().toISOString(),
+      };
+      if (fully) update.status = "refunded"; // Teil-Refund: kein Enum-Wert → nur Notiz
+      await supabase.from("v2_payments").update(update).eq("id", row.id);
+      reflected.push(`v2_payments:${row.id}`);
+      if (row.event_id) {
+        await logActivity(supabase, {
+          entity_type: "event_inquiry",
+          entity_id: row.event_id,
+          action: fully ? "payment_refunded" : "payment_partially_refunded",
+          description: note,
+          metadata: {
+            stripe_charge_id: charge.id,
+            stripe_payment_intent: piId,
+            amount_refunded_cents: amountRefunded,
+          },
+        });
+        if (fully && row.lexoffice_invoice_id) {
+          lexofficeToVoid.push({ orderId: row.event_id, voucherId: row.lexoffice_invoice_id });
+        }
+      }
+    }
+  }
+
+  // event_payments / Maestro (Enum kennt 'refunded', kein 'partial'/'failed')
+  {
+    const { data: rows } = await supabase
+      .from("event_payments")
+      .select("id, status")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.status === "refunded") continue;
+      if (fully) {
+        await supabase
+          .from("event_payments")
+          .update({ status: "refunded", updated_at: new Date().toISOString() })
+          .eq("id", row.id);
+        reflected.push(`event_payments:${row.id}`);
+      }
+    }
+  }
+
+  // catering_orders (payment_status freies Text-Feld → 'refunded' / 'partial')
+  {
+    const { data: rows } = await supabase
+      .from("catering_orders")
+      .select("id, payment_status")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.payment_status === "refunded") continue;
+      await supabase.from("catering_orders").update({ payment_status: partialStatus }).eq("id", row.id);
+      reflected.push(`catering_orders:${row.id}`);
+      await logActivity(supabase, {
+        entity_type: "catering_order",
+        entity_id: row.id,
+        action: fully ? "payment_refunded" : "payment_partially_refunded",
+        description: note,
+        metadata: { stripe_charge_id: charge.id, amount_refunded_cents: amountRefunded },
+      });
+    }
+  }
+
+  // event_bookings (CHECK-Enum kennt 'refunded' und 'partial')
+  {
+    const { data: rows } = await supabase
+      .from("event_bookings")
+      .select("id, payment_status")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.payment_status === "refunded") continue;
+      await supabase.from("event_bookings").update({ payment_status: partialStatus }).eq("id", row.id);
+      reflected.push(`event_bookings:${row.id}`);
+    }
+  }
+
+  // TODO(A3): LexOffice-Storno anstoßen. void-lexoffice-invoice existiert, ist
+  // aber admin-auth-gated und daher nicht aus dem Webhook (Service-Role) aufrufbar.
+  // Optionen: (a) void-lexoffice-invoice um einen service-role-tauglichen,
+  // signaturgeschützten Pfad erweitern, oder (b) Admin storniert manuell anhand
+  // der hier geloggten orderId/voucherId. Bewusst nicht selbst implementiert.
+  if (lexofficeToVoid.length > 0) {
+    logStep("TODO: LexOffice void required (admin/manual) — void-lexoffice-invoice is admin-auth-gated", { lexofficeToVoid });
+  }
+
+  await sendOperatorAlert(
+    `Refund eingegangen: ${formatEUR(amountRefunded / 100)} (charge ${charge.id})`,
+    `<p>Stripe hat eine Rückerstattung gemeldet.</p>
+     <ul>
+       <li><strong>Charge:</strong> ${esc(charge.id)}</li>
+       <li><strong>PaymentIntent:</strong> ${esc(piId)}</li>
+       <li><strong>Erstattet:</strong> ${formatEUR(amountRefunded / 100)} / ${formatEUR(amount / 100)} ${fully ? "(voll)" : "(teilweise)"}</li>
+       <li><strong>Reflektiert in:</strong> ${esc(reflected.join(", ") || "nichts gefunden")}</li>
+       ${lexofficeToVoid.length ? `<li><strong>LexOffice-Storno nötig (manuell):</strong> ${esc(JSON.stringify(lexofficeToVoid))}</li>` : ""}
+     </ul>`,
+  );
+
+  logStep("Charge refund processing complete", { chargeId: charge.id, reflected });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CHARGE DISPUTE CREATED (Chargeback)
+//
+// Bewusste konservative Annahme: Ein Dispute ist noch KEIN endgültiger Verlust,
+// und das v2_payment_status-Enum kennt keinen 'disputed'-Wert. Um Downstream-
+// Views (die 'paid' als vereinnahmt werten) nicht zu verfälschen, wird der
+// Zahlungsstatus NICHT verändert. Der Dispute wird per notes + activity_log +
+// Operator-Alert gespiegelt, damit das Team fristgerecht reagieren kann.
+// LexOffice-Reaktion (Storno/Gutschrift) bleibt bewusst manuell.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function handleChargeDisputeCreated(
+  supabase: ReturnType<typeof createClient>,
+  dispute: Stripe.Dispute,
+) {
+  const piId = (dispute.payment_intent as string) || null;
+  const chargeId = (dispute.charge as string) || null;
+
+  logStep("Charge dispute created", {
+    disputeId: dispute.id,
+    charge: chargeId,
+    paymentIntent: piId,
+    reason: dispute.reason,
+    status: dispute.status,
+    amount: dispute.amount,
+  });
+
+  const note = `Stripe DISPUTE eröffnet (${dispute.reason}, Status ${dispute.status}): ${formatEUR((dispute.amount ?? 0) / 100)} — dispute ${dispute.id}`;
+  const reflected: string[] = [];
+
+  if (piId) {
+    const { data: rows } = await supabase
+      .from("v2_payments")
+      .select("id, event_id, notes")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      await supabase
+        .from("v2_payments")
+        .update({ notes: appendNote(row.notes, note), updated_at: new Date().toISOString() })
+        .eq("id", row.id);
+      reflected.push(`v2_payments:${row.id}`);
+      if (row.event_id) {
+        await logActivity(supabase, {
+          entity_type: "event_inquiry",
+          entity_id: row.event_id,
+          action: "payment_disputed",
+          description: note,
+          metadata: {
+            dispute_id: dispute.id,
+            stripe_charge_id: chargeId,
+            reason: dispute.reason,
+            status: dispute.status,
+          },
+        });
+      }
+    }
+  }
+
+  // TODO(A3): LexOffice-Reaktion auf Dispute bewusst NICHT automatisiert
+  // (void-lexoffice-invoice admin-auth-gated; Dispute ≠ Verlust). Team entscheidet.
+
+  await sendOperatorAlert(
+    `⚠️ Zahlungs-Dispute eröffnet (${dispute.reason})`,
+    `<p>Für eine Zahlung wurde ein Dispute/Chargeback eröffnet.</p>
+     <ul>
+       <li><strong>Dispute:</strong> ${esc(dispute.id)}</li>
+       <li><strong>Charge:</strong> ${esc(chargeId ?? "—")}</li>
+       <li><strong>PaymentIntent:</strong> ${esc(piId ?? "—")}</li>
+       <li><strong>Grund:</strong> ${esc(dispute.reason ?? "—")}</li>
+       <li><strong>Status:</strong> ${esc(dispute.status ?? "—")}</li>
+       <li><strong>Betrag:</strong> ${formatEUR((dispute.amount ?? 0) / 100)}</li>
+       <li><strong>Reflektiert in:</strong> ${esc(reflected.join(", ") || "nichts gefunden")}</li>
+     </ul>
+     <p>Bitte Fristen in Stripe beachten und ggf. Beweise einreichen.</p>`,
+  );
+
+  logStep("Dispute processing complete", { disputeId: dispute.id, reflected });
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
