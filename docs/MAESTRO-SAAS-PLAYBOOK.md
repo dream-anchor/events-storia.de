@@ -11,9 +11,15 @@ Abschnitten dazu mischen. Vor dem Einfügen das genannte Modell mit `/model`
 einstellen.
 
 Jeder Block endet mit einem `ABSCHLUSS`-Abschnitt: die Session committet/pusht,
-hakt ihr Kästchen im Fortschritts-Tracking (unten) ab und schreibt eine kurze
-Zusammenfassung. So bleibt der Stand in Git, nicht in einem Chatverlauf, und
-offene „Rücksprache"-Punkte werden sichtbar zurückgemeldet.
+öffnet bei Bedarf einen Draft-PR und gibt eine kurze Zusammenfassung aus. Sie
+fasst dieses Playbook NICHT an — das Fortschritts-Tracking (unten) wird zentral
+im Cockpit gepflegt, damit keine divergierenden Kopien auf Arbeits-Branches
+entstehen. Der Nutzer überträgt die Zusammenfassung ins Cockpit; offene
+„Rücksprache"-Punkte werden so sichtbar zurückgemeldet.
+
+Warum zentral: Ausführungs-Sessions zweigen von `main` ab, wo dieses Playbook
+(noch) nicht liegt — es lebt auf dem Cockpit-Branch. Würde jede Session hier ein
+Kästchen abhaken, entstünden Merge-Konflikte und Doppel-Playbooks.
 
 Reihenfolge: Track A (Sicherheit, sofort) läuft parallel zu Track B
 (Neuaufbau, sequenziell — B-Nummern der Reihe nach abarbeiten, nicht
@@ -76,14 +82,15 @@ Requests ab; kurzer Report, was geändert wurde. Storia-Betrieb bleibt
 funktionsfähig.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### A2 — Löschkonzept & Betroffenenrechte (DSGVO-Minimum)
@@ -128,14 +135,15 @@ Export/Löschung sind als admin-only Edge Functions aufrufbar und getestet.
 NICHT eigenmächtig scharf schalten ohne Rücksprache — Vorschlag zuerst zeigen.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### A3 — Async-Zahlungen & Refunds im Stripe-Webhook
@@ -182,14 +190,15 @@ bestehende Zahlungspfade (Karte) dürfen sich nicht ändern. Report mit den
 getesteten Event-Typen.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ---
@@ -240,14 +249,15 @@ lokal und in einer Cloudflare-Preview-Deployment. Kein Bezug zu
 Storia-Fachlogik in diesem Schritt.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B2 — Multi-Tenant-Isolationsarchitektur entwerfen
@@ -306,14 +316,15 @@ priorisierter Schritt-Liste für den Spike. Wird vor Umsetzung zur Freigabe
 vorgelegt.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B3 — Spike: dünner vertikaler Durchstich
@@ -367,14 +378,15 @@ des jeweils anderen Mandanten). Das ist das wichtigste Abnahmekriterium
 im ganzen Projekt — nicht überspringen oder oberflächlich testen.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B4 — Datenschicht: Refine-Data-Provider für Neon
@@ -425,14 +437,15 @@ Cross-Tenant-Negativtests grün. Kein Refine-Resource-Zugriff ohne
 Tenant-Filter möglich.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B5 — Auth-Port: Login, Rollen, Session
@@ -481,14 +494,15 @@ Owner-Aktionen ausführen (serverseitig getestet, nicht nur UI-verborgen);
 Einladungs-Flow funktioniert end-to-end mit Test-E-Mail.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B6 — Kern-Workflow portieren (Anfrage → Angebot → Auftrag → Zahlung)
@@ -539,14 +553,15 @@ bauen und senden, eine Testzahlung auslösen (Stripe Test-Mode) — alles im
 neuen Stack, ohne Bezug zum Altsystem.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B7 — Storage: Buckets → R2
@@ -591,14 +606,15 @@ ABNAHME: Upload/Download funktioniert pro Tenant, Cross-Tenant-Zugriffstest
 auf R2-Pfade schlägt fehl wie erwartet (403/404).
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B8 — Realtime-Ersatz
@@ -644,14 +660,15 @@ ABNAHME: Zahlungsstatus-Änderung wird im Kunden-Frontend live sichtbar
 den Kanal negativ.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B9 — Edge Functions → Workers (modulweise, pro Modul wiederholen)
@@ -706,14 +723,15 @@ Modul lässt sich für einen anderen Testmandanten deaktivieren und ist dann
 nicht aufrufbar (403), nicht nur UI-verborgen.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B10 — Modul-Registry
@@ -757,14 +775,15 @@ schalten; deaktiviertes Modul ist serverseitig blockiert, nicht nur
 UI-versteckt.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B11 — Onboarding & Provisioning für neue Restaurants
@@ -808,14 +827,15 @@ landet in einem isolierten, funktionsfähigen Zustand mit nur den
 Kern-Modulen aktiv — ohne dass ich manuell in der DB etwas anlegen muss.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B12 — Billing/Subscription-Infrastruktur
@@ -862,14 +882,15 @@ Kündigung/Zahlungsausfall korrekt entzogen (mit Kulanzfrist, keine
 sofortige Kaltabschaltung).
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B13 — PWA / Offline / Push
@@ -914,14 +935,15 @@ ABNAHME: App installierbar auf iOS/Android-Homescreen; Test-Push-
 Benachrichtigung kommt an, wenn App im Hintergrund/geschlossen ist.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### B14 — i18n-Grundgerüst
@@ -960,14 +982,15 @@ ABNAHME: Sprachwechsel funktioniert für die getesteten Bereiche; keine
 hartkodierten deutschen Strings mehr in den portierten Kern-Komponenten.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ---
@@ -1016,14 +1039,15 @@ lebenden Daten. KEINE Ausführung gegen Produktions-Neon ohne meine
 ausdrückliche Freigabe des Dry-Run-Reports.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### C2 — Finaler Security- & Isolations-Review
@@ -1073,14 +1097,15 @@ ABNAHME: Schriftlicher Befund mit Schweregrad je Finding. Bei JEDEM
 bei Cross-Tenant-Findings.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### C3 — Parallelbetrieb & Monitoring
@@ -1124,14 +1149,15 @@ ABNAHME: Monitoring aktiv, Parallelbetrieb-Zeitraum definiert und von mir
 freigegeben, bevor der eigentliche Cutover startet.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ### C4 — Cut-over
@@ -1173,14 +1199,15 @@ vom Nutzer entschieden. Altsystem wird NICHT abgeschaltet, bis der neue
 Stack mindestens 1–2 Wochen fehlerfrei produktiv lief.
 
 ABSCHLUSS (immer am Ende dieser Aufgabe):
-1. Arbeit committen + auf den Branch pushen.
-2. Zugehöriges Kästchen im Fortschritts-Tracking abhaken:
-   docs/MAESTRO-SAAS-PLAYBOOK.md im Repo events-storia.de (falls diese
-   Session dort keinen Zugriff hat, die Zusammenfassung dem Nutzer geben,
-   der sie überträgt).
-3. 3–5-Zeilen-Zusammenfassung schreiben: was erledigt, welche
-   Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
-   IMAP-Relay, Stripe Connect, Retention-Fristen).
+1. Arbeit committen + auf den Arbeits-Branch pushen; falls noch kein offener
+   PR für den Branch existiert, einen Draft-PR öffnen.
+2. Eine 3–5-Zeilen-Zusammenfassung an den Nutzer ausgeben: was erledigt,
+   welche Abnahmekriterien grün, welche Entscheidung/Rücksprache offen (z.B.
+   IMAP-Relay, Stripe Connect, Retention-Fristen). Der Nutzer überträgt sie
+   ins Cockpit, das das Fortschritts-Tracking pflegt.
+3. KEINE Playbook-Datei (docs/MAESTRO-SAAS-PLAYBOOK.md) anlegen oder ändern —
+   die liegt zentral im Cockpit und wird nur dort gepflegt. Kein zweites
+   Tracking auf diesem Branch erzeugen.
 ```
 
 ---
