@@ -132,8 +132,11 @@ Deno.serve(async (req) => {
     const { view, idColumn } = SCOPE_TO_VIEW[scope];
 
     let query = supabase.from(view).select(`${idColumn}, age_days`).limit(limit);
-    if (policy.soft_delete_after_days != null) {
-      query = query.gte("age_days", policy.soft_delete_after_days);
+    const cutoffDays = policy.hard_delete_after_days;
+    if (cutoffDays == null) {
+      query = query.gte("age_days", 2147483647); // fail-safe: ohne Frist nichts
+    } else {
+      query = query.gte("age_days", cutoffDays);
     }
     const { data: candidates, error: candErr } = await query;
     if (candErr) throw candErr;
