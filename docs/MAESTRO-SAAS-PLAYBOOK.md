@@ -1260,10 +1260,13 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Idempotenz) + neue Event-Typen am Webhook-Endpoint aktivieren.
 - [~] **Track B** — Neuer Stack (B1+B2+B3 stehen; DB-Isolation empirisch bewiesen)
   - [x] B1 Infra-Grundgerüst — Neon-Projekt `events-storia.de` (`soft-lake-86506456`,
-        Branch `production`, PG18) via Composio angebunden; Rollen `authenticated`/`anonymous`,
-        pg_session_jwt, Schema tenants/tenant_users/inquiries + FORCE RLS + Seed (2 Mandanten).
-        Cloudflare + Neon über Composio verbunden. OFFEN: Cloudflare-Deploy (Worker/Pages) +
-        Stack-Auth-IdP-Provisionierung (Login/JWKS) — beides autonom via Composio möglich (Gate).
+        Branch `production`, PG18) via Composio. Schema tenants/tenant_users/inquiries +
+        current_user_tenants()-Helfer + FORCE RLS + Seed (tenant-a/tenant-b). Rolle
+        `authenticated` auf LOGIN gesetzt (kein BYPASSRLS) → DATABASE_AUTHENTICATED_URL.
+        **Neon Auth = Stack Auth** provisioniert (Provider `stack`, Project 4ccda48c-…,
+        JWKS live ES256); Better-Auth-Default vorher abgeschaltet. Keys ins Scaffold verdrahtet.
+        OFFEN: Cloudflare-Deploy (Worker/Pages, Wildcard-DNS) — via Composio; erster Real-Login
+        (User-`sub` → tenant_users mappen, 1 SQL, dokumentiert in docs/LIVE-SETUP.md).
   - [x] B2 Isolationsarchitektur entworfen — docs/ARCHITECTURE-MULTITENANCY.md (Opus).
         Kern: Neon RLS (JWT-`sub` via pg_session_jwt) primär + FORCE RLS default-deny;
         einziger DB-Zugang via withTenant(), keine RLS-umgehende Rolle im Request-Pfad;
@@ -1271,11 +1274,13 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Secrets envelope-encrypted in tenant_secrets; PublicOffer per Subdomain + 128-Bit-Token.
   - [x] B3 Spike bestanden (Cross-Tenant-Test GRÜN) — Scaffold `maestro-cloud` (pnpm-Monorepo:
         packages/db Drizzle+RLS, apps/api Cloudflare-Worker/Hono, apps/web Vite/React/Refine/Stack).
-        **Empirisch gegen echte Neon-Branch verifiziert** (Rolle `authenticated`, set_config-Pfad,
-        FORCE RLS): A sieht nur A · B nur B · ohne Session 0 · Cross-Tenant-Read 0 · Forged-Insert
-        blockiert · 0 Hack-Zeilen. Befund: `auth.user_id()` unter `authenticated` rollen-abhängig →
-        Policies lesen `sub` via SECURITY-DEFINER-Helfer direkt aus `request.jwt.claims`
-        (sql/05_auth_helper.sql). Als ZIP an Nutzer geliefert; Push blockiert (Git-Proxy).
+        **End-to-end empirisch verifiziert** über eine DIREKTE `authenticated`-Login-Verbindung
+        (exakter Worker-Pfad, gepoolter Endpoint, set_config): A sieht nur A · B nur B · ohne
+        Session 0 · Cross-Tenant-Read 0 · Forged-Insert blockiert · 0 Hack-Zeilen. Befund:
+        `auth.user_id()` unter `authenticated` rollen-abhängig → Policies lesen `sub` via
+        SECURITY-DEFINER-Helfer direkt aus `request.jwt.claims` (sql/05_auth_helper.sql).
+        Scaffold an LIVE-Infra verdrahtet (.env/.dev.vars/.env.local), als LIVE-ZIP geliefert.
+        Push blockiert (Git-Proxy) → Scaffold ist eigenes Repo (Git-Historie im ZIP).
   - [ ] B4 Data-Provider
   - [ ] B5 Auth-Port
   - [ ] B6 Kern-Workflow portiert
