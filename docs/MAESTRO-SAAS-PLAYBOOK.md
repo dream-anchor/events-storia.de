@@ -1285,9 +1285,17 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Build-Blocker: @types/node, React 18→19 (Stack-Auth-SDK-Anforderung), jose KeyResolver-Typ,
         StackHandler-Props (kein `navigate` → Offener Punkt #2 aus SDK-Typen gelöst).
         Push blockiert (Git-Proxy) → Scaffold ist eigenes Repo (Git-Historie im ZIP).
-  - [ ] B4 Data-Provider
+  - [ ] B4 Data-Provider (Backend-CRUD steht → Refine-Provider fürs Frontend offen)
   - [ ] B5 Auth-Port
-  - [ ] B6 Kern-Workflow portiert
+  - [~] B6 Kern-Workflow portiert — **Kern-Spine als Schema+RLS+API+Tests bewiesen** (2026-07-04).
+        Domänen-Analyse ergab: Ziel ist der `v2_*`-Spine (nicht Legacy). Portiert nach Neon +
+        Scaffold: `customers → events → offer_options → offer_history` (event_status-Enum, Geld in
+        Cents, per-Mandant-eindeutige Keys, FORCE-RLS via Helfer). Worker-Routen /api/customers,
+        /api/events(+?status), /api/events/:id/offers, PATCH /api/offers/:id — tenant_id serverseitig,
+        customerId-Mandantenprüfung, Angebot nur an eigenes Event. **12/12 Cross-Tenant-Tests grün
+        gegen Live-Neon**, typecheck+wrangler-build grün. OFFEN (eigene Durchläufe): Angebot-Versand/
+        Public-Token-Seite, **Zahlungen (Stripe, Opus-Pass)**, LexOffice/IMAP/eSign/KI/WhatsApp (Module),
+        Frontend-UI (OfferBuilder etc.).
   - [ ] B7 Storage → R2
   - [ ] B8 Realtime-Ersatz
   - [ ] B9 Module portiert: [ ] LexOffice [ ] IMAP [ ] eSignatures [ ] KI [ ] WhatsApp
