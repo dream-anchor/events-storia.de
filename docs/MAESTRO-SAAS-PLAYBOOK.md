@@ -1292,10 +1292,14 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Scaffold: `customers → events → offer_options → offer_history` (event_status-Enum, Geld in
         Cents, per-Mandant-eindeutige Keys, FORCE-RLS via Helfer). Worker-Routen /api/customers,
         /api/events(+?status), /api/events/:id/offers, PATCH /api/offers/:id — tenant_id serverseitig,
-        customerId-Mandantenprüfung, Angebot nur an eigenes Event. **12/12 Cross-Tenant-Tests grün
-        gegen Live-Neon**, typecheck+wrangler-build grün. OFFEN (eigene Durchläufe): Angebot-Versand/
-        Public-Token-Seite, **Zahlungen (Stripe, Opus-Pass)**, LexOffice/IMAP/eSign/KI/WhatsApp (Module),
-        Frontend-UI (OfferBuilder etc.).
+        customerId-Mandantenprüfung, Angebot nur an eigenes Event.
+        **+ Angebot-Versand & Status-Maschine:** POST /api/events/:id/offers/send (friert aktive
+        Optionen als offer_history-Snapshot ein, hebt Version, mintet 256-Bit-Public-Token idempotent,
+        Status→offer_sent) und POST /api/events/:id/transition (explizite Übergangs-Whitelist,
+        lib/event-status.ts; ungültig→409). **18/18 Cross-Tenant-Tests grün gegen Live-Neon**,
+        typecheck+wrangler-build grün. OFFEN (eigene Durchläufe): **öffentliche Angebotsseite**
+        (unauth, token-basiert — höchstes Risiko, mit Negativtests), **Zahlungen (Stripe, Opus-Pass)**,
+        LexOffice/IMAP/eSign/KI/WhatsApp (Module), Frontend-UI (OfferBuilder etc.).
   - [ ] B7 Storage → R2
   - [ ] B8 Realtime-Ersatz
   - [ ] B9 Module portiert: [ ] LexOffice [ ] IMAP [ ] eSignatures [ ] KI [ ] WhatsApp
