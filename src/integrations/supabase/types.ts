@@ -1419,6 +1419,57 @@ export type Database = {
           },
         ]
       }
+      backup_email_delivery_logs_20260704: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          id: string | null
+          metadata: Json | null
+          provider: string | null
+          provider_message_id: string | null
+          recipient_email: string | null
+          recipient_name: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string | null
+          metadata?: Json | null
+          provider?: string | null
+          provider_message_id?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string | null
+          metadata?: Json | null
+          provider?: string | null
+          provider_message_id?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Relationships: []
+      }
       balance_payment_links: {
         Row: {
           active: boolean
