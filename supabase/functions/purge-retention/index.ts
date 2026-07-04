@@ -67,9 +67,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const auth = await requireAuth(req);
-    if (auth.role !== "admin") {
-      return json({ error: "Admin-Rechte erforderlich" }, 403, corsHeaders);
+    const cronSecret = Deno.env.get("PURGE_CRON_SECRET");
+    const isCron = !!cronSecret && req.headers.get("x-cron-secret") === cronSecret;
+    let auth: { email: string; role: string } = { email: "cron@system", role: "admin" };
+    if (!isCron) {
+      const authed = await requireAuth(req);
+      if (authed.role !== "admin") {
+        return json({ error: "Admin-Rechte erforderlich" }, 403, corsHeaders);
+      }
+      auth = authed;
     }
 
     const body = await req.json().catch(() => ({}));
