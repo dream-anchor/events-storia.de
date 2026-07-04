@@ -1286,7 +1286,11 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         StackHandler-Props (kein `navigate` → Offener Punkt #2 aus SDK-Typen gelöst).
         Push blockiert (Git-Proxy) → Scaffold ist eigenes Repo (Git-Historie im ZIP).
   - [ ] B4 Data-Provider (Backend-CRUD steht → Refine-Provider fürs Frontend offen)
-  - [ ] B5 Auth-Port
+  - [~] B5 Auth-Port / Rollen — **Rollenmodell Owner/Admin/Staff pro Mandant, DB-seitig erzwungen**
+        (2026-07-04). `ctx.role` in withTenant DB-aufgelöst; rollen-gesicherte Löschungen (Staff→403);
+        GET /api/members (Co-Member-Sichtbarkeit tenant-scoped, cross-tenant isoliert). **29/29 Tests
+        grün gegen Live-Neon.** Login/Session steht seit B3 (Stack Auth). OFFEN: Einladungs-Flow
+        (Stack-Auth-E-Mail-Invite) + Member-Schreiben (add/role-change/remove via Definer-Funktionen).
   - [~] B6 Kern-Workflow portiert — **Kern-Spine als Schema+RLS+API+Tests bewiesen** (2026-07-04).
         Domänen-Analyse ergab: Ziel ist der `v2_*`-Spine (nicht Legacy). Portiert nach Neon +
         Scaffold: `customers → events → offer_options → offer_history` (event_status-Enum, Geld in
@@ -1304,8 +1308,14 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         umgangen. Bewiesen: richtiger (slug,token)=Angebot · falscher Tenant/Slug/Token=404 ·
         Direkt-Tabellenzugriff=denied · fremde Option=400 · Annahme→offer_chosen. **24/24 Tests grün
         gegen Live-Neon.** Damit ist die **Kern-Hauptfunktion end-to-end** (Anfrage→Angebot→Senden→
-        Kundenannahme). OFFEN (eigene Durchläufe): **Zahlungen (Stripe Connect, Opus-Pass)**,
-        LexOffice/IMAP/eSign/KI/WhatsApp (Module, B9/B10), Frontend-UI (OfferBuilder etc.), B5-Rollen.
+        Kundenannahme).
+        **+ Zahlungs-Fundament bewiesen (Stripe Connect):** `payments`-Tabelle (Cents) + tenant-RLS;
+        `tenants.stripe_account_id` (kein Secret gespeichert); Webhook-Rolle `maestro_webhook` (nur
+        EXECUTE) + `apply_stripe_payment()` bindet jedes Update an den Connect-Account des Mandanten →
+        gefälschtes/fremdes Webhook-Event kann fremde Zahlung NICHT ändern (account_mismatch bewiesen;
+        Erfolg → Event→paid). Scaffold-Routen/Webhook-Handler im Bau. OFFEN: **Live-Stripe-Keys +
+        Checkout-Session-Erzeugung** (Nutzer-Schritt), LexOffice/IMAP/eSign/KI/WhatsApp (Module,
+        B9/B10), Frontend-UI (OfferBuilder etc.).
   - [ ] B7 Storage → R2
   - [ ] B8 Realtime-Ersatz
   - [ ] B9 Module portiert: [ ] LexOffice [ ] IMAP [ ] eSignatures [ ] KI [ ] WhatsApp
