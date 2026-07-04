@@ -1315,9 +1315,10 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         gefälschtes/fremdes Webhook-Event kann fremde Zahlung NICHT ändern (account_mismatch bewiesen;
         Erfolg → Event→paid). Scaffold fertig: payments-Schema, /api/events/:id/payments (CRUD),
         /api/stripe/webhook (WebCrypto-HMAC-Signaturprüfung, injizierbar; nur DATABASE_WEBHOOK_URL),
-        reiner Event→Status-Mapper. **43/43 Tests grün gegen Live-Neon.** OFFEN: **Live-Stripe-Keys +
-        Checkout-Session-Erzeugung** (Nutzer-Schritt; `// TODO(stripe keys)`), Stripe-Signatur-
-        Timestamp-Toleranz (Replay-Härtung, minor), LexOffice/IMAP/eSign/KI/WhatsApp (Module, B9/B10),
+        reiner Event→Status-Mapper, Signaturprüfung inkl. **Timestamp-Toleranz (Replay-Schutz)**.
+        **48/48 Tests grün gegen Live-Neon.** OFFEN: **Live-Stripe-Keys +
+        Checkout-Session-Erzeugung** (Nutzer-Schritt; `// TODO(stripe keys)`),
+        LexOffice/IMAP/eSign/KI/WhatsApp (Module, B9/B10),
         Frontend-UI (OfferBuilder etc.).
   - [ ] B7 Storage → R2
   - [ ] B8 Realtime-Ersatz
