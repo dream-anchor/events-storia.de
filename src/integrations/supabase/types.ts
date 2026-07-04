@@ -7139,6 +7139,7 @@ export type Database = {
           was_new: boolean
         }[]
       }
+      run_retention_purge: { Args: never; Returns: undefined }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       submit_offer_response: {
