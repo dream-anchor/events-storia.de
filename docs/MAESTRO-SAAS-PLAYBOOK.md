@@ -1297,9 +1297,15 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Optionen als offer_history-Snapshot ein, hebt Version, mintet 256-Bit-Public-Token idempotent,
         Status→offer_sent) und POST /api/events/:id/transition (explizite Übergangs-Whitelist,
         lib/event-status.ts; ungültig→409). **18/18 Cross-Tenant-Tests grün gegen Live-Neon**,
-        typecheck+wrangler-build grün. OFFEN (eigene Durchläufe): **öffentliche Angebotsseite**
-        (unauth, token-basiert — höchstes Risiko, mit Negativtests), **Zahlungen (Stripe, Opus-Pass)**,
-        LexOffice/IMAP/eSign/KI/WhatsApp (Module), Frontend-UI (OfferBuilder etc.).
+        typecheck+wrangler-build grün.
+        **+ Öffentliche Angebotsseite (unauth) fertig & bewiesen:** GET /api/public/offer/:token +
+        POST .../respond. Sicherheitsmodell: zwei SECURITY-DEFINER-Funktionen (slug+token, Status-Gate)
+        + Rolle `maestro_public` OHNE Tabellenrechte (nur EXECUTE); Auth-Gate NUR für /api/public/*
+        umgangen. Bewiesen: richtiger (slug,token)=Angebot · falscher Tenant/Slug/Token=404 ·
+        Direkt-Tabellenzugriff=denied · fremde Option=400 · Annahme→offer_chosen. **24/24 Tests grün
+        gegen Live-Neon.** Damit ist die **Kern-Hauptfunktion end-to-end** (Anfrage→Angebot→Senden→
+        Kundenannahme). OFFEN (eigene Durchläufe): **Zahlungen (Stripe Connect, Opus-Pass)**,
+        LexOffice/IMAP/eSign/KI/WhatsApp (Module, B9/B10), Frontend-UI (OfferBuilder etc.), B5-Rollen.
   - [ ] B7 Storage → R2
   - [ ] B8 Realtime-Ersatz
   - [ ] B9 Module portiert: [ ] LexOffice [ ] IMAP [ ] eSignatures [ ] KI [ ] WhatsApp
