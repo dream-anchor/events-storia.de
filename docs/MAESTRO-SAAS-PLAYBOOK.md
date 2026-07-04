@@ -1280,6 +1280,10 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         `auth.user_id()` unter `authenticated` rollen-abhängig → Policies lesen `sub` via
         SECURITY-DEFINER-Helfer direkt aus `request.jwt.claims` (sql/05_auth_helper.sql).
         Scaffold an LIVE-Infra verdrahtet (.env/.dev.vars/.env.local), als LIVE-ZIP geliefert.
+        **Scaffold baut & ist test-grün**: db/api/web typecheck, `vite build`, `wrangler --dry-run`;
+        die scaffold-eigene Test-Suite läuft **9/9 grün gegen die Live-Neon-Branch**. Behobene
+        Build-Blocker: @types/node, React 18→19 (Stack-Auth-SDK-Anforderung), jose KeyResolver-Typ,
+        StackHandler-Props (kein `navigate` → Offener Punkt #2 aus SDK-Typen gelöst).
         Push blockiert (Git-Proxy) → Scaffold ist eigenes Repo (Git-Historie im ZIP).
   - [ ] B4 Data-Provider
   - [ ] B5 Auth-Port
