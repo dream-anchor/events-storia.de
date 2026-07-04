@@ -1258,15 +1258,24 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Zahlungs-Fehlschlag fehlt (nur Operator-Alert). Dispute ändert bewusst keinen Status.
         GATE: manuelle Stripe-Test-Mode-Checkliste (SEPA-Erfolg/-Fehlschlag, Dispute, Refunds,
         Idempotenz) + neue Event-Typen am Webhook-Endpoint aktivieren.
-- [ ] **Track B** — Neuer Stack
-  - [ ] B1 Infra-Grundgerüst
+- [~] **Track B** — Neuer Stack (B1+B2+B3 stehen; DB-Isolation empirisch bewiesen)
+  - [x] B1 Infra-Grundgerüst — Neon-Projekt `events-storia.de` (`soft-lake-86506456`,
+        Branch `production`, PG18) via Composio angebunden; Rollen `authenticated`/`anonymous`,
+        pg_session_jwt, Schema tenants/tenant_users/inquiries + FORCE RLS + Seed (2 Mandanten).
+        Cloudflare + Neon über Composio verbunden. OFFEN: Cloudflare-Deploy (Worker/Pages) +
+        Stack-Auth-IdP-Provisionierung (Login/JWKS) — beides autonom via Composio möglich (Gate).
   - [x] B2 Isolationsarchitektur entworfen — docs/ARCHITECTURE-MULTITENANCY.md (Opus).
-        Kern: Neon RLS (JWT org_id via pg_session_jwt) primär + FORCE RLS default-deny;
+        Kern: Neon RLS (JWT-`sub` via pg_session_jwt) primär + FORCE RLS default-deny;
         einziger DB-Zugang via withTenant(), keine RLS-umgehende Rolle im Request-Pfad;
         Jobs/Webhooks minten tenant-scopedte System-Token; Stripe nur account_id (kein Secret);
         Secrets envelope-encrypted in tenant_secrets; PublicOffer per Subdomain + 128-Bit-Token.
-        FREIGABE durch Nutzer offen; dann B3-Spike.
-  - [ ] B3 Spike bestanden (Cross-Tenant-Test grün)
+  - [x] B3 Spike bestanden (Cross-Tenant-Test GRÜN) — Scaffold `maestro-cloud` (pnpm-Monorepo:
+        packages/db Drizzle+RLS, apps/api Cloudflare-Worker/Hono, apps/web Vite/React/Refine/Stack).
+        **Empirisch gegen echte Neon-Branch verifiziert** (Rolle `authenticated`, set_config-Pfad,
+        FORCE RLS): A sieht nur A · B nur B · ohne Session 0 · Cross-Tenant-Read 0 · Forged-Insert
+        blockiert · 0 Hack-Zeilen. Befund: `auth.user_id()` unter `authenticated` rollen-abhängig →
+        Policies lesen `sub` via SECURITY-DEFINER-Helfer direkt aus `request.jwt.claims`
+        (sql/05_auth_helper.sql). Als ZIP an Nutzer geliefert; Push blockiert (Git-Proxy).
   - [ ] B4 Data-Provider
   - [ ] B5 Auth-Port
   - [ ] B6 Kern-Workflow portiert
