@@ -1437,6 +1437,15 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         useApi/apiFetch-Layer (Bearer, Same-Origin). wrangler.toml: Wildcard-Route
         *.schrittmacher.ai/api/* für alle künftigen Mandanten. Web-Build grün, API 48/48 grün.
         Ausgeliefert als maestro-cloud-ui.zip (Deploy = Nutzer: wrangler).
+        **2026-07-05 Design-Angleichung (Stitch, pixelnah):** Stitchs EXAKTES Material-3-Token-
+        Vokabular als Tailwind-Config + index.css übernommen; AppShell/Kernkomponenten/Dashboard/
+        Login von Hand nachgebaut (Login jetzt eigenes Formular via Stack signInWithCredential/
+        signInWithOAuth), restliche 9 Seiten per Workflow (9 Agenten, 0 Fehler) an ihre jeweilige
+        Stitch-Vorlage angeglichen. Build+Typecheck grün. Offene Datenmodell-Lücken (aus Agenten-
+        Feedback, für später): (a) MenuSelection.items nur {section,name} — keine Menge/EP/MwSt pro
+        Position → Builder zeigt nur Gesamt + Preis/Person; (b) keine Angebots-Versions-API (Dropdown
+        zeigt nur aktuelle Version); (c) Inquiry-Typ ohne occasion/budget-Felder. Stitch-MCP
+        (stitch.googleapis.com) via .mcp.json angebunden (STITCH_API_KEY env).
   - [~] B5 Auth-Port / Rollen — **Rollenmodell Owner/Admin/Staff pro Mandant, DB-seitig erzwungen**
         (2026-07-04). `ctx.role` in withTenant DB-aufgelöst; rollen-gesicherte Löschungen (Staff→403);
         GET /api/members (Co-Member-Sichtbarkeit tenant-scoped, cross-tenant isoliert). **29/29 Tests
