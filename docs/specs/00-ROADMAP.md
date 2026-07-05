@@ -30,7 +30,7 @@ Kapital) — die unbesetzte Flanke ist 1–20-MA-Gastro.
 
 | Modul | Spec | Klasse | Kurz |
 |---|---|---|---|
-| Katalog & Stammdaten | 01 | **Kern** (Import = Modul) | 1 Katalog `catalog_items`; KI-Import als Onboarding-Hebel |
+| Katalog & Stammdaten | 01 | **Kern** (Import = Modul) | ✅ **umgesetzt+live-verifiziert** — 1 Katalog `catalog_items`; KI-Import als Onboarding-Hebel |
 | Angebots-Builder | 02 | **Kern** | `offer_items` mit echten Preisen/MwSt; 1 Pricing-Engine |
 | Versand & Annahme | 03 | **Kern** | Mail-Versand, Web-Angebot, E-Sign-light, Stripe-Anzahlung, Nachfass-Cron |
 | Dokumente/Vorlagen/Versionen | 04 | **Kern** | eigenes PDF (Cloudflare Browser Rendering), WORM-Archiv, Vorlagen |
@@ -52,8 +52,10 @@ Kapital) — die unbesetzte Flanke ist 1–20-MA-Gastro.
                    └──► 04 Doku/PDF ─┘        05 KI-Gateway = Querschnitt (parallel, von 01-03 genutzt)
 06 Speisekarten-Import schreibt in 01 (Katalog)
 ```
-**Sprint P1 (jetzt in Umsetzung):** 01 → 02 → 04(PDF) → 03(Versand+Annahme+Anzahlung) →
+**Sprint P1 (in Umsetzung):** ~~01~~ ✅ → 02 → 04(PDF) → 03(Versand+Annahme+Anzahlung) →
 05(KI-Gateway als Basis). Ergebnis = kompletter Nordstern-Flow.
+**Stand Nacht 2026-07-05:** Spec 01 (Katalog) implementiert, 57/57 Tests grün gegen Live-Neon,
+RLS-Isolation live bewiesen, Migration angewendet. Details: `docs/CHECKPOINT-2026-07-05-katalog.md`.
 **P2** Zusammenarbeit · **P3** Zahlungen scharf (+ Kunden-Intelligenz) · **P4** E-Mail-Inbox ·
 **P5** LexOffice · danach eSign/WhatsApp/…
 
