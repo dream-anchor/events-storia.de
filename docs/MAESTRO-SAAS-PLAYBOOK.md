@@ -995,6 +995,137 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
 
 ---
 
+## Feature-Modul: Kunden-Intelligenz (Lead-Enrichment & Risiko-Ampel)
+
+> Recherchiert + adversarial verifiziert 2026-07-05 (12 Agenten, Quellen unten).
+> **Ziel:** Bei jeder eingehenden Anfrage den Anfragenden wirtschaftlich einschätzen
+> (Zahlungsausfall-Risiko), damit der Betrieb Anzahlungshöhe/Zahlungsziel bewusst
+> staffeln kann. **Differenzierung:** Tripleseat/Perfect Venue/Event Temple bieten
+> Lead-Scoring UND Zahlungsautomatisierung, aber **kein** Event-Tool koppelt eine
+> Risiko-Bewertung an die Anzahlungslogik. Genau diese Kopplung ist der USP.
+
+### Leitprinzip: Zwei-Stufen-Architektur (DSGVO-Kern)
+- **Stufe 1 – automatisch bei Anfrageeingang, NUR juristische Personen (Firmen):**
+  Firmen-Stammdaten, Rechtsform, Firmenalter, Insolvenzstatus, Firmenbonität.
+  Firmendaten juristischer Personen fallen nach **ErwG 14 DSGVO** weitgehend NICHT
+  unter die DSGVO → automatischer Abruf zulässig.
+- **Stufe 2 – manuell/ereignisgesteuert, personenbezogen (Bonität natürlicher Personen):**
+  Nur bei **konkreter Vertragsanbahnung mit echtem Vorleistungsrisiko**, nie in der
+  reinen Angebotsphase. B2C (Hochzeit/Geburtstag einer Privatperson) → **keine**
+  automatische Auskunftei-Abfrage; Risiko dort ausschließlich über **Anzahlung/Vorkasse**
+  steuern (das mildere Mittel, macht die Bonitätsprüfung meist schon „nicht erforderlich").
+
+### Datenquellen-Matrix (Stand 2026, Self-Service-tauglich für kleines SaaS)
+| Quelle | Liefert | Modell / Preis | Bewertung |
+|---|---|---|---|
+| **Impressum-Crawl (§5 DDG)** | Firma, HRB-Nr, Registergericht, USt-ID, GF | gratis | **Basis-Schritt** — HRB-Nr = exakter Lookup-Schlüssel, vermeidet Namens-False-Positives |
+| **OpenRegister API** | GF, Gesellschafter, UBO, Financials, Dokumente | Self-Service, Free 50/Mon, Pro 59 €/Mon (~0,10–0,20 €/Profil) | **Primärquelle v1** (Startup-Rabatt bis 50% erfragen) |
+| **handelsregister.ai** | + AI-Fuzzy-Suche, Insolvenz, Kontakt, Jahresabschluss (Markdown), MCP-Server | 500 Gratis-Credits, Plus ab 69 €/Mon | **Zweitquelle** — Fuzzy-Suche passt zu unstrukturierten Formular-Eingaben |
+| **VIES-REST + BZSt eVatR** | USt-ID-Validierung (DE: nur Gültigkeit; EU: qualifiziert) | gratis, kein Key | USt-ID-Feld im Formular validieren (alte XML-RPC seit 30.11.2025 tot) |
+| **insolvenzbekanntmachungen.de / Insolvenz-Radar API** | Insolvenzstatus | Self-Service (Insolvenz-Radar) | **Firmeninsolvenzen NICHT auf 2 Wochen begrenzt** (§2 InsBekV n.F. — die 2-Wochen-Sperre gilt nur für **Verbraucher**insolvenzen; verifiziert-korrigiert) |
+| **Google Places API** | Kategorie, Bewertungen, Öffnungszeiten (Größen-/Seriositätsindiz) | ~17 $/1.000 Details (FieldMask streng setzen!) | optional, günstiges Firmensignal |
+| **Brave Search / Exa API** | LinkedIn-Profil-**Links** + Snippets on-demand | Brave 2.000 Queries/Mon gratis, eigener Index | Personen-Lookup **ohne Speichern** (SerpApi meiden — Google-Klage 12/2025) |
+| **Dropcontact** (optional Stufe 3) | Firmendaten inkl. Branche/Größe, E-Mail-Verifikation | ab 24 €/Mon, französisch, **keine Personendatenbank** | DSGVO-vertretbarer Enrichment-Anbieter, falls Speicherung gewünscht |
+| **Stripe + Billie (B2B-BNPL)** | Echtzeit-Bonität, **trägt Ausfallrisiko** | Payment-Method auf bestehendem Stripe | **Bevorzugter Weg für Zahlungsausfallrisiko** — SaaS verarbeitet KEINE Bonitätsdaten |
+
+**Bewusst NICHT in v1:** eigenes Scraping von handelsregister.de (Nutzungsordnung: max.
+60 Abrufe/h, Verbot autom. Massenabfragen, §§303a/b StGB), LinkedIn-Scraping/Proxycurl
+(von LinkedIn verklagt, 04.07.2025 dichtgemacht — Totalausfall-Risiko), klassische
+Auskunfteien Creditreform/CRIF/Schufa (vertriebsgeführt, berechtigtes Interesse pro
+Abruf nötig — falls später: Creditsafe Connect als Einstieg).
+
+**Erwartungssteuerung Finanzdaten:** Kleinst- und kleine Kapitalgesellschaften
+(die typischen Anfrager-GmbHs) veröffentlichen **keinen Umsatz** — nur (verkürzte)
+Bilanz. Score/UI müssen fehlende Umsatzdaten als **Normalfall** behandeln; Proxy =
+Bilanzsumme, Eigenkapital, Stammkapital, Rechtsform, Firmenalter.
+
+### DSGVO-Leitplanken (harte Regeln — vor Bau umsetzen)
+1. **Rechtsgrundlage:** Art. 6(1)(f) (bzw. (b) vorvertraglich). Vorteil hier: Es geht um
+   Anreicherung der **eigenen eingehenden Anfrage** des Betroffenen, nicht Cold Outbound →
+   Interessenabwägung fällt leichter, §7 UWG greift nicht. LIA schriftlich dokumentieren.
+2. **Transparenz Art. 13/14:** Datenschutzhinweis direkt im Anfrageformular + **aktive**
+   Information (Kategorien, Quellen, Widerspruchsrecht Art. 21) spätestens mit der ersten
+   Antwort-Mail (Template-Baustein im SaaS). NICHT auf „unverhältnismäßiger Aufwand" bauen.
+3. **GF-Daten aus HR** sind personenbezogen (EuGH C-710/23): strikte Zweckbindung, keine
+   anlasslose GF-Vorratsdatenbank, Löschung an den Anfrage-Lifecycle koppeln (C-26/22).
+4. **LinkedIn = nur verlinken**, keine Profildaten kopieren/persistieren.
+5. **Score Art.-22-sicher:** keine Auto-Ablehnung, Einzelfaktoren + Rohdaten anzeigen (nicht
+   nur eine Zahl), Mensch muss abweichen können (Abweichung protokollieren), Monitoring —
+   folgen Betriebe faktisch immer dem Score, droht Einstufung als autom. Einzelentscheidung
+   (EuGH C-634/21) mit Erklär-/Anfechtungspflichten. Score **empfiehlt**, Mensch entscheidet.
+6. **Verträge:** AVV SaaS↔Betrieb (Art. 28); Auskunfteien = Controller-zu-Controller (kein
+   AVV, aber berechtigtes Interesse je Abruf dokumentieren — Pflichtfeld „Anlass"); reine
+   Enrichment-APIs = AVV. **DSFA (Art. 35)** fürs Scoring; LIA+DSFA als Compliance-Paket an
+   die Gastro-Kunden mitliefern.
+7. **Löschung:** Anreicherungsdaten löschen, wenn die Anfrage nicht zum Vertrag führt
+   (Wochen bis max. 6 Monate); absolute Obergrenze 3 Jahre (Code of Conduct Auskunfteien).
+   Widerspruch (Art. 21) → Anreicherung stoppen + Daten löschen. Passt zum bestehenden
+   Löschkonzept aus Track A2.
+
+### Risiko-Ampel: 7-Faktor-Score + Aktions-Matrix
+Gewichteter Score (0–100), Schwellen initial **75 (grün) / 50 (gelb)**, nach 6 Monaten
+gegen reale Verzüge kalibrieren. **K.-o.-Kriterien → sofort ROT:** laufendes
+Insolvenzverfahren, früherer Forderungsausfall beim eigenen Betrieb.
+
+| Faktor | Gewicht | Quelle |
+|---|---|---|
+| Eigene Zahlungshistorie (Verzugstage, Mahnstufen) | **25 %** | intern (Stripe/Aufträge) — **stärkster Prädiktor**, Benchmark Ø 7,5 Tage Verzug (DE) |
+| Externer Bonitätsindex | 20 % | nur wenn abgefragt (sonst Gewicht auf Gratis-Signale umlegen) |
+| Rechtsform / Haftung | 15 % | UG (1 € Stammkapital) = hohes Risiko · GbR/e.K. persönliche Haftung |
+| Storno / No-Show-Quote | 10 % | intern |
+| Firmenalter | 10 % | <2 J. stärkster Insolvenzanstieg, <4 J. = 21 % aller Verfahren |
+| Web-/Domain-Präsenz | 10 % | WHOIS-Domain-Alter, Freemail-Erkennung, Google-Bewertungen |
+| Auftragsrisiko (Wert × Vorleistung) | 10 % | intern (Angebotswert) |
+
+**Aktions-Matrix (Score steuert Anzahlung im Angebots-/Checkout-Flow):**
+- 🟢 **Grün:** Rechnung 14–30 Tage + 30 % Anzahlung (Stammkunde → VIP-Flag, Priorisierung)
+- 🟡 **Gelb:** 50 % Anzahlung + Rest 7 Tage vor Event, kein Zahlungsziel
+- 🔴 **Rot:** 100 % Vorkasse via Stripe **oder** begründete Absage
+
+Catering-Faustregeln (Kalibrierungs-Basis): Anzahlung 20–50 % bei Buchung (30 % gängig,
+50 % verbreitet), Rest ~1 Monat bzw. 7–14 Tage vor Event, B2B-Zahlungsziel default 30 Tage.
+Karten-Hinterlegung senkt No-Shows nachweislich bis −65 %.
+
+### Umsetzung gegen unseren Stack (Neon + Cloudflare Worker)
+1. **Trigger:** Beim Insert einer Anfrage (POST /api/inquiries) asynchron eine
+   Enrichment-Aufgabe anstoßen (Worker-`ctx.waitUntil` oder Queue), damit die Formular-Antwort
+   nicht blockiert.
+2. **Pipeline:** E-Mail-Domain → Website/Impressum crawlen + per LLM parsen → HRB-Nr →
+   OpenRegister/handelsregister.ai-Lookup → Insolvenz-Check → interne Historie aggregieren
+   (Neon-View pro Kunde: Ø Verzugstage, Mahnstufen, Stornoquote, Auftragsalter/-wert).
+3. **Speicherung:** neue Tabelle `customer_intel` (tenant-scoped, RLS wie alles) mit
+   Roh-Signalen + Score + Faktor-Aufschlüsselung + `expires_at` (Löschautomatik).
+   Secrets der Enrichment-APIs als Worker-Secrets, nie im Client.
+4. **UI:** Ampel-Badge im Anfrage-Detail-Drawer + aufklappbare Faktor-Liste (Erklärbarkeit);
+   Anzahlungs-Vorschlag im Angebots-Builder vorbelegt, aber editierbar (Mensch bestätigt).
+5. **Positionierung im Produkt:** als **„Recherche-Assistent"** framen (Links, öffentliche
+   Firmendaten, Vorschläge), NICHT als Profildatenbank → minimiert Rechts- UND
+   Anbieter-Abhängigkeitsrisiko (Enrichment-Markt ist 2025/26 instabil).
+
+### Phasen
+- **v1 (gratis, sofort, größter Hebel):** interne Historie-Signale (Neon-View) + Rechtsform-Parsing
+  + Impressum/USt-ID + Insolvenz-Check + Anzahlungs-Staffel. Kein externer Cent nötig.
+- **v2 (bezahlt, ab Schwelle):** OpenRegister/handelsregister.ai für Firmen-Stammdaten/Financials;
+  bezahlte Bonität (Creditsafe/Creditreform) nur ab Auftragswert-Schwelle (z. B. 5.000 €) und
+  nur bei Rechnungskauf-Wunsch, Ergebnis 12 Monate cachen.
+- **v3 (optional):** Personen-Lookup (Brave/Exa, nur Links), Dropcontact, Billie als
+  Ausfallrisiko-Offloading.
+
+### Offene Nutzer-Entscheidungen (vor Bau klären)
+- Auftragswert-Schwelle für bezahlte Bonität + für „personenbezogene Stufe 2".
+- Datenschutzerklärung + Anfrageformular-Hinweis + Antwort-Mail-Baustein juristisch final abstimmen
+  (Speranza GmbH/DSB) — analog Track A2.
+- Budget für Enrichment-APIs (OpenRegister Pro 59 €/Mon als Startpunkt) freigeben.
+- Billie als Stripe-Payment-Method aktivieren (ja/nein).
+
+### Quellen (Auswahl, verifiziert)
+handelsregister.de-Nutzungsordnung + fragdenstaat.de (keine offizielle API) · DiRUG (Gratis-Abrufe
+seit 1.8.2022) · openregister.de/docs (Pricing) · handelsregister.ai · §2 InsBekV n.F. (2-Wochen-Sperre
+nur Verbraucher) · EuGH C-621/22, C-634/21, C-710/23, C-26/22 · ErwG 14 DSGVO · hiQ/Proxycurl-Verfahren ·
+Creditreform Zahlungsindikator H2/2025 · VIES-REST + BZSt eVatR.
+
+---
+
 ## Cutover (erst wenn B1–B12 stehen)
 
 ### C1 — Storia-Datenmigration (Dry-Run zuerst)
