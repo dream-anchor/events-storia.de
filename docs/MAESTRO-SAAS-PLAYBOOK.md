@@ -1258,15 +1258,24 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Zahlungs-Fehlschlag fehlt (nur Operator-Alert). Dispute ändert bewusst keinen Status.
         GATE: manuelle Stripe-Test-Mode-Checkliste (SEPA-Erfolg/-Fehlschlag, Dispute, Refunds,
         Idempotenz) + neue Event-Typen am Webhook-Endpoint aktivieren.
-- [~] **Track B** — Neuer Stack (B1+B2+B3 stehen; DB-Isolation empirisch bewiesen)
+- [~] **Track B** — Neuer Stack (B1+B2+B3+B5+B6 stehen; **LIVE deployed + erster echter Login bewiesen 2026-07-05**)
   - [x] B1 Infra-Grundgerüst — Neon-Projekt `events-storia.de` (`soft-lake-86506456`,
         Branch `production`, PG18) via Composio. Schema tenants/tenant_users/inquiries +
         current_user_tenants()-Helfer + FORCE RLS + Seed (tenant-a/tenant-b). Rolle
         `authenticated` auf LOGIN gesetzt (kein BYPASSRLS) → DATABASE_AUTHENTICATED_URL.
         **Neon Auth = Stack Auth** provisioniert (Provider `stack`, Project 4ccda48c-…,
         JWKS live ES256); Better-Auth-Default vorher abgeschaltet. Keys ins Scaffold verdrahtet.
-        OFFEN: Cloudflare-Deploy (Worker/Pages, Wildcard-DNS) — via Composio; erster Real-Login
-        (User-`sub` → tenant_users mappen, 1 SQL, dokumentiert in docs/LIVE-SETUP.md).
+        **LIVE (2026-07-05):** Cloudflare Worker `maestro-api` (Route `tenant-a.schrittmacher.ai/api/*`)
+        + Pages `maestro-web` (Custom Domain `tenant-a.schrittmacher.ai`, Same-Origin — Worker-Route hat
+        Vorrang vor der Pages-Domain auf gleichem Host, live verifiziert). Neon-Auth-Trusted-Domains
+        `https://*.schrittmacher.ai` (Wildcard = alle Mandanten) + `https://tenant-a.schrittmacher.ai`
+        per Neon-API via Composio `proxy_execute` gesetzt — Composio hat kein Create-Domain-Tool, und
+        der Stack-Server-Key ist KEIN Admin-Key (405/INVALID_SUPER_SECRET_ADMIN_KEY), daher der API-Weg.
+        Passwort-Limit: Stack Auth cappt hart bei 70 Zeichen (bcrypt-72-Byte), nicht konfigurierbar.
+        **Erster echter Login bewiesen:** `info@monot.com` (sub `5e3a57d5-…`) → tenant_users owner@tenant-a;
+        iPhone/5G zeigt „Anfrage A – Sommerfest" live; RLS-Gegenprobe: Tenant-B für ihn = 0 sichtbar.
+        OFFEN (kosmetisch): Frontend-Label „Mandant (Dev): tenant-a" — Slug kommt serverseitig korrekt
+        aus dem Host; nur die Anzeige liest noch VITE_DEV_TENANT.
   - [x] B2 Isolationsarchitektur entworfen — docs/ARCHITECTURE-MULTITENANCY.md (Opus).
         Kern: Neon RLS (JWT-`sub` via pg_session_jwt) primär + FORCE RLS default-deny;
         einziger DB-Zugang via withTenant(), keine RLS-umgehende Rolle im Request-Pfad;
