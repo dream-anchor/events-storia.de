@@ -1294,7 +1294,18 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Build-Blocker: @types/node, React 18→19 (Stack-Auth-SDK-Anforderung), jose KeyResolver-Typ,
         StackHandler-Props (kein `navigate` → Offener Punkt #2 aus SDK-Typen gelöst).
         Push blockiert (Git-Proxy) → Scaffold ist eigenes Repo (Git-Historie im ZIP).
-  - [ ] B4 Data-Provider (Backend-CRUD steht → Refine-Provider fürs Frontend offen)
+  - [x] B4 Data-Provider + **komplette Backoffice-UI portiert (2026-07-05)** — Stitch-Design
+        („Premium Hospitality“: Terracotta #C2410C, Source Serif 4 + Inter, Material-3-Tokens,
+        Dark Mode) als Tailwind-Design-System in apps/web. AppShell (Sidebar/Topbar/Mobile-Tabbar)
+        + 9 Screens, alle LIVE verdrahtet: Übersicht (KPIs/Funnel/Umsatz aus echten Daten),
+        Anfragen (Tabs+Drawer+Anlegen; neue PATCH /api/inquiries/:id-Route), Veranstaltungen
+        (Liste+Detail mit Status-Stepper/Übergängen/Zahlungen), Angebots-Builder (Optionen A/B/C,
+        Positionen in menu_selection-jsonb, Senden→Public-Link), Kunden (CRM+Profil), Zahlungen
+        (aggregiert), Kalender (Monat), Einstellungen (Betrieb/Team/Module), Login. Öffentliche
+        Angebotsseite /angebot/:token (ohne Login, Option wählen→annehmen). Datenzugriff: dünner
+        useApi/apiFetch-Layer (Bearer, Same-Origin). wrangler.toml: Wildcard-Route
+        *.schrittmacher.ai/api/* für alle künftigen Mandanten. Web-Build grün, API 48/48 grün.
+        Ausgeliefert als maestro-cloud-ui.zip (Deploy = Nutzer: wrangler).
   - [~] B5 Auth-Port / Rollen — **Rollenmodell Owner/Admin/Staff pro Mandant, DB-seitig erzwungen**
         (2026-07-04). `ctx.role` in withTenant DB-aufgelöst; rollen-gesicherte Löschungen (Staff→403);
         GET /api/members (Co-Member-Sichtbarkeit tenant-scoped, cross-tenant isoliert). **29/29 Tests
