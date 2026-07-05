@@ -1,134 +1,125 @@
 # Angebots-Builder
 
 Modul-Spec MAESTRO · Stand 2026-07-05 · Status: entscheidungsreif
-Scope: Optionen A–E, Menü nach Tagen/Gängen, Positionen mit Menge/EP/MwSt je
-Zeile (Satzliste des Mandanten inkl. 0 %), Rabatt, pro-Kopf vs. pauschal,
-Preis-Override, Equipment/Personal je Option, Sprache DE/EN.
+Scope: Optionen A–E, Menü nach Tagen/Gängen, Positionen mit Menge/EP/MwSt je Zeile
+(Satzliste des Mandanten inkl. 0 %), Rabatt, pro-Kopf vs. pauschal, Preis-Override,
+Equipment/Personal je Option, Sprache DE/EN.
 
 ## A — IST im Alt-System (mit Evidenz)
 
-Inventar (docs/MAESTRO-FEATURE-INVENTAR.md, „Angebot (Editor/Anfrage-Editor)"):
-5 Optionen (A–E) mit 5 Modi · Menü-Editor mit Gängen + Mehrtages-Support ·
-Getränke mit 4 Modi · Equipment & Personal je Option · pro Person/pauschal,
-Rabatt (%/€), Preis-Override · MwSt 7/19 aus Menü-Auswahl · Restaurant-Menü-
-Import · Freitext-Import (KI) + Red-Team · KI-Menüvorschlag · Duplizieren.
+Inventar (docs/MAESTRO-FEATURE-INVENTAR.md, „Angebot (Editor/Anfrage-Editor)"): 5 Optionen
+(A–E) mit 5 Modi · Menü-Editor mit Gängen + Mehrtages-Support · Getränke mit 4 Modi ·
+Equipment & Personal je Option · pro Person/pauschal, Rabatt (%/€), Preis-Override · MwSt 7/19
+aus Menü-Auswahl · Restaurant-Menü-Import · Freitext-Import (KI) + Red-Team-Validierung ·
+KI-Menüvorschlag · Paketname-Override · Duplizieren.
 
-Der Alt-Builder (~11.000 Zeilen in `src/components/admin/refine/InquiryEditor/
-OfferBuilder/`) ist auf einem JSONB-Blob (`menu_selection`) mit drei
-Struktur-Generationen gebaut. Nachweislich problematisch:
+Der Alt-Builder (~11.000 Zeilen in `src/components/admin/refine/InquiryEditor/OfferBuilder/`)
+ist auf einem JSONB-Blob (`menu_selection`) mit drei Struktur-Generationen gebaut.
+Nachweislich problematisch:
 
-1. **Doppeldeutiges Preisfeld** — `pricingMode.ts` (Z. 18–20): „Das Feld heisst
-   zwar budgetPerPerson, wird aber im per_event-Modus als Gesamtbetrag gelesen."
-2. **Geld-Bug in Produktion** — `repair-quotation-pricing/` existiert nur, weil
-   per_event-Preise „fälschlich mit guestCount multipliziert" wurden →
-   Faktor-N-Falschbeträge in echten LexOffice-Angeboten.
-3. **Menge im Namen vergraben** — `parseQuantityPrefix()` parst `"11 x Salat"`
-   per Regex aus `itemName`; `detectPricingMode` ist Heuristik statt Datenmodell.
-4. **Dreifache Quelle der Wahrheit im Menü** — `types.ts` (Z. 217–224): `days[]`
-   ist Wahrheit, `courses[]` wird „als Legacy-Feld gemirrort", `freeformProgram`
-   ist dritte Parallelstruktur; `useOfferBuilder.ts` (Z. 499–533) migriert on-the-fly.
-5. **MwSt rückwärts geraten** — `PriceBreakdown.tsx` (Z. 323–354): USt aus
-   Brutto-„Buckets" auf einen überschreibbaren Endpreis zurückgerechnet;
-   „Defensive Guard" blendet USt bei „numerischer Drift" aus — Silent-Fail.
-6. **Float-Euros statt Cents** — `total_amount NUMERIC(10,2)`, Einzelpreise als
-   JS-`number` in Euro; verstößt gegen „Geld immer in Integer-Cents".
-7. **Preislogik dreifach implementiert** — Client, Anzeige und Edge Function
-   rechnen jeweils selbst; `totalAmount` persistiert statt abgeleitet → Drift.
+1. **Doppeldeutiges Preisfeld** — `pricingMode.ts` (Z. 18–20): „Das Feld heisst zwar
+   budgetPerPerson, wird aber im per_event-Modus als Gesamtbetrag gelesen."
+2. **Geld-Bug in Produktion** — `repair-quotation-pricing/` existiert nur wegen „fälschlich
+   mit guestCount multiplizierter" per_event-Preise → Faktor-N in echten LexOffice-Angeboten.
+3. **Menge im Namen vergraben** — `parseQuantityPrefix()` parst `"11 x Salat"` per Regex aus
+   `itemName`; `detectPricingMode` ist Heuristik statt Datenmodell.
+4. **Dreifache Quelle der Wahrheit im Menü** — `types.ts` (Z. 217–224): `days[]` ist Wahrheit,
+   `courses[]` wird „als Legacy-Feld gemirrort", `freeformProgram` ist dritte
+   Parallelstruktur; `useOfferBuilder.ts` (Z. 499–533) migriert on-the-fly.
+5. **MwSt rückwärts geraten** — `PriceBreakdown.tsx` (Z. 323–354): USt aus Brutto-„Buckets"
+   auf einen überschreibbaren Endpreis zurückgerechnet; „Defensive Guard" blendet USt bei
+   „numerischer Drift" aus. Steuerausweis darf nie Heuristik mit Silent-Fail sein.
+6. **Float-Euros statt Cents** — `total_amount NUMERIC(10,2)`, Einzelpreise als JS-`number`
+   in Euro; verstößt gegen die Leitplanke „Geld immer in Integer-Cents".
+7. **Preislogik dreifach implementiert** — Client, Anzeige und Edge Function rechnen jeweils
+   selbst; `totalAmount` wird persistiert statt abgeleitet → Drift strukturell möglich.
 
-Neubau-Stand (`/home/user/maestro-cloud`): `offer_options` (tenant-RLS, Cents,
-Label, Version, isChosen) + `offer_history`-Snapshots + Send-Endpoint mit
-Public-Token sind live verifiziert. Der Builder (`apps/web/src/pages/builder.tsx`)
-kann nur Freitext-Positionen **ohne Preise**, Gesamtbetrag als Euro-Text von
-Hand. Genau diese `menu_selection`-JSONB wird abgelöst.
+Neubau-Stand (`/home/user/maestro-cloud`): `offer_options` (tenant-RLS, Cents, Label, Version,
+isChosen), `offer_history`-Snapshots und Send-Endpoint mit Public-Token sind live verifiziert.
+Der Builder (`apps/web/src/pages/builder.tsx`) kann nur Freitext-Positionen **ohne Preise**,
+Gesamtbetrag als Euro-Text von Hand. Genau diese `menu_selection`-JSONB wird abgelöst.
 
 ## B — Der eigentliche Job (Jobs-to-be-done)
 
-**Job:** „Baue mir in unter 5 Minuten aus Anfrage + Katalog ein preislich
-korrektes, versandfertiges Angebot mit 1–3 wählbaren Varianten — egal ob
-2er-Geburtstag, 3-Tages-Catering oder Exklusiv-Buchung — und garantiere, dass
-Kunde, LexOffice und Stripe exakt dieselben Zahlen sehen." Der Builder ist der
-Hebel der Nordstern-Metrik „Anfrage-Eingang → Angebot versendet".
+**Job:** „Baue mir in unter 5 Minuten aus Anfrage + Katalog ein preislich korrektes,
+versandfertiges Angebot mit 1–3 wählbaren Varianten — egal ob 2er-Geburtstag, 3-Tages-Catering
+oder Exklusiv-Buchung — und garantiere, dass Kunde, LexOffice und Stripe exakt dieselben
+Zahlen sehen." Der Builder ist der Hebel der Nordstern-Metrik „Anfrage-Eingang → Angebot
+versendet".
 
 **Gestrichen / zusammengelegt (mit Begründung):**
-- **5 Angebots-Modi → 1 Positionsmodell.** „Paket", „Restaurant-Menü-Import",
+- **5 Angebots-Modi → 1 Positionsmodell.** „Paket", „Restaurant-Menü-Import" und
   „Freitext-Import" sind *Befüllungswege*, die dieselben Positionen erzeugen.
-- **„Nur-E-Mail"-Modus gestrichen** — gehört in den Nachrichten-Flow (Inbox).
-- **FreeformProgram-Parallelstruktur gestrichen.** Der KI-Parser schreibt direkt
-  Positionen (Tag/Sektion/Menge/EP/MwSt); keine zweite Hierarchie.
-- **Red-Team-Validierung (Zweitmodell GPT-5) gestrichen.** Der Parser liefert
-  Positionen + Textsumme; die Engine rechnet deterministisch. Weil der Summen-
-  Check nur Endsummen-Fehler fängt (vertauschte Preise / falsch geratene USt-
-  Sätze passieren ihn bei gleichem Brutto), ersetzen ihn: Quelltext-Diff im
-  Draft-Review, USt-Plausibilitätsregeln (KI-Punkt 3), definiertes Verhalten
-  bei nicht parsebarem Text (API, AC8).
+- **„Nur-E-Mail"-Modus gestrichen** — gehört in den Nachrichten-Flow (Modul Inbox).
+- **FreeformProgram-Parallelstruktur gestrichen.** Der KI-Parser schreibt direkt Positionen
+  (Tag/Sektion/Menge/EP/MwSt); keine zweite Hierarchie, keine eigene Steuerlogik.
+- **Red-Team-Validierung (Zweitmodell GPT-5) gestrichen.** Der Parser liefert Positionen +
+  Textsumme; die Engine rechnet deterministisch. Weil der Summen-Check nur Endsummen-Fehler
+  fängt (vertauschte Preise / falsch geratene USt-Sätze passieren ihn bei gleichem Brutto),
+  ersetzen ihn: Quelltext-Diff im Draft-Review, USt-Plausibilitätsregeln (KI-Punkt 3),
+  definiertes Verhalten bei nicht parsebarem Text (API, AC8).
 - **pricingMode auf Optionsebene + budgetPerPerson gestrichen.** Preismodus wird
-  Zeileneigenschaft; Options-Gesamtpreis = Summe der Zeilen; Override wird
-  explizite Anpassungszeile (s. D).
-- **Getränke-4-Modi zusammengelegt.** Pauschale = Flat-Zeile, Weinbegleitung =
-  per-Person-Zeile, Einzelgetränke = Zeilen in Sektion „Getränke".
+  Zeileneigenschaft; Gesamtpreis = Summe der Zeilen; Override = explizite Anpassungszeile (D).
+- **Getränke-4-Modi zusammengelegt.** Pauschale = Flat-Zeile, Weinbegleitung = per-Person-
+  Zeile, Einzelgetränke = Zeilen in Sektion „Getränke".
 - **Paketname-Override gestrichen** — Optionstitel ist freies Snapshot-Feld.
-- **Angebots-Sprachen IT/FR gestrichen** — Produktsprachen DE + EN; die DE/EN-
-  Wahl wird pro Angebot persistiert (`offer_language`, s. D).
-- **Storia-Spezifika raus aus dem Kern:** Ristorante-Menü-Import-Heuristik,
-  eSignatures.com-Kostenübernahme, kombinierter Katalog (eigene Spec).
+- **Angebots-Sprachen IT/FR gestrichen** — Produktsprachen DE + EN; die DE/EN-Wahl wird pro
+  Angebot persistiert (`offer_language`, s. D).
+- **Storia-Spezifika raus aus dem Kern:** Ristorante-Menü-Import-Heuristik, eSignatures.com-
+  Kostenübernahme, kombinierter Catering+Ristorante-Katalog (eigene Spec).
 
 ## C — Benchmark 2026
 
-Table Stakes (Digest): interaktives Web-Angebot mit Branding statt PDF, mehrere
-Varianten, Annahme + Anzahlung online, BEO aus dem Angebot, KI-Entwurf in
-Sekunden (Event Temple, iVvy/hivr.ai, Perfect Venue „AI Reply", Univents ab
-46 €), Gültigkeit mit Auto-Expire (Tripleseat, Perfect Venue, LexOffice
-`expirationDate`), kundenwählbare Add-ons als Upsell. Eventmachine belegt den
-Ziel-Takt < 5 Min; Tripleseat „Live Documents": Angebot als lebendes Web-Dokument.
+Table Stakes (Digest): interaktives Web-Angebot mit Branding statt PDF, mehrere Varianten,
+Annahme + Anzahlung online, BEO aus dem Angebot, KI-Entwurf in Sekunden (Event Temple,
+iVvy/hivr.ai, Perfect Venue „AI Reply", Univents ab 46 €), Gültigkeit mit Auto-Expire
+(Tripleseat, Perfect Venue, LexOffice `expirationDate`), kundenwählbare Add-ons als Upsell.
+Eventmachine belegt den Ziel-Takt < 5 Min; Tripleseat „Live Documents" setzt den Standard:
+Angebot als lebendes Web-Dokument.
 
-**Wo wir mindestens gleichziehen:** Positionsbasierte Optionen mit Varianten,
-KI-Befüllung (Vorschlag → Mensch bestätigt), Katalog-Picker, Duplizieren,
-Live-Summen, `valid_until` + Nachfass, optionale Add-ons, mobile Bedienbarkeit.
-Echtzeit-Co-Editing bewusst Later — MVP-Messlatte ist Optimistic Locking ohne
-stillen Datenverlust (s. D, API).
+**Wo wir mindestens gleichziehen:** Positionsbasierte Optionen mit Varianten, KI-Befüllung
+(Vorschlag → Mensch bestätigt), Katalog-Picker, Duplizieren, Live-Summen, `valid_until` +
+Nachfass, optionale Add-ons, mobile Bedienbarkeit. Echtzeit-Co-Editing bewusst Later —
+MVP-Messlatte ist Optimistic Locking ohne stillen Datenverlust (s. D, API).
 
 **Wo wir bewusst schlagen (DACH-Lücke, keiner der Genannten hat es):**
-1. **Steuer-exakte Cents-Engine** — per-Zeile-MwSt aus der Satzliste des
-   Mandanten (DE 7/19, AT 10/20, CH 2.6/8.1, jeweils inkl. 0 % für §19-UStG-
-   Kleinunternehmer, Gutscheine, durchlaufende Posten); eine Server-Engine für
-   UI, Public-Offer, LexOffice, Stripe. US-Tools kennen keine USt-Aufteilung.
-2. **Spektrum in einem Modell** — 0 Positionen (2er-Reservierungsbestätigung)
-   bis 200 Positionen über 5 Tage (Exklusiv-Buchung inkl. Mindestumsatz) — AC12.
-3. **Nordstern eingebaut** — Primär-KPI „Minuten von Anfrage-Eingang bis
-   Angebot versendet" (`inquiry.created_at` → `offer_sent_at`); Builder-Stempel
-   `first_opened_at`→`sent_at` nur als Sekundärmetrik „Bauzeit". Beides im
-   Dashboard benchmarkt; kein Wettbewerber zeigt das.
+1. **Steuer-exakte Cents-Engine** — per-Zeile-MwSt aus der Satzliste des Mandanten (DE 7/19,
+   AT 10/20, CH 2.6/8.1, jeweils inkl. 0 % für §19-UStG-Kleinunternehmer, Gutscheine,
+   durchlaufende Posten); eine Server-Engine für UI, Public-Offer, LexOffice, Stripe.
+   US-Tools kennen keine deutsche USt-Aufteilung.
+2. **Spektrum in einem Modell** — 0 Positionen (2er-Reservierungsbestätigung) bis 200
+   Positionen über 5 Tage (Exklusiv-Buchung inkl. Mindestumsatz-Ausweis) — belegt durch AC12.
+3. **Nordstern eingebaut** — Primär-KPI „Minuten von Anfrage-Eingang bis Angebot versendet"
+   (`inquiry.created_at` → `offer_sent_at`); die Builder-Stempel `first_opened_at`→`sent_at`
+   nur als Sekundärmetrik „Bauzeit". Beides im Dashboard; kein Wettbewerber zeigt das.
 
 ## D — Soll-Design (Neubau)
 
 ### UX-Hauptflow (Stitch Material-3/Terracotta, mobile-first)
-1. Einstieg aus Anfrage/Event: Kontext-Leiste (Kunde, Datum, Gäste, Anlass,
-   Budget, Sprache DE/EN, gültig bis) — nichts zweimal eintippen.
-2. Start-Wahl als 3 Kacheln: **KI-Vorschlag**, **Vorlage/Paket**, **Leer**. KI
-   erzeugt 1–3 Entwürfe mit Badge „KI-Entwurf — prüfen"; nie ohne Bestätigung.
-3. Optionen A–E als Karten-Tabs (Default 1, empfohlen max 3; Duplizieren). Pro
-   Option: Titel, Gästezahl (Default vom Event), Positionsliste, optional
-   Mindestumsatz (Exklusiv-Buchung).
-4. Positionsliste nach Sektionen (Menü/Getränke/Equipment/Personal/Sonstiges);
-   Menü optional nach Gängen. Zeile = Menge × Einheit × EP (brutto) × Preis-
-   modus-Chip (`/Pers.`|`/Stück`|`pauschal`) × MwSt-Chip (generiert aus der
-   Satzliste des Mandanten inkl. 0 %). Katalog-Picker + Freitext-Zeile;
-   Katalogpreis als Snapshot, Abweichung = Override-Badge.
-5. Mehrtägig per progressive disclosure: „+ Tag" erzeugt Tages-Tabs (persistiert
-   als `offer_option_days`: Label „Mo 29.06. Lunch", Datum, eigene Gästezahl);
-   eintägig bleibt die Tab-Leiste unsichtbar.
-6. Summenpanel (Desktop rechts, mobil Sticky-Bottom-Sheet): Zwischensumme,
-   Rabatt (%/€, nur rabattierbare Zeilen), ggf. Anpassungszeile, Endpreis gesamt
-   + pro Person, USt je Satz, ggf. Mindestumsatz-Hinweis — live vom Server.
-7. Preis-Override: Feld „Zielpreis" — Differenz wird explizite Position „Preis-
-   anpassung" (sichtbar, auditierbar, kein Skalierungsfaktor). Lebenszyklus:
-   statische Zeile, Zielpreis wird nicht re-enforced; weicht der Endpreis später
-   ab ⇒ Inline-Hinweis „Endpreis weicht vom zuletzt gesetzten Zielpreis ab" +
-   1-Klick-Neuberechnung, nie stille Nachführung.
+1. Einstieg aus Anfrage/Event: Kontext-Leiste (Kunde, Datum, Gäste, Anlass, Budget, Sprache
+   DE/EN, gültig bis) — nichts zweimal eintippen.
+2. Start-Wahl als 3 Kacheln: **KI-Vorschlag**, **Vorlage/Paket**, **Leer beginnen**. KI
+   erzeugt 1–3 Entwürfe mit Badge „KI-Entwurf — prüfen"; nichts ohne Bestätigung persistiert.
+3. Optionen A–E als Karten-Tabs (Default 1, empfohlen max 3; Duplizieren). Pro Option: Titel,
+   Gästezahl (Default vom Event), Positionsliste, optional Mindestumsatz (Exklusiv-Buchung).
+4. Positionsliste nach Sektionen (Menü/Getränke/Equipment/Personal/Sonstiges); Menü optional
+   nach Gängen. Zeile = Menge × Einheit × EP (brutto) × Preismodus-Chip (`/Pers.`|`/Stück`|
+   `pauschal`) × MwSt-Chip (generiert aus Satzliste des Mandanten inkl. 0 %). Katalog-Picker +
+   Freitext-Zeile; Katalogpreis als Snapshot, Abweichung = Override-Badge.
+5. Mehrtägig per progressive disclosure: „+ Tag" erzeugt Tages-Tabs (persistiert als
+   `offer_option_days`: Label „Mo 29.06. Lunch", Datum, eigene Gästezahl); eintägig bleibt
+   die Tab-Leiste unsichtbar.
+6. Summenpanel (Desktop rechts, mobil Sticky-Bottom-Sheet): Zwischensumme, Rabatt (%/€, nur
+   rabattierbare Zeilen), ggf. Anpassungszeile, Endpreis gesamt + pro Person (beides immer),
+   USt je Satz, ggf. Mindestumsatz-Hinweis — live vom Server gerechnet.
+7. Preis-Override: Feld „Zielpreis" — Differenz wird explizite Position „Preisanpassung"
+   (sichtbar, auditierbar, kein Skalierungsfaktor). Lebenszyklus: statische Zeile, Zielpreis
+   wird nicht re-enforced; weicht der Endpreis später ab ⇒ Inline-Hinweis „Endpreis weicht
+   vom zuletzt gesetzten Zielpreis ab" + 1-Klick-Neuberechnung, nie stille Nachführung.
 8. Autosave (Debounce ~1 s, Upsert mit `items_version`, s. API) mit Statuschip;
-   Versionskonflikt ⇒ Dialog „neu laden / mergen". Inline-Hinweise: Zeile ohne
-   Preis, Summe ≠ Importtext, Katalog-Abweichung, unplausibler USt-Satz.
-9. Weiter zu „Vorschau & Senden" (Modul 03): Snapshot, Versand, `sent_at`.
+   Versionskonflikt ⇒ Dialog „neu laden / mergen" statt stillem Überschreiben. Inline-
+   Hinweise: Zeile ohne Preis, Summe ≠ Importtext, Katalog-Abweichung, unplausibler USt-Satz.
+9. Weiter zu „Vorschau & Senden" (Modul 03): Snapshot, Versand, `sent_at`-Stempel.
 
 ### Datenmodell (Neon Postgres, alle Beträge Integer-Cents, Brutto)
 Event (Angebots-Kopf) — Änderungen:
@@ -158,7 +149,7 @@ unique (option_id, day_no) · (option_id, tenant_id) → offer_options(id, tenan
 `offer_items` (NEU):
 ```
 id uuid pk (client-generiert, stabil über Autosaves, s. API)
-tenant_id uuid not null → tenants  -- RLS wie offer_options: tenantIsMember, FORCE RLS
+tenant_id uuid not null → tenants  -- RLS wie offer_options: crudPolicy tenantIsMember, FORCE RLS
 option_id uuid not null  -- Composite-FK (option_id, tenant_id) → offer_options(id, tenant_id) on delete
   cascade; einfache FKs laufen als Owner und umgehen RLS — nur so sind Cross-Tenant-Referenzen ausgeschlossen
 day_no smallint null  -- (option_id, day_no) → offer_option_days; null ⇒ guest_count der Option
@@ -175,93 +166,84 @@ is_optional boolean not null default false  -- Add-on, Public-Seite an-/abwählb
 discountable boolean not null default true · sort_order integer not null default 0
 index (tenant_id, option_id) · check price_mode/section
 ```
-**Engine (`packages/pricing`, deterministisch, niemals Float):** nimmt Items,
-Rabatt/Anpassung und Map `day_no → guest_count` (`null` ⇒ Options-Gästezahl).
-1. Zeilentotal `per_person: qty×EP×Gäste(day_no) · per_unit: qty×EP · flat: EP`;
-   qty als skalierte Ganzzahl (`qty_milli`, ÷1000 erst nach der Multiplikation),
-   Rundung pro Zeile auf Cent — kein IEEE-754 im Geldpfad.
+**Engine (`packages/pricing`, deterministisch, niemals Float):** nimmt Items, Rabatt/Anpassung
+und Map `day_no → guest_count` (aus `offer_option_days`; `null` ⇒ Options-Gästezahl).
+1. Zeilentotal `per_person: qty×EP×Gäste(day_no) · per_unit: qty×EP · flat: EP`; qty als
+   skalierte Ganzzahl (`qty_milli`, ÷1000 erst nach der Multiplikation), Rundung pro Zeile
+   auf Cent — kein IEEE-754 im Geldpfad.
 2. Reihenfolge fix: Zwischensumme → Rabatt (nur discountable) → Anpassung → Endpreis.
-3. Rabatt/Anpassung je USt-Bucket aggregiert proportional verteilt; Rest-Cents
-   per Largest-Remainder, Bucket-Reihenfolge deterministisch (Restanteil
-   absteigend, dann rate_bp aufsteigend) — cent-exakter LexOffice-Abgleich.
-4. Anpassung auf Option ohne Positionen (kein Split-Bucket): Zeile erhält den
-   Standardsatz des Mandanten (tenant_settings).
-5. USt je Satz aus Brutto: `vat = gross − round(gross/(1+rate))`, exakt gleiche
-   Formel im LexOffice-Export. §19-Kleinunternehmer: alle Zeilen 0 bp,
-   Renderer + Export tragen den Pflichthinweis.
+3. Rabatt/Anpassung je USt-Bucket aggregiert proportional verteilt; Rest-Cents per
+   Largest-Remainder, Bucket-Reihenfolge deterministisch (Restanteil absteigend, dann
+   rate_bp aufsteigend) — cent-exakter LexOffice-Abgleich per Golden-Test.
+4. Anpassung auf Option ohne Positionen (kein Split-Bucket): Zeile erhält den Standardsatz
+   des Mandanten (tenant_settings).
+5. USt je Satz aus Brutto: `vat = gross − round(gross/(1+rate))`, exakt gleiche Formel im
+   LexOffice-Export. §19-Kleinunternehmer: alle Zeilen 0 bp, Renderer + Export mit Pflichthinweis.
 
-Alt-Migration (Storia): einmaliges ETL-Skript `menu_selection` (courses/days/
-freeform/drinks/equipment/staff, `parseQuantityPrefix`-Fälle) → `offer_items` +
-`offer_option_days`, inkl. `optionsSnapshot`-JSONBs aus `offer_history` ins
-Items-Format (s. G3), mit Abweichungsreport.
+Alt-Migration (Storia): einmaliges ETL-Skript `menu_selection` (courses/days/freeform/drinks/
+equipment/staff, `parseQuantityPrefix`-Fälle) → `offer_items` + `offer_option_days`, inkl.
+`optionsSnapshot`-JSONBs aus `offer_history` ins Items-Format (s. G3), mit Abweichungsreport.
 
 ### API (Hono-Worker; bestehende offers.ts erweitert)
 - `GET /api/events/:id/offers` — inkl. Items + Tage (join, ein Roundtrip).
 - `POST /api/events/:id/offers` · `PATCH /api/offers/:id` — Kopf-Felder (inkl.
-  `offer_language`, `offer_valid_until`, `minimum_spend_cents`); Totals
-  read-only; Rabatt nur als konsistentes Paar (Prozent XOR Betrag).
+  `offer_language`, `offer_valid_until`, `minimum_spend_cents`); Totals read-only;
+  Rabatt nur als konsistentes Paar (Prozent XOR Betrag).
 - `PUT /api/offers/:id/items` — transaktionaler **Upsert** statt Delete+Recreate
-  (client-generierte UUIDs, `insert … on conflict update`, nicht mitgesendete
-  IDs löschen) — IDs bleiben stabil für Audit-Diffs, BEO-/Dokument-Referenzen,
-  Anpassungszeile. `If-Match: <items_version>` Pflicht; Konflikt ⇒ 409 + Server-
-  Stand (UI: neu laden/mergen). Server validiert, rechnet Engine, inkrementiert
-  Version, gibt Breakdown zurück; Tage analog im selben Payload. Delta-Payloads
-  + Echtzeit-Presence: bewusst Later (dokumentierte Entscheidung).
+  (client-generierte UUIDs, `insert … on conflict update`, nicht mitgesendete IDs löschen) —
+  IDs bleiben stabil für Audit-Diffs, BEO-/Dokument-Referenzen, Anpassungszeile.
+  `If-Match: <items_version>` Pflicht; Konflikt ⇒ 409 + Server-Stand (UI: neu laden/mergen).
+  Server validiert, rechnet Engine, inkrementiert Version, gibt Breakdown zurück; Tage analog
+  im selben Payload. Delta-Payloads + Echtzeit-Presence: bewusst Later (dokumentiert).
 - `POST /api/offers/:id/duplicate` — Option inkl. Items + Tagen kopieren.
-- `POST /api/offers/:id/set-target-price {target_cents}` — erzeugt/aktualisiert
-  die Anpassungszeile (`section='adjustment'`, Unique max. 1 pro Option);
-  statisch, kein Re-Enforce (s. UX 7).
+- `POST /api/offers/:id/set-target-price {target_cents}` — erzeugt/aktualisiert die
+  Anpassungszeile (`section='adjustment'`, Unique max. 1/Option); statisch, kein Re-Enforce (UX 7).
 - `POST /api/events/:id/offers/ai-suggest` — Draft-Payload, kein DB-Write.
-- `POST /api/events/:id/offers/parse-freeform {text}` — Items-Draft +
-  `totals_from_text` (deterministischer Summen-Check); Draft-Review mit Diff
-  Zeile ↔ Quelltext-Fundstelle; nicht parsebar ⇒ leerer Draft + Meldung,
-  kein Halluzinieren.
-- Pricing-Engine als pures Paket `packages/pricing` (Worker + Web importieren
-  dieselbe Funktion; Web nur optimistische Anzeige, Server ist autoritativ).
+- `POST /api/events/:id/offers/parse-freeform {text}` — Items-Draft + `totals_from_text`
+  (deterministischer Summen-Check); Draft-Review mit Diff Zeile ↔ Quelltext-Fundstelle;
+  nicht parsebar ⇒ leerer Draft + Meldung, kein Halluzinieren.
+- Pricing-Engine als pures Paket `packages/pricing` (Worker + Web importieren dieselbe
+  Funktion; Web nur optimistische Anzeige, Server ist autoritativ).
 
 ### Automatisierungen (Cron/Queue)
-- Nordstern-Messstrecke: Primär-KPI `inquiry.created_at` → `offer_sent_at`
-  („Minuten bis Angebot"); Builder stempelt zusätzlich `offer_first_opened_at`
-  → Sekundärmetrik „Bauzeit" (`sent_at − first_opened_at`).
-- Queue-Job „Angebot hängt": Anfrage > 4 h ohne versendetes Angebot — Trigger ab
-  Anfrage-Eingang, nicht ab Entwurfs-Erstellung (sonst feuert er nie für liegen-
-  gebliebene Anfragen ohne Entwurf) → Push/Badge (PWA), konfigurierbar.
-- Nightly-Konsistenzcheck: Engine-Recompute vs. gespeicherte Totals; Drift ⇒
-  Alert (nie wieder ein „repair-quotation-pricing").
+- Nordstern-Messstrecke: Primär-KPI `inquiry.created_at` → `offer_sent_at` („Minuten bis
+  Angebot"); Builder stempelt zusätzlich `offer_first_opened_at` → Sekundärmetrik „Bauzeit".
+- Queue-Job „Angebot hängt": Anfrage > 4 h ohne versendetes Angebot — Trigger ab Anfrage-
+  Eingang, nicht ab Entwurfs-Erstellung (sonst feuert er nie für liegengebliebene Anfragen
+  ohne Entwurf) → Push/Badge (PWA), konfigurierbar.
+- Nightly-Konsistenzcheck: Engine-Recompute vs. gespeicherte Totals; Drift ⇒ Alert
+  (nie wieder ein „repair-quotation-pricing").
 
 ### KI-Punkte (Input → Vorschlag → Bestätigung)
-1. **Options-Vorschlag:** Anfrage + Katalog + Anlass/Budget → 1–3 Optionen
-   (Low/Mid/High) als Draft mit Begründung; erkennt die Angebotssprache
-   (DE/EN) und belegt `offer_language` vor.
-2. **Freitext/PDF-Import:** Alt-Angebote/Word → Items-Draft; Preise 1:1,
-   deterministischer Endsummen-Abgleich + Quelltext-Diff statt Zweitmodell.
-3. **Preis- & USt-Sanity (deterministisch):** Warn-Chip bei EP-Abweichung > x %
-   vom Katalog-Snapshot, ungewöhnlichem Pro-Kopf-Preis und unplausiblen
-   USt-Sätzen (z. B. Sektion `drinks` + 700 bp). Nur Hinweis, nie Auto-Änderung.
+1. **Options-Vorschlag:** Anfrage + Katalog + Anlass/Budget → 1–3 Optionen (Low/Mid/High) als
+   Draft mit Begründung; erkennt die Angebotssprache (DE/EN) und belegt `offer_language` vor.
+2. **Freitext/PDF-Import:** Alt-Angebote/Word → Items-Draft; Preise 1:1, deterministischer
+   Endsummen-Abgleich + Quelltext-Diff statt Zweitmodell.
+3. **Preis- & USt-Sanity (deterministisch):** Warn-Chip bei EP-Abweichung > x % vom Katalog-
+   Snapshot, ungewöhnlichem Pro-Kopf-Preis fürs Segment und unplausiblen USt-Sätzen
+   (z. B. Sektion `drinks` + 700 bp). Nur Hinweis, nie Auto-Änderung.
 
 ### Integrations-Berührungen
-- **LexOffice:** Items 1:1 auf Quotation-Line-Items (per-Zeile MwSt, Rabatt/
-  Anpassung als eigene Zeilen, `expirationDate` aus `offer_valid_until`,
-  §19-Pflichthinweis, Labels nach `offer_language`) — Parität per Golden-Tests.
-- **Stripe Connect:** Anzahlung = Prozent/Betrag vom `amount_total_cents` der
-  gewählten Option (Modul Zahlungen).
+- **LexOffice:** Items 1:1 auf Quotation-Line-Items (per-Zeile MwSt, Rabatt/Anpassung als
+  eigene Zeilen, `expirationDate` aus `offer_valid_until`, §19-Pflichthinweis, Labels nach
+  `offer_language`) — Parität per Golden-Tests.
+- **Stripe Connect:** Anzahlung = Prozent/Betrag vom `amount_total_cents` der gewählten
+  Option (Modul Zahlungen).
 - **Katalog-Modul (Spec 0x):** Picker liest Katalog; Items bleiben Snapshot-fest.
-- **Public-Offer/BEO:** rendern ausschließlich aus `offer_items` + Breakdown
-  (Alt-History-Snapshots per ETL konvertiert, s. G3); Sektions-/Summen-Labels
-  nach `offer_language`, Positionsnamen bleiben Freitext in Kundensprache;
-  `valid_until` sichtbar; `is_optional`-Add-ons an-/abwählbar, Auswahl-
-  Persistenz bei Annahme in Modul 03.
+- **Public-Offer/BEO:** rendern ausschließlich aus `offer_items` + Breakdown (Alt-History-
+  Snapshots per ETL konvertiert, s. G3); Sektions-/Summen-Labels nach `offer_language`,
+  Positionsnamen bleiben Freitext in Kundensprache; `valid_until` sichtbar; `is_optional`-
+  Add-ons an-/abwählbar, Auswahl-Persistenz bei Annahme in Modul 03.
 
 ## E — Klassifikation
 
-**Kern.** Der Builder ist der Kern des Abschluss-Flows (Nordstern) und nicht
-abschaltbar. Per Registry (B10) zuschaltbar: Mehrtages-Tabs (Catering),
-Equipment/Personal-Sektionen, KI-Freitext-Import, Kleinunternehmer-Modus.
-**Backlog (bewusst Later):** Echtzeit-Presence/Co-Editing, Delta-Payloads,
-Live-Neuberechnung der Add-ons auf der Public-Seite. **Storia-only:**
-Ristorante-Menü-Import-Heuristik, IT/FR, eSignatures.com-Kostenübernahme,
-kombinierter Katalog. Kriterium: brauchen < 30 % der Zielmandanten es am
-Tag 1? Nein ⇒ Registry-Modul oder Storia-Fork.
+**Kern.** Der Builder ist der Kern des Abschluss-Flows (Nordstern) und nicht abschaltbar.
+Per Registry (B10) zuschaltbar: Mehrtages-Tabs (nur Catering-Mandanten), Equipment/Personal-
+Sektionen, KI-Freitext-Import, Kleinunternehmer-Modus. **Backlog (bewusst Later):**
+Echtzeit-Presence/Co-Editing, Delta-Payloads, Live-Neuberechnung der Add-ons auf der
+Public-Seite. **Storia-only:** Ristorante-Menü-Import-Heuristik, IT/FR-Übersetzungen,
+eSignatures.com-Kostenübernahme, kombinierter Katalog. Kriterium: brauchen < 30 % der
+Zielmandanten es am Tag 1? Nein ⇒ Registry-Modul oder Storia-Fork.
 
 ## F — Bau-Plan
 
@@ -283,59 +265,55 @@ Reihenfolge 1→4 ist der kritische Pfad; 5–11 parallelisierbar.
 
 ## G — Risiken & Lösungen (Top 3)
 
-1. **Rundungs-/Steuer-Drift zu LexOffice** (Alt-System hatte reale Geld-Bugs).
-   → Eine Engine, Integer-Cents + Ganzzahl-Mengen, Largest-Remainder festge-
-   schrieben, identische Brutto-USt-Formel im Export, Golden-Tests gegen echte
-   LexOffice-Responses, Nightly-Recompute-Alert.
-2. **Komplexitäts-Rückfall** zur zweiten 10.000-Zeilen-UI. → Hartes UX-Budget:
-   1 Zeilentyp, 3 Preismodi, progressive disclosure; jede neue Zeileneigenschaft
-   braucht einen Job-Beleg. „2er-Reservierung in < 60 s" als ständiger Testfall.
-3. **Storia-Migration der JSONB-Varianten.** → ETL mit Abweichungsreport pro
-   Angebot. Entscheidung: auch die `optionsSnapshot`-JSONBs in `offer_history`
-   werden ins Items-Format konvertiert — kein eingefrorener Legacy-Renderer,
-   „rendern ausschließlich aus offer_items" (D) bleibt wahr. Nur offene Vorgänge
-   werden aktiv migriert; Archiv-Angebote bleiben im neuen Format lesbar.
+1. **Rundungs-/Steuer-Drift zu LexOffice** (Alt-System hatte reale Geld-Bugs). → Eine Engine,
+   Integer-Cents + Ganzzahl-Mengen, Largest-Remainder festgeschrieben, identische Brutto-USt-
+   Formel im Export, Golden-Tests gegen echte LexOffice-Responses, Nightly-Recompute-Alert.
+2. **Komplexitäts-Rückfall** zur zweiten 10.000-Zeilen-UI. → Hartes UX-Budget: 1 Zeilentyp,
+   3 Preismodi, progressive disclosure; jede neue Zeileneigenschaft braucht einen Job-Beleg.
+   „2er-Reservierung in < 60 s" als ständiger Testfall.
+3. **Storia-Migration der JSONB-Varianten** (courses/days-Mirror, freeform, Mengen im Namen).
+   → ETL mit Abweichungsreport pro Angebot. Entscheidung: auch die `optionsSnapshot`-JSONBs in
+   `offer_history` werden ins Items-Format konvertiert — kein eingefrorener Legacy-Renderer,
+   „rendern ausschließlich aus offer_items" (D) bleibt wahr. Nur offene Vorgänge werden aktiv
+   migriert; Archiv-Angebote bleiben im neuen Format lesbar.
 
 ## H — Akzeptanzkriterien
 
-1. Nordstern-Messstrecke: Für ein Test-Fixture (Anfrage mit `created_at`) gilt
-   KPI = `offer_sent_at − inquiry.created_at`; `sent_at` stempelt Modul 03
-   (Abhängigkeit ausgewiesen). Sekundär „Bauzeit" = `sent_at − first_opened_at`.
-   Ziel-Demo: KI-Vorschlag → 2-Options-Angebot, korrekte Summen, < 5 Min Bauzeit.
-2. 2er-Reservierungsbestätigung ohne Positionen: „Option anlegen → Titel setzen
-   → ‚Vorschau & Senden' erreichen" in unter 60 Sekunden.
-3. Jede Position trägt Menge (`qty_milli`), Einheit, Brutto-EP in Cents, Preis-
-   modus, MwSt-Satz; `amount_total_cents` ist ausschließlich servergerechnet —
-   ein direkter PATCH auf Totals wird abgelehnt.
-4. per_person-, per_unit- und flat-Zeilen ergeben bei Gästezahl-Änderung
-   deterministisch neue Summen; kein Feld wird kontextabhängig uminterpretiert;
-   Mengen 0,1/0,33/0,07 rechnen cent-exakt (Property-Test, kein Float).
-5. Preis-Override erzeugt eine sichtbare, persistierte Anpassungszeile;
-   Summe(gross je USt-Satz) == Endpreis, vat je Satz exakt nach Formel;
-   Drift ⇒ Fehler, niemals Ausblenden (kein Silent-Fail).
-6. Rabatt (%/€) wirkt nur auf `discountable`-Zeilen; USt-Split über gemischte
-   Sätze per Largest-Remainder (Testfall: 10 % Rabatt über 7 %- + 19 %-Zeilen);
-   LexOffice-Export == Builder-Betrag auf den Cent (Golden-Test).
-7. 3-Tages-Programm mit tagesweise abweichender Gästezahl (`offer_option_days`)
-   rechnet pro Tag korrekt; per_person-Zeile mit `day_no = null` nutzt die
-   Options-Gästezahl.
-8. KI-Entwürfe schreiben nie ohne explizite Bestätigung in die DB;
-   parse-freeform zeigt Differenz zur Textsumme, markiert unplausible USt-Sätze
-   im Draft; nicht parsebarer Text ⇒ leerer Draft + Meldung.
-9. RLS: Mandant A kann `offer_items` von Mandant B weder lesen noch schreiben;
-   ein Item mit eigenem `tenant_id`, aber fremder `option_id` (oder
-   `catalog_item_id`) wird per Composite-FK abgelehnt (Isolationstest, Gate).
-10. Builder auf 390 px voll bedienbar: Zeile anlegen, Preis ändern, Summen-Sheet
-    öffnen, Senden erreichbar — je ohne horizontales Scrollen (PWA-Smoke-Test).
-11. Konkurrenz: Zwei parallele Editoren (bzw. ein staler Offline-Tab) verlieren
-    keine Zeilen unbemerkt — Save mit veralteter `items_version` ⇒ 409 +
-    Konflikt-Dialog; Item-IDs bleiben über Autosaves stabil.
-12. 200-Positionen-Option über 5 Tage: Server-Recompute < 500 ms, Builder bleibt
-    bedienbar, Golden-Test rechnet cent-exakt.
-13. EN-Angebot (`offer_language='en'`): Public-Seite und LexOffice-Dokument
-    vollständig auf Englisch (Sektions- und Summen-Labels).
-14. Kleinunternehmer-Mandant (§19 UStG): alle Zeilen 0 bp; Renderer und
-    LexOffice-Export tragen den Pflichthinweis.
-15. Zeile hinzufügen nach set-target-price ⇒ Inline-Hinweis „Endpreis weicht vom
-    Zielpreis ab", keine stille Nachführung; 1-Klick-Neuberechnung aktualisiert
-    die Anpassungszeile.
+1. Nordstern-Messstrecke: Für ein Test-Fixture (Anfrage mit `created_at`) gilt KPI =
+   `offer_sent_at − inquiry.created_at`; `sent_at` stempelt Modul 03 (Abhängigkeit
+   ausgewiesen). Sekundär „Bauzeit" = `sent_at − first_opened_at`. Ziel-Demo: KI-Vorschlag →
+   2-Options-Angebot mit korrekten Summen in < 5 Min Bauzeit.
+2. 2er-Reservierungsbestätigung ohne Positionen: „Option anlegen → Titel setzen →
+   ‚Vorschau & Senden' erreichen" in unter 60 Sekunden.
+3. Jede Position trägt Menge (`qty_milli`), Einheit, Brutto-EP in Cents, Preismodus,
+   MwSt-Satz; `amount_total_cents` ist ausschließlich servergerechnet — ein direkter PATCH
+   auf Totals wird abgelehnt.
+4. per_person-, per_unit- und flat-Zeilen ergeben bei Gästezahl-Änderung deterministisch neue
+   Summen; kein Feld wird kontextabhängig uminterpretiert; Mengen 0,1/0,33/0,07 rechnen
+   cent-exakt (Property-Test, kein Float).
+5. Preis-Override erzeugt eine sichtbare, persistierte Anpassungszeile; Summe(gross je
+   USt-Satz) == Endpreis, vat je Satz exakt nach Formel; Drift ⇒ Fehler, niemals Ausblenden.
+6. Rabatt (%/€) wirkt nur auf `discountable`-Zeilen; USt-Split über gemischte Sätze per
+   Largest-Remainder (Testfall: 10 % Rabatt über 7 %- + 19 %-Zeilen); LexOffice-Export ==
+   Builder-Betrag auf den Cent (Golden-Test).
+7. 3-Tages-Programm mit tagesweise abweichender Gästezahl (`offer_option_days`) rechnet pro
+   Tag korrekt; per_person-Zeile mit `day_no = null` nutzt die Options-Gästezahl.
+8. KI-Entwürfe schreiben nie ohne explizite Bestätigung in die DB; parse-freeform zeigt die
+   Differenz zur Textsumme, markiert unplausible USt-Sätze im Draft; nicht parsebarer Text ⇒
+   leerer Draft + Meldung (kein Halluzinieren).
+9. RLS: Mandant A kann `offer_items` von Mandant B weder lesen noch schreiben; ein Item mit
+   eigenem `tenant_id`, aber fremder `option_id` (oder `catalog_item_id`) wird per
+   Composite-FK abgelehnt (automatisierter Isolationstest, hartes Gate).
+10. Builder auf 390 px voll bedienbar: Zeile anlegen, Preis ändern, Summen-Sheet öffnen,
+    Senden erreichbar — je ohne horizontales Scrollen (PWA-Smoke-Test).
+11. Konkurrenz: Zwei parallele Editoren (bzw. ein staler Offline-Tab) verlieren keine Zeilen
+    unbemerkt — Save mit veralteter `items_version` ⇒ 409 + Konflikt-Dialog; Item-IDs bleiben
+    über Autosaves stabil.
+12. 200-Positionen-Option über 5 Tage: Server-Recompute < 500 ms, Builder bleibt bedienbar,
+    Golden-Test rechnet cent-exakt.
+13. EN-Angebot (`offer_language='en'`): Public-Seite und LexOffice-Dokument vollständig auf
+    Englisch (Sektions- und Summen-Labels).
+14. Kleinunternehmer-Mandant (§19 UStG): alle Zeilen 0 bp; Renderer und LexOffice-Export
+    tragen den Pflichthinweis.
+15. Zeile hinzufügen nach set-target-price ⇒ Inline-Hinweis „Endpreis weicht vom Zielpreis
+    ab", keine stille Nachführung; 1-Klick-Neuberechnung aktualisiert die Anpassungszeile.
