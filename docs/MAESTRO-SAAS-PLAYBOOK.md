@@ -1446,6 +1446,11 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
         Position → Builder zeigt nur Gesamt + Preis/Person; (b) keine Angebots-Versions-API (Dropdown
         zeigt nur aktuelle Version); (c) Inquiry-Typ ohne occasion/budget-Felder. Stitch-MCP
         (stitch.googleapis.com) via .mcp.json angebunden (STITCH_API_KEY env).
+        **CI/CD live (2026-07-05):** GitHub-Repo `dream-anchor/maestro-cloud` → GitHub-Actions
+        (.github/workflows/deploy.yml) deployt bei jedem Push auf `main` automatisch Worker + Pages
+        nach Cloudflare (via `pnpm exec wrangler`, Secrets CLOUDFLARE_API_TOKEN/ACCOUNT_ID; Token-
+        Rechte: Workers Scripts + Pages Edit + Zone Workers Routes Edit). Pages-Production-Branch auf
+        `main` gesetzt. Kein manuelles ZIP/wrangler mehr. Erstes Stitch-Design so live ausgeliefert.
   - [~] B5 Auth-Port / Rollen — **Rollenmodell Owner/Admin/Staff pro Mandant, DB-seitig erzwungen**
         (2026-07-04). `ctx.role` in withTenant DB-aufgelöst; rollen-gesicherte Löschungen (Staff→403);
         GET /api/members (Co-Member-Sichtbarkeit tenant-scoped, cross-tenant isoliert). **29/29 Tests
