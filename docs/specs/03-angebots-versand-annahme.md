@@ -2,10 +2,11 @@
 
 Modul-Spec MAESTRO · Stand 2026-07-05 · Status: entscheidungsreif
 Scope: Anschreiben-Composer, WYSIWYG-Vorschau, Testmail, Mail-Versand mit
-Zustell-Tracking, öffentliche Angebotsseite mit Optionswahl, Annahme →
-Anzahlungs-Checkout, automatisches Nachfassen, Verlustgründe, Öffnungs-Tracking.
-Dieses Modul IST die Nordstern-Metrik: `sent_at` stempelt „Minuten bis Angebot",
-Annahme stempelt „Tage bis gewonnen".
+Zustell-Tracking, öffentliche Angebotsseite mit Optionswahl, Annahme (online
+und offline erfasst) → Anzahlungs-Checkout, Angebots-Rückzug, automatisches
+Nachfassen, Verlustgründe, View-Tracking. Dieses Modul IST die Nordstern-
+Metrik: `sent_at` stempelt „Minuten bis Angebot", Annahme stempelt „Tage bis
+gewonnen".
 
 ## A — IST im Alt-System (mit Evidenz)
 
@@ -83,13 +84,15 @@ ist bewusst Stub (`payments.ts` Z. 110: „TODO(stripe keys)").
 **Job:** „Bring mein fertiges Angebot in unter 2 Minuten zustellsicher zum
 Kunden, lass ihn auf einem Screen ansehen → wählen → Änderung wünschen →
 annehmen → anzahlen, und fasse automatisch nach, bis gewonnen oder ein
-Verlustgrund dokumentiert ist." Alles nach dem Builder (Spec 02) bis zur
-bezahlten Anzahlung (Zahlungs-Modul) ist dieses Modul.
+Verlustgrund dokumentiert ist." Telefonische Zu-/Absagen (Gastro-Realität,
+1–20 MA) gehören dazu und werden als Offline-Aktion erfasst (s. D). Alles
+nach dem Builder (Spec 02) bis zur bezahlten Anzahlung (Zahlungs-Modul) ist
+dieses Modul.
 
 **Gestrichen / zusammengelegt (mit Begründung):**
 - **IONOS-SMTP-Fallback + 12s-Nachverifizierung gestrichen.** Symptome der
   einen geteilten Absenderadresse (Suppression traf alle). Ersatz: Queue mit
-  Retry, Webhook je Empfänger, Mandanten-Subdomains (s. D).
+  Retry, Webhook je Empfänger, Sending-Domain-Stufen (s. D).
 - **Slug-URLs gestrichen** (`/ihr-angebot/max-mustermann-a851`). Kundennamen
   in URLs sind ein DSGVO-Geruch, der Slug wurde in der Mail ohnehin nie
   verlinkt (Befund A5). Ein hoch-entropischer Token-Link (Neubau, existiert).
@@ -100,7 +103,8 @@ bezahlten Anzahlung (Zahlungs-Modul) ist dieses Modul.
   Versanddatensatz persistiert, fertig.
 - **LexOffice-PDF-Anhang aus dem Sendepfad gestrichen.** Das Web-Angebot ist
   das Angebot (Table Stakes 2026: „PDF ist out"); PDF gibt es als Download auf
-  der Angebotsseite. Der Versand wartet nie wieder auf LexOffice.
+  der Angebotsseite (eigener Renderer, s. D). Der Versand wartet nie wieder
+  auf LexOffice.
 - **Proposal-/Final-Doppelwelt zusammengelegt** (ProposalView vs.
   FinalOfferView): EINE Angebotsseite mit Optionen; „final" ist schlicht eine
   neue Version nach Änderungswunsch.
@@ -117,27 +121,31 @@ bezahlten Anzahlung (Zahlungs-Modul) ist dieses Modul.
 
 Table Stakes (Digest): Web-Angebot mit Branding + E-Signatur/Click-Accept +
 Anzahlung direkt bei Annahme + Auto-Follow-ups + Engagement-Tracking. Tripleseat
-setzt den Massstab „Ein-Screen-Annahme": ansehen, Änderungswunsch per Klick,
-signieren, anzahlen — PartyPay fordert die Anzahlung automatisch nach Signatur
-an. MICE DESK/Proposales tracken Planner-Engagement (Angebot geöffnet →
+setzt den Massstab „Ein-Screen-Annahme" und warnt bei Kalender-Konflikten
+(Holds); PartyPay fordert die Anzahlung automatisch nach Signatur an. MICE
+DESK/Proposales tracken Planner-Engagement (Angebot geöffnet →
 Nachfass-Trigger) und 1-Klick-Change-Requests. iVvy/hivr.ai: KI-Follow-up mit
 Human-in-the-Loop-Schwellen. Perfect Venue: automatische Erinnerungen +
 Anzahlung/Restzahlung automatisiert, AI Reply in allen Tiers.
 
 **Gleichziehen:** Web-Angebot mit Optionswahl (Neubau-Basis existiert),
 Click-to-Accept, Anzahlungs-Checkout direkt nach Annahme, Auto-Follow-ups,
-Öffnungs-/Klick-Tracking, strukturierter Änderungswunsch statt E-Mail-Pingpong.
+View-/Engagement-Tracking, Konflikt-Check bei Annahme (Tripleseat-Holds),
+strukturierter Änderungswunsch statt E-Mail-Pingpong.
 
 **Bewusst schlagen:**
 1. **Nordstern sichtbar:** „Minuten bis Angebot" wird beim Senden live
    angezeigt und im Dashboard benchmarkt („schneller als X % vergleichbarer
-   Betriebe") — kein Wettbewerber zeigt das.
+   Betriebe") — kein Wettbewerber zeigt das. Metrik-Definition s. D.
 2. **Verlustgrund vom Kunden selbst:** Höfliche „Leider nein"-Option mit
    Grund-Auswahl auf der Angebotsseite — Conversion-Daten, die sonst niemand
    erhebt (Status quo: 23 % der Anbieter antworten nie, Gründe unbekannt).
-3. **DACH-sauber:** DE/EN, DSGVO-armes Token-Tracking (kein Pixel-Zwang,
-   First-Party-View-Ping), AGB-Version + Zeitstempel + IP als Annahme-Beleg,
-   SEPA/Klarna im Checkout — US-Tools liefern das nicht lokalisiert.
+3. **DACH-sauber:** DE/EN; DSGVO-armes Tracking: Primärsignal ist ein
+   First-Party-View-Ping mit Bot-Heuristik (kein Pixel-Zwang);
+   Provider-Open-/Klick-Tracking nur als Opt-in-Tenant-Setting mit
+   DSGVO-Hinweis. AGB-Version + Zeitstempel + IP + Betrags-Snapshot als
+   Annahme-Beleg, SEPA/Klarna im Checkout — US-Tools liefern das nicht
+   lokalisiert.
 
 ## D — Soll-Design (Neubau)
 
@@ -154,25 +162,86 @@ Click-to-Accept, Anzahlungs-Checkout direkt nach Annahme, Auto-Follow-ups,
    als `kind='test'` protokolliert.
 4. **Senden**: transaktional Options-Snapshot (existiert) + `offer_sends`-Zeile
    + Queue-Job; UI zeigt sofort den Nordstern-Moment: „Angebot versendet —
-   47 Minuten nach Anfrage-Eingang ⚡".
+   47 Minuten nach Anfrage-Eingang ⚡" (Metrik-Definition s. u.).
 5. **Zustellprotokoll** am Vorgang: Chip-Kette queued → sent → delivered →
-   opened/clicked bzw. bounced/complained; Bounce erzeugt Aufgabe + Banner mit
-   Klartext-Erklärung und Alternativvorschlag (Nummer anrufen, Adresse prüfen).
+   viewed (plus opened/clicked, falls Provider-Tracking aktiviert) bzw.
+   bounced/complained; Bounce erzeugt Aufgabe + Banner mit Klartext-Erklärung
+   und Alternativvorschlag (Nummer anrufen, Adresse prüfen).
 6. **Kunde** öffnet `/angebot/:token` (kein Login): Branding des Mandanten,
    Anschreiben, Options-Karten mit Preisen, Sticky-CTA. Aktionen:
-   **Option wählen** · **Änderung wünschen** (strukturiertes Feld + Chips
-   „Gästezahl", „Termin", „Menü", „Budget") · **Annehmen** (AGB-Checkbox,
-   Name-Bestätigung) · **Leider absagen** (Grund-Auswahl, optional Freitext).
-7. Nach **Annahme**: direkt weiter in den Anzahlungs-Checkout (Stripe Connect
-   Session; Karte/SEPA/Klarna/Wallets) — oder, wenn Zahlungsbedingung „vor
-   Ort/Rechnung", sofortige Bestätigungsseite. Bestätigungs-Mail an Kunde +
-   Team, Status → `accepted` (`won_at`-Stempel: „Tage bis gewonnen").
+   **Option wählen** (Wechsel bis zur Annahme erlaubt) · **Änderung wünschen**
+   (strukturiertes Feld + Chips „Gästezahl", „Termin", „Menü", „Budget") ·
+   **Annehmen** (AGB-Checkbox, Name-Bestätigung) · **Leider absagen**
+   (Grund-Auswahl, optional Freitext).
+7. Nach **Annahme** (Versions- + Verfügbarkeits-Check, s. „Annahme
+   gehärtet"): Status → `accepted`, `won_at` gestempelt („Tage bis gewonnen")
+   — unabhängig vom Zahlungsweg. Danach direkt Anzahlungs-Checkout (Stripe
+   Connect Session; Karte/SEPA/Klarna/Wallets) oder, bei Zahlungsbedingung
+   „vor Ort/Rechnung", sofortige Bestätigungsseite. Bestätigungs-Mail an
+   Kunde + Team.
 8. **Änderungswunsch** → Inbox/Aufgabe beim Betreiber, Nachfass-Kadenz
    pausiert; Betreiber baut neue Version im Builder, Re-Send nutzt denselben
-   Token (Kunde behält einen Link).
+   Token (Kunde behält einen Link); der Versions-Check (s. u.) schützt vor
+   Annahme veralteter Seiten.
 9. **Automatisches Nachfassen** (s. Automatisierungen) bis Reaktion, Annahme,
-   Absage oder Ablauf der Angebotsgültigkeit; Ablauf zeigt auf der Seite
-   „Angebot abgelaufen — Verfügbarkeit erneut anfragen".
+   Absage, Rückzug oder Ablauf der Angebotsgültigkeit; Ablauf zeigt auf der
+   Seite „Angebot abgelaufen — Verfügbarkeit erneut anfragen".
+
+### Zustandsmaschine (Angebots-Lebenszyklus)
+Erweitert die Neubau-Zustände (`06_public_offer.sql`). Erlaubte Übergänge:
+`draft → offer_sent` (Erstversand) · `offer_sent → offer_chosen` (Kunde wählt;
+Optionswechsel bis zur Annahme erlaubt, letzte Wahl zählt) ·
+`offer_sent|offer_chosen → change_requested` (Änderungswunsch, Kadenz
+pausiert) · `change_requested → offer_sent` (Re-Send neuer Version: setzt die
+gewählte Option zurück, `current_offer_version`++) ·
+`offer_sent|offer_chosen → accepted` (Click-Accept oder Offline-Aktion;
+stempelt `won_at`) · `offer_sent|offer_chosen → accepted_pending`
+(Accept bei Slot-Konflikt, s. u.; Freigabe → `accepted`, sonst Absage) ·
+`offer_sent|offer_chosen → offer_declined` (Kunde/Betreiber, mit Grund);
+Reaktivierung eines `offer_declined` NUR durch expliziten Re-Send des
+Betreibers · `offer_sent|offer_chosen → expired` (`offer_valid_until`
+überschritten) bzw. `→ withdrawn` (Betreiber zieht zurück); beide per Re-Send
+zurück nach `offer_sent`. `accepted` ist terminal bis Storno (Zahlungs-Modul).
+`get_public_offer` liefert nur die Whitelist `offer_sent · offer_chosen ·
+change_requested · accepted` (Bestätigungsansicht) `· expired · withdrawn`
+(neutraler Zustand + Kontakt-CTA); alles andere ist von außen nicht
+unterscheidbar von einem falschen Token.
+
+### Annahme (gehärtet)
+- **Versions-Bindung:** Accept-Payload enthält `offerVersion`; der Server
+  vergleicht mit `current_offer_version`. Mismatch (alte Seite offen, Re-Send
+  nutzt denselben Token) → 409 + UI-Prompt „Angebot wurde aktualisiert —
+  Seite neu laden". Der Server persistiert `accepted_amount_cents` als
+  Snapshot in `offer_responses` — der Beleg dokumentiert exakt den vom Kunden
+  gesehenen Preis (stützt Risiko G2).
+- **Verfügbarkeits-Check:** Der Accept-RPC prüft Datum/Raum gegen bereits
+  gewonnene/bestätigte Events des Mandanten. Konflikt → Zustand
+  `accepted_pending` („wird bestätigt") + Sofort-Aufgabe an den Betreiber
+  statt Auto-Confirm; der Kunde sieht „Wir bestätigen den Termin umgehend".
+  Optional (Registry): Hold beim Senden reserviert den Slot.
+- **Annahme vs. Zahlung:** `accepted` + `won_at` beim Accept-Klick (Vertrag
+  ist formfrei, G2) — auch im Stripe-Pfad. Zahlungsstatus lebt separat im
+  Zahlungs-Modul. Abgebrochener/abgelaufener Checkout (Stripe-Session, 24 h)
+  → eigene Zahlungs-Erinnerungs-Kadenz + Aufgabe (PartyPay-Muster: Anzahlung
+  wird nach Annahme automatisch angefordert).
+- **Offline-Erfassung:** „Als angenommen markieren" am Vorgang: Option
+  wählen, Zahlungsbedingung setzen, optional Payment-Link per Mail;
+  protokolliert als `offer_responses.kind='accepted_offline'` mit `sent_by`,
+  stempelt `won_at`, setzt `accepted_option_id`, stoppt die Kadenz. Analog
+  „Als abgesagt markieren" mit Verlustgrund (`declined_offline`).
+- **Rückzug:** „Angebot zurückziehen" (Preisfehler, Slot anderweitig
+  vergeben): Public-Seite → neutraler Zustand + Kontakt-CTA, Accept-RPC
+  verweigert, Follow-ups stoppen.
+
+### Nordstern-Metrik (Definition)
+„Minuten bis Angebot" = Erstversand (`kind='offer'`, Version 1) minus
+`inquiry.received_at`; Re-Sends/neue Versionen zählen nicht erneut. Bei
+manuell nacherfassten/telefonischen Anfragen ist `received_at` beim Anlegen
+korrigierbar (Default Anlagezeitpunkt, markiert „nacherfasst", vom Benchmark
+ausgenommen). Anzeige und Benchmark rechnen Business-Hours-adjustiert
+(Tenant-Öffnungszeiten: Anfrage 23:00, Versand 9:00 = top, nicht 600 Min).
+Badge/⚡ nur unterhalb einer Schwelle (Default 120 Business-Minuten), sonst
+neutrale Anzeige. Der anonyme Benchmark nutzt nur normalisierte Werte.
 
 ### Datenmodell (Neon Postgres, Cents, tenant_id + RLS FORCE überall)
 `offer_sends` (NEU — ersetzt email_delivery_logs+v2_event_emails-Doppelung im Angebotsflow):
@@ -188,36 +257,64 @@ provider text · provider_message_id text · status text
 error_message text · created_at timestamptz
 index (tenant_id, event_id) · index (provider_message_id)
 ```
-`offer_send_events` (NEU, append-only): `send_id → offer_sends · type ·
-occurred_at · raw jsonb` — Webhook-Rohereignisse, idempotent per (send_id,
-type, occurred_at).
+`offer_send_events` (NEU, append-only): `tenant_id → tenants (crudPolicy
+tenantIsMember, FORCE RLS — wie die Schwester-Tabellen, inkl. Isolationstest)
+· send_id → offer_sends · type · occurred_at · provider_event_id text ·
+raw jsonb`. Idempotenz primär per Unique auf `provider_event_id` (svix-id);
+`(send_id, type, occurred_at)` nur Fallback für Provider ohne Event-ID.
 `offer_responses` (NEU): `tenant_id · event_id · offer_version · kind
-check ('option_chosen'|'change_request'|'accepted'|'declined') · option_id null ·
-notes · decline_reason check ('too_expensive'|'date_unavailable'|
-'booked_elsewhere'|'plan_cancelled'|'other') · accepted_terms_version text ·
-ip inet · user_agent text · created_at`. Insert nur über SECURITY-DEFINER-RPC.
-`events` (Erweiterung): `offer_first_viewed_at · offer_last_viewed_at ·
-offer_view_count · offer_valid_until date · won_at · loss_reason ·
-loss_reason_note · follow_up_paused_at · accepted_option_id`.
+check ('option_chosen'|'change_request'|'accepted'|'accepted_offline'|
+'declined'|'declined_offline') · option_id null · accepted_amount_cents int
+null (Snapshot) · notes · decline_reason check ('too_expensive'|
+'date_unavailable'|'booked_elsewhere'|'plan_cancelled'|'other') ·
+accepted_terms_version text · ip inet · user_agent text · sent_by uuid null
+(Offline-Erfassung) · created_at`. Public-Insert nur über
+SECURITY-DEFINER-RPC; `*_offline` nur über Team-Endpunkte.
+`events` (Erweiterung): `offer_state (s. Zustandsmaschine) ·
+offer_first_viewed_at · offer_last_viewed_at · offer_view_count ·
+offer_valid_until date · won_at · loss_reason · loss_reason_note ·
+follow_up_paused_at · accepted_option_id`.
 `tenant_settings` (Erweiterung): `mail_from_name · reply_to_email ·
-sending_domain_status ('platform'|'custom_pending'|'custom_verified') ·
-archive_bcc · follow_up_cadence int[] default '{3,7}' · follow_up_auto_send
-boolean + auto_send_max_value_cents · terms_url + terms_version · test_recipients`.
+sending_domain_status ('platform'|'subdomain_pending'|'subdomain_verified'|
+'custom_pending'|'custom_verified') · archive_bcc · follow_up_cadence int[]
+default '{3,7}' · follow_up_auto_send boolean + auto_send_max_value_cents ·
+terms_url + terms_version · test_recipients · provider_open_tracking boolean
+default false (DSGVO-Hinweis in UI) · business_hours jsonb ·
+retention_raw_days int default 30 · retention_lost_months int default 24`.
+
+### Retention & Löschkonzept (DSGVO)
+- `offer_send_events.raw` wird nach `retention_raw_days` per Purge-Job (Cron,
+  nightly) auf extrahierte Felder reduziert (`type`, `occurred_at`,
+  `provider_event_id` bleiben).
+- Verlorene/abgelaufene Vorgänge: `rendered_html`, `recipient_email`, `ip`,
+  `user_agent` werden nach `retention_lost_months` anonymisiert. Annahme-
+  Belege gewonnener Events bleiben (berechtigtes Interesse/Beweissicherung,
+  gesetzliche Aufbewahrung).
+- Details im zentralen Löschkonzept (Plattform-Spec); der Purge-Job gehört zu
+  diesem Modul (Bau-Schritt 12).
 
 ### Mail-Provider-Entscheidung (explizit)
 **Resend als primärer Provider.** Gründe: im Alt-System produktionsbewährt
 (Webhook-/svix-Verifikation als Code-Muster vorhanden), Domains-API für
 mandantenfähigen Domain-Setup, Idempotency-Keys, DPA/AVV verfügbar.
-Deliverability-Architektur zweistufig:
-- **Stufe 1 (Default, Time-to-Value < 15 Min):** Versand über
-  Plattform-Subdomain je Mandant: `angebote@<slug>.mail.maestro.app`.
-  SPF/DKIM/DMARC einmal zentral; **Reply-To = echte Mandanten-Adresse**,
-  From-Name = Betriebsname. Subdomain-Isolation begrenzt Reputationsschaden
-  einzelner Mandanten. NIE From = Mandanten-Domain ohne Verifikation
-  (DMARC-Fail garantiert).
+Deliverability-Architektur dreistufig (entschieden — bei Resend ist jede
+Subdomain eine eigene Domain mit eigenen DKIM-Records, „Subdomain je Mandant"
+gibt es also NICHT gratis):
+- **Stufe 1 (Default, Time-to-Value < 15 Min): EINE Plattform-Domain**
+  `angebote@mail.maestro.app`; From-Name = Betriebsname, **Reply-To = echte
+  Mandanten-Adresse**. Ehrlich: keine Reputations-Isolation (der lokale Teil
+  der Adresse isoliert nichts) — Schutz kommt aus Complaint-/Bounce-Monitoring
+  mit automatischem Kill-Switch pro Mandant + Rate-Limit für neue Tenants.
+- **Stufe 1.5 (automatisch nachgelagert): Subdomain je Mandant**
+  `<slug>.mail.maestro.app` via Provisioning-Job beim Tenant-Anlegen:
+  Resend-Domains-API + Cloudflare-DNS-API (Plattform kontrolliert die Zone),
+  Verifikation asynchron; bis `subdomain_verified` sendet der Tenant über
+  Stufe 1 (kein Time-to-Value-Verlust). Domain-Quota/Limits und Fehlerpfad
+  (Retry, Betreiber-Task, Verbleib auf Stufe 1) im Adapter dokumentiert.
 - **Stufe 2 (Pro-Tier):** eigene Mandanten-Domain via Resend-Domains-API:
   Settings-UI zeigt die 3 DNS-Records + Live-Verifikations-Check; erst nach
-  `custom_verified` wechselt der From.
+  `custom_verified` wechselt der From. NIE From = Mandanten-Domain ohne
+  Verifikation (DMARC-Fail garantiert).
 - **Kein hart verdrahteter Zweit-Provider.** Der Alt-SMTP-Fallback heilte
   Suppression-Probleme der geteilten Adresse; ein Retry auf einen Hard-Bounce
   heilt nichts. Provider-Zugriff hinter ein Adapter-Interface
@@ -232,36 +329,48 @@ Deliverability-Architektur zweistufig:
 - `POST /api/events/:id/offers/send {recipient, cc, bcc, subject, letter,
   language}` — erweitert den bestehenden Send-Endpoint: Snapshot + Token
   (existiert) + `offer_sends`-Insert + Queue-Job. Totals/Status serverseitig.
+- `POST /api/events/:id/offers/mark-accepted` · `.../mark-declined` ·
+  `.../withdraw` — Offline-Aktionen/Rückzug (s. „Annahme gehärtet",
+  Zustandsmaschinen-Guards serverseitig).
 - `GET /api/events/:id/sends` — Zustellprotokoll inkl. Events.
-- `POST /api/webhooks/email` — svix-verifiziert, idempotent, Status-Maschine
-  mit Downgrade-Schutz (Muster aus Alt-Webhook übernehmen); bounce/complaint
-  → Aufgabe + Badge.
+- `POST /api/webhooks/email` — svix-verifiziert, idempotent per
+  `provider_event_id`, Status-Maschine mit Downgrade-Schutz (Muster aus
+  Alt-Webhook übernehmen); bounce/complaint → Aufgabe + Badge.
 - Public (Rolle `maestro_public`, nur RPC-EXECUTE): `GET /api/public/offer/
-  :token` (existiert) · `POST .../view` (View-Ping, tokenbasiert — schließt
-  Befund A5; `?preview=1`-Aufrufe des Teams zählen nicht) · `POST .../respond`
-  (erweitert um `kind`, `decline_reason`) · `POST .../accept {optionId,
-  termsVersion}` → `{checkoutUrl | confirmed}`.
+  :token` (existiert, Status-Whitelist s. Zustandsmaschine) · `POST .../view`
+  — First-Party-View-Ping: JS-basiert nach Delay/Interaktion, UA-/Bot-Filter
+  (Outlook SafeLinks, GMX-Prefetch, bekannte Scanner), HEAD/Prefetch zählen
+  nicht; `?preview=1`-Aufrufe des Teams zählen nicht (schließt Befund A5) ·
+  `POST .../respond` (erweitert um `kind`, `decline_reason`) · `POST
+  .../accept {optionId, termsVersion, offerVersion}` → `{checkoutUrl |
+  confirmed | pending_review}`; 409 bei Versions-Mismatch.
 
 ### Automatisierungen (Cloudflare Queues + Cron)
 - **Send-Queue** mit Retry/Backoff (ersetzt 12s-Timer); Dead-Letter → Aufgabe.
 - **Follow-up-Engine (Cron, stündlich):** Kandidaten = `offer_sent`, keine
   Response, Kadenz (Default T+3/T+7) fällig, nicht pausiert, Gültigkeit nicht
-  abgelaufen. KI-Entwurf; Auto-Send nur wenn `follow_up_auto_send` UND
-  Eventwert < Schwelle, sonst Freigabe-Task (iVvy-Muster). Jede Kundenreaktion
-  (View reicht nicht; Response/Inbound-Mail/Zahlung schon) pausiert die Kadenz.
-- **Engagement-Trigger:** `opened`/`viewed` ohne Antwort nach 48 h →
-  Nachfass-Vorschlag; nie geöffnet nach 48 h → Hinweis „anderer Kanal"
+  abgelaufen, nicht zurückgezogen. KI-Entwurf; Auto-Send nur wenn
+  `follow_up_auto_send` UND Eventwert < Schwelle, sonst Freigabe-Task
+  (iVvy-Muster). Jede Kundenreaktion (View reicht nicht;
+  Response/Inbound-Mail/Zahlung/Offline-Statuswechsel schon) pausiert.
+- **Zahlungs-Erinnerung:** `accepted` ohne abgeschlossene Anzahlung (Checkout
+  abgebrochen/abgelaufen) → eigene Erinnerungs-Kadenz + Aufgabe; getrennt von
+  der Angebots-Kadenz (die mit der Annahme endet).
+- **Engagement-Trigger:** basiert auf `viewed` (First-Party, bot-gefiltert),
+  NICHT auf Provider-`opened`: `viewed` ohne Antwort nach 48 h →
+  Nachfass-Vorschlag; nie `viewed` nach 48 h → Hinweis „anderer Kanal"
   (Telefon; WhatsApp in Welle 2).
 - **Ablauf-Handling:** 2 Tage vor `offer_valid_until` letzte Erinnerung;
   danach Angebotsseite → „abgelaufen", Vorgang → Aufgabe „nachfassen oder
   Verlustgrund setzen".
-- **Nordstern-Aggregation (nightly):** Minuten bis Angebot / Tage bis gewonnen
-  pro Tenant + anonymer Benchmark fürs Dashboard.
+- **Retention-Purge (nightly):** s. Retention-Abschnitt.
+- **Nordstern-Aggregation (nightly):** Minuten bis Angebot (normalisiert,
+  s. Definition) / Tage bis gewonnen pro Tenant + anonymer Benchmark.
 
 ### KI-Punkte (Input → Vorschlag → Bestätigung)
 1. **Anschreiben:** Anfrage + Angebotsstand + Mandanten-Tonalität → Entwurf im
    Composer; Erstversand nie ohne Menschen.
-2. **Follow-up-Texte:** personalisiert (Bezug auf Optionen, Öffnungsverhalten);
+2. **Follow-up-Texte:** personalisiert (Bezug auf Optionen, View-Verhalten);
    Auto-Send nur unter konfigurierten Schwellen.
 3. **Änderungswunsch-Parsing:** Kundennotiz → strukturierte Vorschläge
    („Gästezahl 40→55, Option B, vegetarisch +6") als Builder-Draft.
@@ -271,18 +380,23 @@ Deliverability-Architektur zweistufig:
 - **Stripe Connect:** Checkout-Session (nicht PaymentLink-Objekte) mit
   `application_fee`, Metadata `payment_id` (Webhook-Bindung existiert im
   Neubau); Beträge nur Cents. PayPal-Lücke: Welle 3 (Digest).
-- **LexOffice:** PDF-Download auf der Angebotsseite (async erzeugt), Rechnung
-  nach Annahme — Zahlungs-/Rechnungs-Modul.
+- **PDF-Download:** eigener HTML→PDF-Render aus dem EINEN Renderer (derselbe
+  wie Mail/Page, zahlt auf AK2 ein) als Default für ALLE Mandanten — nicht an
+  LexOffice gekoppelt. Async erzeugt; bis dahin zeigt die Angebotsseite
+  „PDF wird erstellt" mit Auto-Refresh.
+- **LexOffice:** nur Rechnungswesen/Buchhaltung (Rechnung nach Annahme) —
+  Zahlungs-/Rechnungs-Modul.
 - **Inbound-E-Mail (Cloudflare Email Routing):** Antworten auf Reply-To landen
   im Inbox-Modul und pausieren die Follow-up-Kadenz.
 - **WhatsApp (Welle 2):** Follow-up-Kanal via BSP; gleiche Kadenz-Engine.
 
 ## E — Klassifikation
 
-**Kern.** Versand, Public-Page, Annahme, Zustell-Tracking und Nachfassen sind
-der Abschluss-Flow — nicht abschaltbar. Per Registry (B10) zuschaltbar:
-eigene Sending-Domain (Pro-Tier), Auto-Send der Follow-ups, WhatsApp-Kanal,
-PDF-Download. **Storia-only:** eSignatures.com-Kostenübernahme, IT/FR-Texte,
+**Kern.** Versand, Public-Page, Annahme (online + offline), Rückzug,
+Zustell-Tracking und Nachfassen sind der Abschluss-Flow — nicht abschaltbar.
+Per Registry (B10) zuschaltbar: eigene Sending-Domain (Pro-Tier), Auto-Send
+der Follow-ups, WhatsApp-Kanal, Provider-Open-Tracking, Slot-Hold beim
+Senden. **Storia-only:** eSignatures.com-Kostenübernahme, IT/FR-Texte,
 Restaurant-Galerie-Inhalte (Mechanik wird generisches Branding). Kriterium wie
 Spec 02: brauchen < 30 % der Zielmandanten es am Tag 1? → Registry/Fork.
 
@@ -290,64 +404,97 @@ Spec 02: brauchen < 30 % der Zielmandanten es am Tag 1? → Registry/Fork.
 
 | # | Schritt | Abhängig von | Aufwand | Neu |
 |---|---------|--------------|---------|-----|
-| 1 | Migration: `offer_sends`, `offer_send_events`, `offer_responses`, Events-/Settings-Felder, RLS + FORCE + Isolationstests | — | S | Tabellen |
-| 2 | `packages/mail`: Resend-Adapter, EIN Renderer (Send=Preview=Test), Send-Queue mit Retry | 1 | M | Paket |
-| 3 | Send-Endpoint ausbauen (Composer-Payload, `offer_sends`, Queue, Nordstern-Stempel) + render-preview + test-send | 2 | M | Endpunkte |
+| 1 | Migration: `offer_sends`, `offer_send_events` (inkl. tenant_id + provider_event_id-Unique), `offer_responses`, Events-/Settings-Felder, Zustandsmaschinen-Guards, RLS + FORCE + Isolationstests für ALLE drei Tabellen | — | S | Tabellen |
+| 2 | `packages/mail`: Resend-Adapter (Stufe 1: Plattform-Domain), EIN Renderer (Send=Preview=Test=PDF), Send-Queue mit Retry | 1 | M | Paket |
+| 3 | Send-Endpoint ausbauen (Composer-Payload, `offer_sends`, Queue, Nordstern-Stempel inkl. Metrik-Definition) + render-preview + test-send | 2 | M | Endpunkte |
 | 4 | Composer-UI (Anschreiben, Vorlagen, Variablen, Empfänger, Warnungen) + Vorschau-Tabs + Testmail | 3 | L | UI |
-| 5 | Webhook `/api/webhooks/email` + Status-Maschine + Zustellprotokoll-UI + Bounce-Aufgabe | 2 | M | Endpunkt/UI |
-| 6 | Public-Page-Ausbau: View-Ping, Änderungswunsch, Annahme (AGB/IP/Version), Absage mit Grund, Ablauf-Zustand | 1 | L | UI/RPCs |
-| 7 | Annahme → Stripe-Checkout-Session (Connect, Cents) + Bestätigungs-Mails | 6, Zahlungs-Modul | M | Endpunkt |
-| 8 | Follow-up-Engine: Cron, Kadenz, Pausierung, KI-Entwurf, Freigabe-Task, Auto-Send-Schwellen | 3,5,6 | L | Cron/Queue |
-| 9 | Mandanten-Sending-Domains: Settings-UI, Resend-Domains-API, DNS-Check | 2 | M | UI/Adapter |
-| 10 | Nordstern-Dashboard-Kacheln (Minuten bis Angebot, Tage bis gewonnen, Benchmark) | 3,7 | M | UI/Cron |
-| 11 | KI: Anschreiben-, Follow-up-, Änderungswunsch-, Verlustgrund-Endpunkte | 3,6,8 | L | Endpunkte |
+| 5 | Webhook `/api/webhooks/email` (provider_event_id-Idempotenz) + Status-Maschine + Zustellprotokoll-UI + Bounce-Aufgabe | 2 | M | Endpunkt/UI |
+| 6 | Public-Page-Ausbau: View-Ping mit Bot-Heuristik, Änderungswunsch, Annahme (offerVersion/Konflikt-Check/AGB/IP/Betrags-Snapshot), Absage mit Grund, Ablauf-/Rückzugs-Zustand | 1 | L | UI/RPCs |
+| 7 | Vorgangs-Aktionen: Als angenommen/abgesagt markieren, Angebot zurückziehen | 1 | S | UI/Endpunkte |
+| 8 | Annahme → Stripe-Checkout-Session (Connect, Cents) + Bestätigungs-Mails + Zahlungs-Erinnerungs-Kadenz | 6, Zahlungs-Modul | M | Endpunkt |
+| 9 | Follow-up-Engine: Cron, Kadenz, Pausierung, KI-Entwurf, Freigabe-Task, Auto-Send-Schwellen | 3,5,6 | L | Cron/Queue |
+| 10 | Sending-Domains Stufe 1.5/2: Provisioning-Job (Resend-Domains-API + Cloudflare-DNS), Settings-UI, DNS-Check, Fehlerpfad | 2 | M | UI/Adapter |
+| 11 | Nordstern-Dashboard-Kacheln (Minuten bis Angebot, Tage bis gewonnen, Benchmark, Business-Hours-Normalisierung) | 3,8 | M | UI/Cron |
+| 12 | Retention-Purge-Job (raw-Reduktion, Anonymisierung verlorener Vorgänge) | 1 | S | Cron |
+| 13 | KI: Anschreiben-, Follow-up-, Änderungswunsch-, Verlustgrund-Endpunkte | 3,6,9 | L | Endpunkte |
 
-Kritischer Pfad 1→2→3→4 (erster echter Versand), dann 5/6 parallel; 7–11 danach.
+Kritischer Pfad 1→2→3→4 (erster echter Versand), dann 5/6/7 parallel; 8–13 danach.
 
-## G — Risiken & Lösungen (Top 3)
+## G — Risiken & Lösungen (Top 4)
 
 1. **Plattform-Deliverability** — ein Spam-Mandant ruiniert die Zustellrate
-   aller. → Subdomain pro Mandant, Rate-Limits für neue Tenants,
-   Suppression-/Complaint-Monitoring mit Kill-Switch, DMARC-Reports; Custom
-   Domain als Pro-Ausweg. Akzeptanztest: Seed-Liste (Gmail/Outlook/GMX/web.de).
-2. **Rechtsverbindlichkeit der Annahme** ohne eIDAS-Signatur. → Gastro-Verträge
+   aller. → Stufe-1-Kill-Switch (Complaint-/Bounce-Monitoring), Rate-Limits
+   für neue Tenants, automatische Subdomain-Isolation ab Stufe 1.5,
+   DMARC-Reports; Custom Domain als Pro-Ausweg. Akzeptanztest: Seed-Liste
+   (Gmail/Outlook/GMX/web.de).
+2. **Doppelbuchung durch Auto-Annahme** — zwei offene Angebote für denselben
+   Slot, beide Kunden klicken „Annehmen" (Tripleseat löst das mit
+   Holds/Kalender-Warnung). → Serverseitiger Datums-/Raum-Konfliktcheck im
+   Accept-RPC; Konflikt → `accepted_pending` + Sofort-Aufgabe statt
+   Auto-Confirm; optionales Hold beim Senden (Registry). AK 12.
+3. **Rechtsverbindlichkeit der Annahme** ohne eIDAS-Signatur. → Gastro-Verträge
    sind formfrei: Click-to-Accept mit protokollierter AGB-Version, IP,
-   User-Agent, Zeitstempel (`offer_responses`) + doppelseitiger
-   Bestätigungs-Mail genügt; qualifizierte E-Signatur bleibt optionales Modul
-   für Firmen-/Kostenübernahme-Fälle.
-3. **Follow-up-Automatik nervt** (Kunde hat telefonisch zu-/abgesagt, System
-   mailt weiter). → Jede erfasste Reaktion (Inbound-Mail-Zuordnung,
-   Statuswechsel, Zahlung, Response) pausiert sofort; 1-Klick-Stopp am
-   Vorgang; Reminder-Cap (max. Kadenz-Länge); Abmeldelink in jeder
-   Nachfass-Mail (DSGVO).
+   User-Agent, Zeitstempel UND Versions-Bindung + `accepted_amount_cents`
+   (`offer_responses`) — der Beleg zeigt exakt den gesehenen Preis — +
+   doppelseitiger Bestätigungs-Mail; qualifizierte E-Signatur bleibt
+   optionales Modul für Firmen-/Kostenübernahme-Fälle.
+4. **Follow-up-Automatik nervt** (Kunde hat telefonisch zu-/abgesagt, System
+   mailt weiter). → Offline-Aktionen (AK 13) stoppen die Kadenz sofort; ebenso
+   Inbound-Mail-Zuordnung, Zahlung, Response; 1-Klick-Stopp am Vorgang;
+   Reminder-Cap (max. Kadenz-Länge); Abmeldelink in jeder Nachfass-Mail
+   (DSGVO).
 
 ## H — Akzeptanzkriterien
 
-1. Versand aus dem Composer stempelt `offer_sent_at`; die UI zeigt unmittelbar
-   „X Minuten nach Anfrage-Eingang", das Dashboard aggregiert den Wert.
-2. Vorschau, Testmail und echter Versand erzeugen byte-identisches HTML aus
-   derselben Render-Funktion (Golden-Test).
+1. Versand aus dem Composer stempelt `offer_sent_at`; „Minuten bis Angebot"
+   zählt nur den Erstversand, basiert auf korrigierbarem
+   `inquiry.received_at`, wird Business-Hours-adjustiert angezeigt und
+   aggregiert; ⚡-Badge nur unterhalb der Schwelle, nacherfasste Anfragen
+   fließen nicht in den Benchmark.
+2. Vorschau, Testmail, echter Versand und PDF-Download erzeugen
+   byte-identisches HTML aus derselben Render-Funktion (Golden-Test).
 3. Testmail geht nur an User/Team-Adressen, ändert keinen Status und erzeugt
    keinen Kundenkontakt.
 4. Jede Zeile im Zustellprotokoll trägt Empfänger/CC/BCC/HTML direkt am
-   Datensatz — keine Zeitfenster-Rekonstruktion; Statuswechsel kommen per
-   signiertem Webhook, Failure-Status wird nie durch spätere Success-Events
-   überschrieben.
+   Datensatz; Statuswechsel kommen per signiertem Webhook, Failure-Status
+   wird nie durch spätere Success-Events überschrieben; ein erneut
+   zugestelltes Webhook-Event (gleiche `provider_event_id`) erzeugt keine
+   zweite Zeile.
 5. Ein Hard-Bounce erzeugt innerhalb 1 Minute sichtbaren Fehler + Aufgabe mit
    Klartext-Erklärung (kein englischer Provider-Rohtext).
 6. Der Kunde durchläuft öffnen → Option wählen → annehmen → Anzahlungs-Checkout
-   ohne Login auf 390 px Breite; bei Zahlart „vor Ort/Rechnung" endet der Flow
-   in einer Bestätigung, Status wird `accepted`, `won_at` gestempelt.
+   ohne Login auf 390 px Breite; `accepted` + `won_at` werden beim
+   Accept-Klick gestempelt — im Stripe-Pfad WIE im „vor Ort/Rechnung"-Pfad;
+   ein abgebrochener Checkout startet die Zahlungs-Erinnerungs-Kadenz +
+   Aufgabe, ohne den `accepted`-Status zu berühren.
 7. Kundenaufrufe über den Mail-Link erhöhen `offer_view_count`
-   (first/last_viewed korrekt); Team-Vorschau zählt nicht.
+   (first/last_viewed korrekt); Team-Vorschau zählt nicht; Link-Scanner und
+   Prefetcher (Outlook SafeLinks, GMX) erhöhen den Zähler nicht
+   (Bot-Heuristik-Test).
 8. Änderungswunsch erzeugt strukturierte Aufgabe beim Betreiber und pausiert
-   die Nachfass-Kadenz; Re-Send nach neuer Version nutzt denselben Token-Link.
-9. Follow-ups feuern nach T+3/T+7 nur ohne Kundenreaktion; Annahme, Absage,
-   zugeordnete Inbound-Mail oder Zahlung stoppen die Kadenz sofort
-   (automatisierter Test); über der Wert-Schwelle wird nie ohne Freigabe
-   gesendet.
-10. RLS-Isolationstest: Mandant A sieht keine `offer_sends`/`offer_responses`
-    von Mandant B; der Public-Zugriff funktioniert ausschließlich über
-    (Subdomain-Slug + Token)-Doppel-Match via SECURITY-DEFINER-RPC — falscher
-    Token, falscher Tenant und falscher Status sind von außen nicht
-    unterscheidbar.
+   die Nachfass-Kadenz; Re-Send nach neuer Version nutzt denselben Token-Link,
+   setzt die gewählte Option zurück und erhöht `current_offer_version`.
+9. Annahme einer veralteten Version wird abgewiesen — 409 + Reload-Prompt
+   „Angebot wurde aktualisiert" (automatisierter Test); `offer_responses`
+   persistiert `accepted_amount_cents` der tatsächlich angenommenen Version.
+10. Annahme bei bereits gewonnenem Konkurrenz-Event am selben Slot erzeugt
+    keinen `accepted`-Status ohne Freigabe (→ `accepted_pending` +
+    Sofort-Aufgabe, automatisierter Test).
+11. „Als angenommen markieren" stempelt `won_at`, setzt `accepted_option_id`,
+    stoppt die Kadenz und protokolliert `accepted_offline` mit `sent_by`;
+    „Als abgesagt markieren" erfasst den Verlustgrund analog.
+12. Ein zurückgezogenes Angebot ist nicht annehmbar (Accept-RPC verweigert),
+    die Public-Seite zeigt den neutralen Zustand + Kontakt-CTA, Follow-ups
+    stoppen.
+13. Follow-ups feuern nach T+3/T+7 nur ohne Kundenreaktion; Annahme, Absage,
+    Rückzug, zugeordnete Inbound-Mail, Zahlung oder Offline-Statuswechsel
+    stoppen die Kadenz sofort (automatisierter Test); über der Wert-Schwelle
+    wird nie ohne Freigabe gesendet.
+14. Purge-Job entfernt Webhook-Rohdaten älter als `retention_raw_days` und
+    anonymisiert Sends/Responses verlorener Vorgänge nach
+    `retention_lost_months` (automatisierter Test).
+15. RLS-Isolationstest: Mandant A sieht keine `offer_sends`/
+    `offer_send_events`/`offer_responses` von Mandant B; der Public-Zugriff
+    funktioniert ausschließlich über (Subdomain-Slug + Token)-Doppel-Match via
+    SECURITY-DEFINER-RPC — falscher Token, falscher Tenant und falscher
+    Status sind von außen nicht unterscheidbar.
