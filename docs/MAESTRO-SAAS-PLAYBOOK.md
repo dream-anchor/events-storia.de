@@ -995,6 +995,53 @@ ABSCHLUSS (immer am Ende dieser Aufgabe):
 
 ---
 
+## Feature-Parität: Alt-MAESTRO vs. Neubau (Gap-Analyse 2026-07-05)
+
+> Vollinventur des alten Systems per Workflow (6 Agenten, 314 Datei-Zugriffe):
+> **393 Funktionen** katalogisiert (141 „täglich", 150 „regelmäßig"). Rohdaten:
+> Workflow wf_6092511b-ed5. Der Neubau deckt bewusst erst den Kern-Spine ab —
+> diese Matrix macht die Lücken explizit und priorisierbar.
+
+### Parität nach Bereich (✅ vorhanden · 🟡 teilweise · ❌ fehlt)
+
+| # | Bereich (Alt-Funktionen) | Neubau | Wichtigste Lücken |
+|---|---|---|---|
+| 1 | **Angebots-Builder/Editor** (57 Fkt.) | 🟡 ~20 % | Menü-Katalog/DishPicker, Tage+Gänge, 5 Optionen+5 Modi, Positionen mit Menge/EP/MwSt (7/19 %), Rabatt/Preis-Override, Anschreiben-Composer + Vorlagen, **Angebots-Mail-Versand** (!), WYSIWYG-Vorschau+Testmail, Versionsarchiv-UI, Klonen, DE/EN-Übersetzung, KI (Anschreiben/Menüvorschlag/Freitext-Parse) |
+| 2 | **E-Mail** (48 Fkt.) | ❌ 0 % | IMAP-Sync, zentrale Inbox, Mail-zu-Event-Zuordnung (+KI-Vorschläge), Mail-Client je Vorgang, Vorlagen/Textbausteine/Signaturen, Zustell-Tracking+Fehleralarm, Nachfass-Automatik, CC/BCC, Anhänge |
+| 3 | **Dashboard/Pinnwand** (10 Fkt.) | 🟡 ~30 % | Prioritäten-Engine mit SLA-Buckets (jetzt/kritisch/heute/Woche), Snooze, Worklist-Filter, Tages-Timeline, Mail-Fehler-Kachel |
+| 4 | **Aufgaben & Zusammenarbeit** (19 Fkt.) | ❌ 0 % | Aufgaben je Vorgang (Zuweisung/Priorität/Fälligkeit), persönliches Widget, interne Notizen + Kommentar-Threads, Aktivitäts-Timeline/Changelog, Anwesenheits-Anzeige, Zuweisung+Priorität an Anfragen, Bulk-Aktionen, Kanban-Pipeline |
+| 5 | **Rechnungen/LexOffice** (24 Fkt.) | ❌ 0 % | Beleg aus Event erzeugen (Angebot/Anzahlung/Schluss), Belegliste je Vorgang+global, PDF, Storno/Gutschrift, Zahlstatus-Sync, Rechnungs-Mail |
+| 6 | **Zahlungen** (17 Fkt.) | 🟡 ~35 % | Stripe-**Checkout** (Angebotsseite+Admin), Zahlungslinks (Prepayment/Restzahlung + öffentliche Seite), Zahlungserinnerungen, Überfällig-Automatik. Fundament (Webhook, manuelle Zahlungen, RLS) steht |
+| 7 | **Stammdaten/Katalog** (21 Fkt.) | ❌ 0 % | Speisen+Getränke, Event-Pakete, Locations/Räume, Equipment+Personal-Katalog, Restaurant-Menü-Import, KI-Übersetzung |
+| 8 | **Catering-Bestellungen/Shop** (14 Fkt.) | ❌ 0 % | Bestellliste+Editor, Küchen-/Service-Zettel-Druck, Bestätigungen, Storno+Erstattung, Liefer-Erinnerung — *teils Storia-spezifisch (Website-Shop), SaaS-Scope klären* |
+| 9 | **Navigation/Shell** (14 Fkt.) | 🟡 ~40 % | Command-Palette (Cmd+K), Live-Badges in Sidebar, Benachrichtigungs-Center, Auto-Save-Status, Testdaten-/Privacy-Modus |
+| 10 | **Kunden** (10 Fkt.) | 🟡 ~50 % | Kundenkonto+Einladung, Anhänge, (Rest vorhanden) |
+| 11 | **KI-Features** (übergreifend ~15 Fkt.) | ❌ 0 % | Intake-Wizard (Freitext→Anfrage), Anschreiben, Menüvorschlag, Übersetzungen, Storno-Texte, Mail-Klassifikation |
+| 12 | **eSignatur/Kostenübernahme** (11 Fkt.) | ❌ 0 % | eSignatures.com-Flow, signierte PDFs, Signatur-Lock |
+| 13 | **Sonstiges** | ❌ | Gutscheine (Verkauf/Einlösung/PDF), Fotoalbum (KI-Klassifizierung), Auswertung („Warum nicht gebucht?"-Funnel), Drucke (Küchen-/Laufzettel, „Nächste Aufträge"-PDF), WhatsApp-Team-Alerts, Google-Bewertungsanfragen, System-Health, Buchungs-Editor mit Menü-Workflow |
+
+**Wo der Neubau schon BESSER ist:** echte Multi-Tenant-Isolation (RLS bewiesen),
+sauberes Rollenmodell, Status-Maschine mit Whitelist, moderne UI (Stitch), CI/CD,
+Stripe-Webhook mit Connect-Tenant-Bindung, 48 Tests.
+
+**Scope-Frage (Nutzer-Entscheidung):** Catering-Shop, Gutscheine, Fotoalbum,
+Restaurant-Speisekarten, SEO-Tools sind eng mit der Storia-**Website** verzahnt —
+gehören sie ins SaaS-Produkt für alle Mandanten oder bleiben sie Storia-spezifisch
+(Altsystem/eigenes Modul)?
+
+### Vorgeschlagene Bau-Reihenfolge (Paritäts-Sprints)
+1. **P1 — Angebots-Prozess komplett** (größter Tages-Hebel): Katalog-Grundlagen
+   (Speisen/Pakete) → Builder-Ausbau (Positionen m. Preisen/MwSt, Tage/Gänge,
+   Anschreiben) → **Mail-Versand des Angebots** → PDF → Versionen-UI.
+2. **P2 — Zusammenarbeit**: Aufgaben, Notizen/Kommentare, Zuweisung+Priorität,
+   Aktivitäts-Timeline, Pinnwand-Worklist mit SLA+Snooze; Kanban + Bulk.
+3. **P3 — Zahlungen scharf**: Stripe-Checkout + Zahlungslinks + Erinnerungen
+   (Keys nötig) — danach Kunden-Intelligenz v1 (Anzahlungs-Ampel andocken).
+4. **P4 — E-Mail-Inbox**: IMAP-Sync, Zuordnung, Vorlagen, Zustell-Tracking.
+5. **P5 — LexOffice**, dann eSign/WhatsApp/Bewertungen/KI-Ausbau nach Bedarf.
+
+---
+
 ## Feature-Modul: Kunden-Intelligenz (Lead-Enrichment & Risiko-Ampel)
 
 > Recherchiert + adversarial verifiziert 2026-07-05 (12 Agenten, Quellen unten).
