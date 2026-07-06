@@ -30,6 +30,16 @@ Snapshot + öffentliche Angebotsseite (lesen/annehmen) · ✅ Zahlungstabelle + 
 | **Anzahlung (Zahlungslink)** | P3 | ✅ Stripe-Adapter, **live 125 €-Link erzeugt**, bei Zusage verdrahtet |
 | **Integrationen via Composio** | — | ✅ Anthropic·LexOffice·Resend·Stripe ACTIVE + live bewiesen |
 
+### Nachtrag (später am 2026-07-06)
+- ✅ **Flow verdrahtet:** Senden-Button → **Angebots-E-Mail an den Kunden**; Kunden-Zusage →
+  **Anzahlungslink** (beide Adapter live bewiesen, jetzt im Ablauf).
+- ✅ **PDF-Dokument (04):** druckfertiges Angebots-HTML (`GET /api/offers/:id/document`,
+  Browser druckt zu PDF); serverseitige HTML→PDF-Wandlung (Cloudflare Browser Rendering) offen.
+- ✅ **Nachfassen (03):** T+3/T+7-Logik + Nachfass-Mail + Sweep-Route je Mandant
+  (`POST /api/events/followups/run`); **globaler Cron-Scheduler** (ruft den Sweep je Mandant)
+  ist der verbleibende Transport.
+- **122/122 API-Tests grün.**
+
 ## 4. Angefangen / teilweise
 - 🔨 **LexOffice (P5):** Mapping+Golden fertig; **automatisches Anlegen beim Senden noch nicht
   verdrahtet** (bewusst — echtes Buchhaltungsdokument je Versand ist eine Nebenwirkung, die du
