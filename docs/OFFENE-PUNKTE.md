@@ -4,13 +4,20 @@
 > `docs/specs/00-ROADMAP.md`. Stand: 2026-07-06.
 
 ## A. Betriebs-To-Dos — nur Antoine kann das erledigen
-1. **Bundle einspielen:** `maestro-katalog-speisekarten.bundle` im lokalen `maestro-cloud`
+1. **Bundle einspielen:** jeweils neuestes `maestro-cloud-*.bundle` im lokalen `maestro-cloud`
    (`git fetch ./…bundle HEAD && git merge FETCH_HEAD && git push`) → CI deployt automatisch.
-2. **KI-Live-Schaltung:** `ANTHROPIC_API_KEY` als Worker-Secret setzen
-   (`cd apps/api && wrangler secret put ANTHROPIC_API_KEY`; optional `AI_MODEL`). Ohne Key
-   endet ein Karten-Import sauber als „fehlgeschlagen", nichts bricht.
-3. **GitHub-Zugriff:** Claude-GitHub-App Zugriff auf das `maestro-cloud`-Repo geben, damit
+2. **GitHub-Zugriff:** Claude-GitHub-App Zugriff auf das `maestro-cloud`-Repo geben, damit
    künftige Sessions direkt pushen können (dann entfällt der Bundle-Umweg).
+
+## A2. Integrationen laufen über Composio (2026-07-06 bestätigt)
+Anthropic, LexOffice, Resend, Stripe sind **in Composio ACTIVE** verbunden — keine rohen
+Provider-Keys nötig. **Offene Entscheidung (siehe B):** ob das Produkt zur Laufzeit über
+Composio geht (ein `COMPOSIO_API_KEY` im Worker, pro Mandant eine Composio-Verbindung) oder
+direkte Provider-Keys nutzt. Für Storia als ersten Mandanten funktioniert beides.
+- ⚠️ **Stripe = per Mandant** (Connect / eigene Konten) — eine einzelne Composio-Verbindung
+  reicht nur für Storia; Multi-Tenant braucht Verbindung/Connect je Betrieb.
+- ⚠️ **LexOffice = per Mandant** — jeder Betrieb hat sein eigenes Konto.
+- **Freigabe ausstehend:** einmaliger Test-Entwurf in LexOffice zum Golden-Beweis von F8.
 
 ## B. Offene Entscheidungen (Default-Empfehlung in Klammern)
 Referenz-Nummern = `00-ROADMAP.md`.
@@ -42,8 +49,9 @@ Referenz-Nummern = `00-ROADMAP.md`.
 - ✅ **Spec 06 Import (F1–F3)** — Karte → KI → Review → Katalog, verifiziert.
 - 🔨 **Spec 02 Angebots-Builder** — F1 Engine + F2 Datenmodell + F3 API + **F4 Editor-UI** +
   **F7 Kundenseite** umgesetzt+verifiziert (**84/84 Tests, E2E bauen→senden→öffentlich lesen**).
-  **Offen: F8 LexOffice-Export** (braucht API-Zugang/echte Responses), **F9 KI**
-  (ai-suggest/parse-freeform), F10 Nordstern-Messstrecke/Queue.
+  **F8 LexOffice-Mapping** umgesetzt+unit-verifiziert (Cent-Paritaet by construction);
+  **offen:** echter Golden-Test via Composio `LEXOFFICE_CREATE_QUOTATION` (Freigabe nötig) +
+  Transport-Anbindung. **Offen:** **F9 KI** (ai-suggest/parse-freeform), F10 Nordstern/Queue.
 - ⏭️ danach: 04 Dokumente/PDF · 03 Versand/Annahme · 05 KI-Gateway-Ausbau · P2–P5.
 
 ## E. Technische Merkposten (im Code hinterlegt)
