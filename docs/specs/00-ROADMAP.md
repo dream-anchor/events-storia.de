@@ -82,7 +82,14 @@ RLS-Isolation live bewiesen, Migration angewendet. Details: `docs/CHECKPOINT-202
   nie Pay-per-Lead). Storia-Neutralität offenlegen.
 
 ## ⚠️ OFFENE ENTSCHEIDUNGEN (Brainstorm-Agenda für den Checkpoint)
-Aus den Specs 01–06 gebündelt — pro Punkt meine Default-Empfehlung in Klammern:
+Aus den Specs 01–06 gebündelt — pro Punkt meine Default-Empfehlung in Klammern.
+
+**✅ ENTSCHIEDEN am 2026-07-06 (Antoine):**
+- **#9 Sprachen → Kern DE+EN.** IT/FR bleiben als optionales Storia-Modul (Storia verliert nichts). Jede neue Funktion nur DE+EN pflegen.
+- **#11 KI-Import → nur Speise-/Getränkekarten** im MVP (keine Alt-Angebots-PDFs). Karte → Katalog ist der Onboarding-Hebel.
+- **#6 Angebots-Optionen → Default 1, max. 3** (A/B/C). Kein A–E.
+- **#8 Preis-Anzeige → Brutto zuerst** (B2C-Standard); Netto-Umschalter für B2B als spätere Ausbaustufe.
+
 
 **Architektur/Betrieb**
 1. Sending-Domain festlegen (Vorschlag `mail.maestro.app`) + Resend-EU-AVV bestätigen — oder EU-Provider (Brevo/Scaleway) prüfen? *(Empf.: Resend + Plattform-Subdomain je Mandant, eigene Domain im Pro-Tier)*
@@ -92,14 +99,14 @@ Aus den Specs 01–06 gebündelt — pro Punkt meine Default-Empfehlung in Klamm
 **Produkt/Flow**
 4. Follow-up-Kadenz T+3/T+7 beibehalten? Auto-Send-Wertschwelle (z. B. < 1.000 € automatisch, darüber Freigabe)? *(Empf.: ja, Default-Schwelle 1.000 €, Auto-Send im MVP AUS)*
 5. Anzahlung für alle Neu-Mandanten Pflicht, oder „vor Ort/Rechnung" als Default erlaubt? *(Empf.: Anzahlung Default an, abschaltbar)*
-6. Max. Angebots-Optionen: 3 sichtbar (A–E technisch) — reichen 3? *(Empf.: Default 1, max 3)*
+6. ✅ **ENTSCHIEDEN: Default 1, max 3.** Max. Angebots-Optionen: 3 sichtbar (A–E technisch).
 7. Preisanpassungs-Zeile im Web-Angebot sichtbar (auditierbar) oder eingerechnet? *(Empf.: sichtbar)*
-8. Brutto-Standard (B2C) — Netto-Anzeige-Option für B2B ab Tag 1? *(Empf.: Brutto zuerst, Netto-Toggle P2)*
+8. ✅ **ENTSCHIEDEN: Brutto zuerst**, Netto-Toggle als spätere Ausbaustufe. Brutto-Standard (B2C).
 
 **Scope/Sprachen**
-9. **IT/FR streichen?** Kern = DE+EN. Storia nutzt IT/FR heute produktiv → Storia-Fork/Registry-Modul? *(Empf.: Kern DE+EN, IT/FR als Storia-Modul)*
+9. ✅ **ENTSCHIEDEN: Kern DE+EN**, IT/FR als Storia-Modul. Storia nutzt IT/FR heute produktiv.
 10. „Räume"-Screen für reine Caterer ausblendbar? *(Empf.: per Tenant-Setting ausblenden)*
-11. KI-Import MVP nur Speise-/Getränkekarten, oder auch Alt-Angebots-PDFs → Paket-Templates? *(Empf.: Karten zuerst)*
+11. ✅ **ENTSCHIEDEN: nur Karten zuerst.** KI-Import MVP nur Speise-/Getränkekarten (keine Alt-Angebots-PDFs).
 
 **Daten/Recht**
 12. Storia-Datenmigration (Alt-Supabase → Storia-Mandant, Float→Cents, Allergen-Freitext→LMIV): vor oder nach MVP-Launch anderer Mandanten? *(Empf.: Dry-Run jetzt, Scharf nach MVP)*
