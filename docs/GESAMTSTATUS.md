@@ -40,6 +40,15 @@ Snapshot + öffentliche Angebotsseite (lesen/annehmen) · ✅ Zahlungstabelle + 
   ist der verbleibende Transport.
 - **122/122 API-Tests grün.**
 
+### Nachtrag 2 (2026-07-06) — F10 + F9
+- ✅ **F10 Nordstern-Messstrecke:** `GET /api/metrics/nordstern` (Median Minuten bis Angebot,
+  schnellstes, „Angebote hängen") + prominente Dashboard-Kachel „Antwortgeschwindigkeit".
+- ✅ **F9 KI-Freitext-Import:** `POST /api/events/:id/offers/parse-freeform` (Alt-Angebot/Text →
+  Positions-Entwurf + Text-Summen-Abgleich, kein DB-Write, nicht-parsebar → leerer Entwurf) +
+  Builder-„Aus Text"-Drawer. Gleicher live-bewiesener KI-Transport.
+- **133/133 API-Tests grün.** Verbleibende Transporte weiterhin: HTML→PDF-Binding,
+  globaler Cron-Scheduler, cross-tenant Nordstern-Benchmark.
+
 ## 4. Angefangen / teilweise
 - 🔨 **LexOffice (P5):** Mapping+Golden fertig; **automatisches Anlegen beim Senden noch nicht
   verdrahtet** (bewusst — echtes Buchhaltungsdokument je Versand ist eine Nebenwirkung, die du
