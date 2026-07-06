@@ -38,6 +38,25 @@ Preise/Allergene aus dem Namen heraus, „Tagespreis" → `priceCents null` + `p
 strukturierte Ausgabe kommt als **JSON-in-Text** (`extractJsonPayload`), validiert durch
 `parsedMenuSchema` + Sanity-Gates. `ai-gateway.test.ts` prüft das gegen die ECHTE Antwort.
 
+### Versand — Resend (Spec 03) ✅
+Tool `RESEND_SEND_EMAIL`. Verifizierte Sender-Domain **`events-storia.de`** (eu-west-1). Eine
+Angebots-Test-E-Mail wurde live an info@monot.com zugestellt (Message-ID 47f893a7…).
+Baustein: `apps/api/src/lib/mailer.ts` — `buildOfferEmail` (rein, DE/EN, HTML+Text,
+HTML-escaped) + `sendEmailViaComposio`.
+
+### Anzahlung — Stripe (Spec P3) ✅
+Tools `STRIPE_CREATE_PRODUCT` → `STRIPE_CREATE_PRICE` → `STRIPE_CREATE_PAYMENT_LINK`.
+Live-Test: Zahlungslink über 125,00 € erzeugt (`https://buy.stripe.com/…`) und danach wieder
+**deaktiviert** (`STRIPE_UPDATE_PAYMENT_LINK active:false`). Baustein:
+`apps/api/src/lib/deposit.ts` — `computeDepositCents` (Integer-Cents, 50 %-Default, Deckelung)
++ `createDepositLinkViaComposio`.
+- ⚠️ **Die Stripe-Verbindung ist LIVE-Mode** (`livemode:true`) und läuft über eine
+  Connect-Application (`ca_P6KP…`). Für echte Anzahlungen: `application_fee_amount`/`transfer_data`
+  je Mandant (Stripe Connect) ergänzen. Für Tests unbedingt einen **Test-Mode-Key/Connection**
+  verwenden.
+- 🧹 **Aufräumen:** Test-Produkt `prod_Upr3wu0wSzgYGN` / Preis `price_1TqBLM…` im Stripe-
+  Dashboard archivieren (der Payment-Link ist bereits inaktiv, nichts ist zahlbar).
+
 ## Verdrahtung im Worker
 - `apps/api/src/lib/ai-gateway.ts` → `createComposioMenuParser({apiKey, connectedAccountId})`:
   POST `https://backend.composio.dev/api/v3/tools/execute/ANTHROPIC_ADMINISTRATOR_CREATE_MESSAGE`
