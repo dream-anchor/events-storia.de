@@ -31,7 +31,7 @@ Kapital) — die unbesetzte Flanke ist 1–20-MA-Gastro.
 | Modul | Spec | Klasse | Kurz |
 |---|---|---|---|
 | Katalog & Stammdaten | 01 | **Kern** (Import = Modul) | ✅ **umgesetzt+live-verifiziert** — 1 Katalog `catalog_items`; KI-Import als Onboarding-Hebel |
-| Angebots-Builder | 02 | **Kern** | `offer_items` mit echten Preisen/MwSt; 1 Pricing-Engine |
+| Angebots-Builder | 02 | **Kern** | 🔨 **F1–F3 umgesetzt+verifiziert** (Engine+Datenmodell+API); F4 UI offen — `offer_items` mit echten Preisen/MwSt; 1 Pricing-Engine |
 | Versand & Annahme | 03 | **Kern** | Mail-Versand, Web-Angebot, E-Sign-light, Stripe-Anzahlung, Nachfass-Cron |
 | Dokumente/Vorlagen/Versionen | 04 | **Kern** | eigenes PDF (Cloudflare Browser Rendering), WORM-Archiv, Vorlagen |
 | KI-Assist (Querschnitt) | 05 | **Kern** | 1 KI-Gateway-Paket, Human-in-the-Loop, Kosten-Logging |

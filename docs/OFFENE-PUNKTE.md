@@ -40,5 +40,13 @@ Referenz-Nummern = `00-ROADMAP.md`.
 ## D. Umsetzungs-Status (Kurzüberblick)
 - ✅ **Spec 01 Katalog** — umgesetzt + live verifiziert.
 - ✅ **Spec 06 Import (F1–F3)** — Karte → KI → Review → Katalog, verifiziert.
-- 🔨 **Spec 02 Angebots-Builder** — in Arbeit (Pricing-Engine zuerst).
+- 🔨 **Spec 02 Angebots-Builder** — F1 Engine + F2 Datenmodell + F3 API umgesetzt+verifiziert
+  (83/83 Tests). **Offen: F4 Positions-Editor-UI (XL)**, danach F7 Public-Offer + F8 LexOffice
+  auf `offer_items`, F9 KI-Vorschlag/Freitext-Import.
 - ⏭️ danach: 04 Dokumente/PDF · 03 Versand/Annahme · 05 KI-Gateway-Ausbau · P2–P5.
+
+## E. Technische Merkposten (im Code hinterlegt)
+- **Zielpreis-Anpassung USt:** die Anpassungszeile bekommt aktuell den größten vorhandenen
+  USt-Bucket bzw. 19 % als Fallback. Sobald `tenant_settings` existiert → dort den Standardsatz
+  des Mandanten ziehen (Spec 02 D.4).
+- **Parse inline statt Queue** (Spec 06) — für < 100 Positionen ok; Queue später.
