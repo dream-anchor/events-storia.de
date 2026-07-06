@@ -35,7 +35,7 @@ Kapital) — die unbesetzte Flanke ist 1–20-MA-Gastro.
 | Versand & Annahme | 03 | **Kern** | Mail-Versand, Web-Angebot, E-Sign-light, Stripe-Anzahlung, Nachfass-Cron |
 | Dokumente/Vorlagen/Versionen | 04 | **Kern** | eigenes PDF (Cloudflare Browser Rendering), WORM-Archiv, Vorlagen |
 | KI-Assist (Querschnitt) | 05 | **Kern** | 1 KI-Gateway-Paket, Human-in-the-Loop, Kosten-Logging |
-| Speisekarten-KI + Website-Widget | 06 | **Modul** (Import Kern-nah) | Karte→Katalog; SEO-Hosted-Page + Web-Component |
+| Speisekarten-KI + Website-Widget | 06 | **Modul** (Import Kern-nah) | ✅ **Import F1–F3 umgesetzt+verifiziert** (Karte→Katalog); Widget F4/F5 offen |
 | Zusammenarbeit (Aufgaben/Notizen/Kanban) | P2 | Kern | *Spec ausstehend* |
 | Zahlungen (Checkout/Links/Erinnerungen) | P3 | Kern | *Spec ausstehend; Fundament steht* |
 | Kunden-Intelligenz (Risiko-Ampel) | (eigene Spec vorhanden) | Modul | an P3 andocken |
