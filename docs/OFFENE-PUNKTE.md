@@ -40,9 +40,10 @@ Referenz-Nummern = `00-ROADMAP.md`.
 ## D. Umsetzungs-Status (Kurzüberblick)
 - ✅ **Spec 01 Katalog** — umgesetzt + live verifiziert.
 - ✅ **Spec 06 Import (F1–F3)** — Karte → KI → Review → Katalog, verifiziert.
-- 🔨 **Spec 02 Angebots-Builder** — F1 Engine + F2 Datenmodell + F3 API umgesetzt+verifiziert
-  (83/83 Tests). **Offen: F4 Positions-Editor-UI (XL)**, danach F7 Public-Offer + F8 LexOffice
-  auf `offer_items`, F9 KI-Vorschlag/Freitext-Import.
+- 🔨 **Spec 02 Angebots-Builder** — F1 Engine + F2 Datenmodell + F3 API + **F4 Editor-UI** +
+  **F7 Kundenseite** umgesetzt+verifiziert (**84/84 Tests, E2E bauen→senden→öffentlich lesen**).
+  **Offen: F8 LexOffice-Export** (braucht API-Zugang/echte Responses), **F9 KI**
+  (ai-suggest/parse-freeform), F10 Nordstern-Messstrecke/Queue.
 - ⏭️ danach: 04 Dokumente/PDF · 03 Versand/Annahme · 05 KI-Gateway-Ausbau · P2–P5.
 
 ## E. Technische Merkposten (im Code hinterlegt)

@@ -48,8 +48,27 @@ git fetch ./maestro-katalog-speisekarten-builder.bundle HEAD && git merge FETCH_
 ```
 Alle DB-Migrationen (`30`, `31`, `40`) sind bereits live; für frische Umgebungen idempotent.
 
-## Nächster Schritt: F4 Positions-Editor (UI, XL)
-Sektionen (Menü/Getränke/Equipment/Personal/Sonstiges), Zeilen mit Menge/Einheit/EP/
-Preismodus/MwSt-Chip, Summenpanel (live vom Server), Autosave mit Konflikt-Dialog,
-Mehrtags-Tabs, Katalog-Picker. Danach: Public-Offer-Seite + LexOffice-Export auf
-`offer_items` umstellen (F7/F8), KI-Vorschlag/Freitext-Import (F9).
+## Ergänzung 2026-07-06 (später) — F4 + F7 ebenfalls umgesetzt
+
+**F4 — Positions-Editor (UI):** `builder.tsx` komplett neu auf `offer_items`.
+Optionen-Tabs (A/B/C), Sektionen mit Zeilen (Menge × EP × Preismodus-Chip × MwSt-Chip),
+Freitext + **Katalog-Picker**, **Mehrtags-Tabs**, Live-Summenpanel (dieselbe Engine lokal
+für sofortige Anzeige, Server autoritativ), **Autosave mit `If-Match`/Konflikt-Hinweis**,
+Rabatt + Zielpreis, „An Kunden senden". `@maestro/pricing` als Web-Dependency.
+
+**F7 — Kundenseite rendert die echten Positionen:** `sql/41` erweitert
+`get_public_offer` um `offer_items`, USt-Aufschlüsselung, Rabatt/Anpassung, Tage,
+Angebotssprache/Gültigkeit (idempotent, Sicherheit unverändert, auf Neon angewendet).
+`offer-public.tsx` gruppiert die echten Positionen (Fallback auf `menu_selection`).
+
+**End-to-End live bewiesen:** Angebot bauen → senden → als Kunde OHNE Login lesen →
+Positionen erscheinen servergerechnet (korrekter Endpreis + USt-Split). **Volle Suite 84/84 grün**,
+Web-Build grün.
+
+## Noch offen (nächste Schritte)
+- **F8 LexOffice-Export** (`offer_items` → Quotation-Line-Items, §19, `expirationDate`) +
+  Paritäts-Golden-Tests — braucht LexOffice-API-Zugang/echte Responses.
+- **F9 KI** ai-suggest + parse-freeform (Quelltext-Diff, USt-Plausibilität).
+- F10 Nordstern-Messstrecke + „Angebot hängt"-Queue + Nightly-Konsistenzcheck.
+- Kleinigkeiten: Mindestumsatz-`PATCH`-Feld, `offer_valid_until`/Sprache im Builder-Kopf,
+  Storia-ETL (`menu_selection` → `offer_items`).
