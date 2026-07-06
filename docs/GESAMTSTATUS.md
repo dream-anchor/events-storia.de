@@ -67,7 +67,7 @@ Snapshot + öffentliche Angebotsseite (lesen/annehmen) · ✅ Zahlungstabelle + 
 | KI-Vorschlag/Freitext-Import | 02 F9 | ai-suggest + parse-freeform (nutzt bewiesenen Parser-Seam) |
 | Nordstern-Messstrecke | 02 F10 | KPI „Minuten bis Angebot" + „Angebot hängt"-Queue + Nightly-Konsistenzcheck |
 | Speisekarten-**Widget** | 06 F4/F5 | Hosted Page `karte.maestro.app` + Web-Component + QR |
-| Zusammenarbeit | P2 | Aufgaben/Notizen/Kanban — nicht begonnen |
+| Zusammenarbeit | P2 | ✅ **Aufgaben-Board (Kanban) umgesetzt** (tasks: RLS/composite-FK/CRUD + Kanban-UI, 139/139) |
 | Kunden-Intelligenz (Risiko-Ampel) | eigene Spec | nur Spec, nicht gebaut |
 | E-Mail-Inbox (IMAP/Graph) | P4 | nicht begonnen |
 | Profil-Seite + Anfrage-Widget | Marktplatz-Ph.1 | öffentliche Mini-Landingpage je Mandant |
