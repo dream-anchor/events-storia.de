@@ -143,6 +143,9 @@ serve(async (req) => {
     // 6. Line item — einzelne Brutto-Position
     const grossAmount = (payment.amount_cents || 0) / 100;
     const remainingGross = Math.max(0, eventTotalGross - grossAmount);
+    // Nur einen konkreten Restbetrag ausweisen, wenn er auch bekannt & > 0 ist.
+    // Sonst neutralen Wortlaut verwenden — kein irreführendes "0,00 €".
+    const hasKnownRemaining = eventTotalGross > 0 && remainingGross > 0;
     const remainingDE = remainingGross.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
     const remainingEN = remainingGross.toLocaleString("en-GB", { style: "currency", currency: "EUR" });
     const eventDateDE = formatDateDE(payment.preferred_date || payment.event_date);
@@ -155,7 +158,9 @@ serve(async (req) => {
       description: (balanceOnSite
         ? [
             `Anzahlung gemäß Auftrag${eventDateDE ? ` vom ${eventDateDE}` : ""}.`,
-            `Der Restbetrag in Höhe von ${remainingDE} wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert.`,
+            hasKnownRemaining
+              ? `Der Restbetrag in Höhe von ${remainingDE} wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert.`
+              : `Der Restbetrag wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert.`,
             "Diese Rechnung gilt als finaler Beleg über die geleistete Anzahlung — es wird keine weitere Schlussrechnung ausgestellt.",
           ]
         : [
@@ -185,7 +190,9 @@ serve(async (req) => {
     const remark = [
       `Bereits bezahlt${paidAtDE ? ` am ${paidAtDE}` : ""} via ${payment.paid_via || "Online-Zahlung"}.`,
       balanceOnSite
-        ? `Restbetrag ${remainingDE} wird vor Ort beim Event über das Kassensystem beglichen — keine weitere Rechnung von Maestro/LexOffice.`
+        ? (hasKnownRemaining
+            ? `Restbetrag ${remainingDE} wird vor Ort beim Event über das Kassensystem beglichen — keine weitere Rechnung von Maestro/LexOffice.`
+            : `Der Restbetrag wird vor Ort beim Event über das Kassensystem beglichen — keine weitere Rechnung von Maestro/LexOffice.`)
         : "Die in dieser Anzahlung enthaltene Umsatzsteuer wird in der Schlussrechnung explizit abgezogen (§ 14 Abs. 5 UStG).",
       "",
       `Veranstaltungsort: ${[
