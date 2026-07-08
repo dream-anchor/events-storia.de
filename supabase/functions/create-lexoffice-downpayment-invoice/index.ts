@@ -100,9 +100,20 @@ serve(async (req) => {
     // erklärenden Text (Restbetrag wird vor Ort beglichen), NICHT ob die
     // Rechnung erzeugt wird.
 
+    // WICHTIG: amount_total gibt es NICHT auf der Legacy-View `event_inquiries`.
+    // Immer aus dem kanonischen Maestro-Table `v2_events` lesen, sonst wird
+    // eventTotalGross=0 und der Restbetrag-Wortlaut fälschlich "0,00 €".
+    const { data: v2ev } = await supabase
+      .from("v2_events")
+      .select("amount_total")
+      .eq("id", payment.inquiry_id)
+      .single();
     const eventTotalGross = Number(
-      (inquiry as { amount_total?: number | string | null }).amount_total || 0,
+      (v2ev as { amount_total?: number | string | null } | null)?.amount_total || 0,
     );
+    if (!eventTotalGross) {
+      log("WARN: amount_total unbekannt — Restbetrag-Wortlaut fällt weg", { inquiry_id: payment.inquiry_id });
+    }
 
     // 4. Anzahlungs-Index ermitteln (1. / 2. / 3. ...)
     const { data: priorPayments } = await supabase
