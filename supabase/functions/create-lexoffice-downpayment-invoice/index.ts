@@ -208,11 +208,8 @@ serve(async (req) => {
       },
       introduction,
       remark,
-      title: balanceOnSite
-        ? (index === 1
-            ? "Anzahlungsrechnung (Restzahlung vor Ort)"
-            : `${index}. Anzahlungsrechnung (Restzahlung vor Ort)`)
-        : (index === 1 ? "Anzahlungsrechnung" : `${index}. Anzahlungsrechnung`),
+      // LexOffice-Limit: title max. 25 Zeichen.
+      title: index === 1 ? "Anzahlungsrechnung" : `${index}. Anzahlungsrechnung`,
     };
 
     log("Creating LexOffice invoice", {
