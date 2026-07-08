@@ -100,9 +100,20 @@ serve(async (req) => {
     // erklärenden Text (Restbetrag wird vor Ort beglichen), NICHT ob die
     // Rechnung erzeugt wird.
 
+    // WICHTIG: amount_total gibt es NICHT auf der Legacy-View `event_inquiries`.
+    // Immer aus dem kanonischen Maestro-Table `v2_events` lesen, sonst wird
+    // eventTotalGross=0 und der Restbetrag-Wortlaut fälschlich "0,00 €".
+    const { data: v2ev } = await supabase
+      .from("v2_events")
+      .select("amount_total")
+      .eq("id", payment.inquiry_id)
+      .single();
     const eventTotalGross = Number(
-      (inquiry as { amount_total?: number | string | null }).amount_total || 0,
+      (v2ev as { amount_total?: number | string | null } | null)?.amount_total || 0,
     );
+    if (!eventTotalGross) {
+      log("WARN: amount_total unbekannt — Restbetrag-Wortlaut fällt weg", { inquiry_id: payment.inquiry_id });
+    }
 
     // 4. Anzahlungs-Index ermitteln (1. / 2. / 3. ...)
     const { data: priorPayments } = await supabase
@@ -132,6 +143,9 @@ serve(async (req) => {
     // 6. Line item — einzelne Brutto-Position
     const grossAmount = (payment.amount_cents || 0) / 100;
     const remainingGross = Math.max(0, eventTotalGross - grossAmount);
+    // Nur einen konkreten Restbetrag ausweisen, wenn er auch bekannt & > 0 ist.
+    // Sonst neutralen Wortlaut verwenden — kein irreführendes "0,00 €".
+    const hasKnownRemaining = eventTotalGross > 0 && remainingGross > 0;
     const remainingDE = remainingGross.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
     const remainingEN = remainingGross.toLocaleString("en-GB", { style: "currency", currency: "EUR" });
     const eventDateDE = formatDateDE(payment.preferred_date || payment.event_date);
@@ -144,7 +158,9 @@ serve(async (req) => {
       description: (balanceOnSite
         ? [
             `Anzahlung gemäß Auftrag${eventDateDE ? ` vom ${eventDateDE}` : ""}.`,
-            `Der Restbetrag in Höhe von ${remainingDE} wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert.`,
+            hasKnownRemaining
+              ? `Der Restbetrag in Höhe von ${remainingDE} wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert.`
+              : `Der Restbetrag wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert.`,
             "Diese Rechnung gilt als finaler Beleg über die geleistete Anzahlung — es wird keine weitere Schlussrechnung ausgestellt.",
           ]
         : [
@@ -174,7 +190,9 @@ serve(async (req) => {
     const remark = [
       `Bereits bezahlt${paidAtDE ? ` am ${paidAtDE}` : ""} via ${payment.paid_via || "Online-Zahlung"}.`,
       balanceOnSite
-        ? `Restbetrag ${remainingDE} wird vor Ort beim Event über das Kassensystem beglichen — keine weitere Rechnung von Maestro/LexOffice.`
+        ? (hasKnownRemaining
+            ? `Restbetrag ${remainingDE} wird vor Ort beim Event über das Kassensystem beglichen — keine weitere Rechnung von Maestro/LexOffice.`
+            : `Der Restbetrag wird vor Ort beim Event über das Kassensystem beglichen — keine weitere Rechnung von Maestro/LexOffice.`)
         : "Die in dieser Anzahlung enthaltene Umsatzsteuer wird in der Schlussrechnung explizit abgezogen (§ 14 Abs. 5 UStG).",
       "",
       `Veranstaltungsort: ${[
@@ -300,10 +318,14 @@ serve(async (req) => {
         const grossDE = grossAmount.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
         const grossEN = grossAmount.toLocaleString("en-GB", { style: "currency", currency: "EUR" });
         const dePara = balanceOnSite
-          ? `<p>Der Restbetrag in Höhe von <strong>${remainingDE}</strong> wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert. Diese Rechnung gilt als finaler Beleg über Ihre Anzahlung — es wird keine weitere Rechnung von uns ausgestellt.</p>`
+          ? (hasKnownRemaining
+              ? `<p>Der Restbetrag in Höhe von <strong>${remainingDE}</strong> wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert. Diese Rechnung gilt als finaler Beleg über Ihre Anzahlung — es wird keine weitere Rechnung von uns ausgestellt.</p>`
+              : `<p>Der Restbetrag wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert. Diese Rechnung gilt als finaler Beleg über Ihre Anzahlung — es wird keine weitere Rechnung von uns ausgestellt.</p>`)
           : `<p>Die in dieser Anzahlung enthaltene Umsatzsteuer wird in Ihrer Schlussrechnung nach der Veranstaltung gemäß § 14 Abs. 5 UStG explizit abgezogen.</p>`;
         const enPara = balanceOnSite
-          ? `<p>The remaining balance of <strong>${remainingEN}</strong> will be settled on-site at the event directly at the restaurant and receipted separately by our point-of-sale system. This invoice serves as the final document for your down-payment — no further invoice will be issued.</p>`
+          ? (hasKnownRemaining
+              ? `<p>The remaining balance of <strong>${remainingEN}</strong> will be settled on-site at the event directly at the restaurant and receipted separately by our point-of-sale system. This invoice serves as the final document for your down-payment — no further invoice will be issued.</p>`
+              : `<p>The remaining balance will be settled on-site at the event directly at the restaurant and receipted separately by our point-of-sale system. This invoice serves as the final document for your down-payment — no further invoice will be issued.</p>`)
           : `<p>The VAT contained in this down-payment will be explicitly deducted in your final invoice after the event in accordance with § 14 (5) German VAT Act.</p>`;
         const html = `<!DOCTYPE html><html lang="de"><body style="font-family:Arial,sans-serif;color:#333;font-size:15px;line-height:1.6;">
 <p>Guten Tag ${payment.customer_name || ""},</p>
