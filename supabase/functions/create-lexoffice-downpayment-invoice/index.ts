@@ -318,10 +318,14 @@ serve(async (req) => {
         const grossDE = grossAmount.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
         const grossEN = grossAmount.toLocaleString("en-GB", { style: "currency", currency: "EUR" });
         const dePara = balanceOnSite
-          ? `<p>Der Restbetrag in Höhe von <strong>${remainingDE}</strong> wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert. Diese Rechnung gilt als finaler Beleg über Ihre Anzahlung — es wird keine weitere Rechnung von uns ausgestellt.</p>`
+          ? (hasKnownRemaining
+              ? `<p>Der Restbetrag in Höhe von <strong>${remainingDE}</strong> wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert. Diese Rechnung gilt als finaler Beleg über Ihre Anzahlung — es wird keine weitere Rechnung von uns ausgestellt.</p>`
+              : `<p>Der Restbetrag wird vor Ort am Veranstaltungstag direkt im Restaurant beglichen und über unser Kassensystem separat quittiert. Diese Rechnung gilt als finaler Beleg über Ihre Anzahlung — es wird keine weitere Rechnung von uns ausgestellt.</p>`)
           : `<p>Die in dieser Anzahlung enthaltene Umsatzsteuer wird in Ihrer Schlussrechnung nach der Veranstaltung gemäß § 14 Abs. 5 UStG explizit abgezogen.</p>`;
         const enPara = balanceOnSite
-          ? `<p>The remaining balance of <strong>${remainingEN}</strong> will be settled on-site at the event directly at the restaurant and receipted separately by our point-of-sale system. This invoice serves as the final document for your down-payment — no further invoice will be issued.</p>`
+          ? (hasKnownRemaining
+              ? `<p>The remaining balance of <strong>${remainingEN}</strong> will be settled on-site at the event directly at the restaurant and receipted separately by our point-of-sale system. This invoice serves as the final document for your down-payment — no further invoice will be issued.</p>`
+              : `<p>The remaining balance will be settled on-site at the event directly at the restaurant and receipted separately by our point-of-sale system. This invoice serves as the final document for your down-payment — no further invoice will be issued.</p>`)
           : `<p>The VAT contained in this down-payment will be explicitly deducted in your final invoice after the event in accordance with § 14 (5) German VAT Act.</p>`;
         const html = `<!DOCTYPE html><html lang="de"><body style="font-family:Arial,sans-serif;color:#333;font-size:15px;line-height:1.6;">
 <p>Guten Tag ${payment.customer_name || ""},</p>
