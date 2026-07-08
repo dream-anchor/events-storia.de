@@ -29,6 +29,9 @@ interface RequestBody {
   /** If true: render only, do not actually send (preview). */
   dry_run?: boolean;
   sender_email?: string;
+  /** Optional override — use this LexOffice invoice id instead of the one on v2_events. */
+  lexoffice_invoice_id?: string;
+  invoice_number?: string;
 }
 
 const CHROME: Record<CustomerLang, {
