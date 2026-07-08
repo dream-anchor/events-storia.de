@@ -29,6 +29,9 @@ interface RequestBody {
   /** If true: render only, do not actually send (preview). */
   dry_run?: boolean;
   sender_email?: string;
+  /** Optional override — use this LexOffice invoice id instead of the one on v2_events. */
+  lexoffice_invoice_id?: string;
+  invoice_number?: string;
 }
 
 const CHROME: Record<CustomerLang, {
@@ -258,9 +261,15 @@ serve(async (req) => {
     const customerEmail: string | null = customer.email || null;
 
     const lexofficeInvoiceId: string | null =
-      (inquiry as any).final_lexoffice_invoice_id || (inquiry as any).invoice_lexoffice_id || null;
+      body.lexoffice_invoice_id
+      || (inquiry as any).final_lexoffice_invoice_id
+      || (inquiry as any).invoice_lexoffice_id
+      || null;
     const invoiceNumber: string | null =
-      (inquiry as any).final_lexoffice_invoice_number || (inquiry as any).invoice_lexoffice_number || null;
+      body.invoice_number
+      || (inquiry as any).final_lexoffice_invoice_number
+      || (inquiry as any).invoice_lexoffice_number
+      || null;
 
     if (!lexofficeInvoiceId) throw new Error('Keine LexOffice-Rechnung mit dieser Buchung verknüpft');
 
