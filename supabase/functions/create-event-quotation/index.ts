@@ -144,6 +144,10 @@ function lineMult(mode: 'per_person' | 'flat' | null | undefined, pricingMode: '
   return effective === 'flat' ? 1 : Math.max(1, guests);
 }
 
+function drinkPriceMode(mode: 'per_person' | 'flat' | null | undefined): 'per_person' | 'flat' {
+  return mode === 'per_person' ? 'per_person' : 'flat';
+}
+
 function serviceTotal(items: EquipmentItemDB[] | null | undefined): number {
   return (items || [])
     .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
@@ -157,14 +161,14 @@ function fixedDrinkTotal(ms: MenuSelectionDB | null | undefined): number {
     const price = d.pricePerUnit ?? 0;
     if (price <= 0) continue;
     const qty = d.quantity ?? 1;
-    if ((d.priceMode ?? 'per_person') === 'flat') sum += price * qty;
+    if (drinkPriceMode(d.priceMode) === 'flat') sum += price * qty;
   }
   if (ms.drinksMode === 'einzeln') {
     for (const d of (ms.drinksEinzeln || [])) {
       const price = d.pricePerPerson ?? 0;
       if (price <= 0) continue;
       const qty = d.quantity ?? 1;
-      if ((d.priceMode ?? 'per_person') === 'flat') sum += price * qty;
+      if (drinkPriceMode(d.priceMode) === 'flat') sum += price * qty;
     }
   }
   return sum;
@@ -177,7 +181,7 @@ function perPersonDrinkTotal(ms: MenuSelectionDB | null | undefined): number {
     const price = d.pricePerUnit ?? 0;
     if (price <= 0) continue;
     const qty = d.quantity ?? 1;
-    if ((d.priceMode ?? 'per_person') !== 'flat') sum += price * qty;
+    if (drinkPriceMode(d.priceMode) !== 'flat') sum += price * qty;
   }
   const mode = ms.drinksMode ?? 'none';
   if (mode === 'pauschale') sum += ms.drinksPauschalePrice ?? 0;
@@ -187,7 +191,7 @@ function perPersonDrinkTotal(ms: MenuSelectionDB | null | undefined): number {
       const price = d.pricePerPerson ?? 0;
       if (price <= 0) continue;
       const qty = d.quantity ?? 1;
-      if ((d.priceMode ?? 'per_person') !== 'flat') sum += price * qty;
+      if (drinkPriceMode(d.priceMode) !== 'flat') sum += price * qty;
     }
   }
   return sum;
@@ -286,7 +290,7 @@ function buildDrinkInfoLines(ms: MenuSelectionDB | null | undefined): string[] {
     const price = d.pricePerUnit ?? 0;
     const amount = d.quantity ?? 1;
     const priced = price > 0
-      ? ` (${amount > 1 ? `${amount} × ` : ''}${price.toFixed(2).replace('.', ',')} €${d.priceMode === 'flat' ? '' : ' / Pers.'})`
+      ? ` (${amount > 1 ? `${amount} × ` : ''}${price.toFixed(2).replace('.', ',')} €${drinkPriceMode(d.priceMode) === 'per_person' ? ' / Pers.' : ''})`
       : '';
     lines.push(choice ? `${label}: ${choice}${qty}${priced}` : `${label}${qty}${priced}`);
   }
@@ -313,7 +317,7 @@ function buildDrinkInfoLines(ms: MenuSelectionDB | null | undefined): string[] {
       const baseName = qty > 1 ? `${qty} × ${d.name}` : d.name;
       const price = d.pricePerPerson ?? 0;
       lines.push(price > 0
-        ? `${baseName} (${price.toFixed(2).replace('.', ',')} €${d.priceMode === 'flat' ? '' : ' / Pers.'})`
+        ? `${baseName} (${price.toFixed(2).replace('.', ',')} €${drinkPriceMode(d.priceMode) === 'per_person' ? ' / Pers.' : ''})`
         : `${baseName} (inklusive)`);
     }
   } else if (mode === 'none' && (ms.winePairingPrice ?? 0) > 0) {
@@ -485,29 +489,31 @@ function buildLineItems(
       const name = d.customDrink || d.selectedChoice || d.drinkLabel;
       const price = d.pricePerUnit ?? 0;
       if (!name || price <= 0) continue;
-      const qty = Math.max(1, d.quantity ?? 1) * lineMult(d.priceMode, ms.pricingMode, guestCount);
+      const mode = drinkPriceMode(d.priceMode);
+      const qty = Math.max(1, d.quantity ?? 1) * lineMult(mode, ms.pricingMode, guestCount);
       entries.push({
         name,
         description: '',
         qty,
         unitBrutto: round2(price),
         tax: DRINK_TAX,
-        unitName: d.priceMode === 'flat' ? 'Stk' : 'Person',
-        fixed: d.priceMode === 'flat',
+        unitName: mode === 'flat' ? 'Stk' : 'Person',
+        fixed: mode === 'flat',
       });
     }
     if (drinkMode === 'einzeln' && ms.drinksEinzeln) {
       for (const d of ms.drinksEinzeln) {
         if (!d.name || d.pricePerPerson <= 0) continue;
-        const qty = Math.max(1, d.quantity ?? 1) * lineMult(d.priceMode, ms.pricingMode, guestCount);
+        const mode = drinkPriceMode(d.priceMode);
+        const qty = Math.max(1, d.quantity ?? 1) * lineMult(mode, ms.pricingMode, guestCount);
         entries.push({
           name: d.name,
           description: '',
           qty,
           unitBrutto: round2(d.pricePerPerson),
           tax: DRINK_TAX,
-          unitName: d.priceMode === 'flat' ? 'Stk' : 'Person',
-          fixed: d.priceMode === 'flat',
+          unitName: mode === 'flat' ? 'Stk' : 'Person',
+          fixed: mode === 'flat',
         });
       }
     } else if (drinkMode === 'pauschale' && ms.drinksPauschalePrice && ms.drinksPauschalePrice > 0) {
@@ -650,7 +656,7 @@ function buildLineItems(
         name,
         description: '',
         quantity: qty,
-        unitName: drink.priceMode === 'flat' ? 'Stk' : 'Person',
+        unitName: drinkPriceMode(drink.priceMode) === 'flat' ? 'Stk' : 'Person',
         unitPrice: {
           currency: 'EUR',
           grossAmount: round2(price),
@@ -694,7 +700,7 @@ function buildLineItems(
             name: drink.name,
             description: '',
             quantity: qty,
-            unitName: drink.priceMode === 'flat' ? 'Stk' : 'Person',
+            unitName: drinkPriceMode(drink.priceMode) === 'flat' ? 'Stk' : 'Person',
             unitPrice: {
               currency: 'EUR',
               grossAmount: drink.pricePerPerson,
@@ -839,7 +845,7 @@ function buildLineItems(
     for (const d of (ms?.drinks || [])) {
       const name = d.customDrink || d.selectedChoice || d.drinkLabel;
       const price = d.pricePerUnit ?? 0;
-      if (!name || price <= 0 || (d.priceMode ?? 'per_person') !== 'flat') continue;
+      if (!name || price <= 0 || drinkPriceMode(d.priceMode) !== 'flat') continue;
       items.push({
         type: 'custom',
         name,
@@ -852,7 +858,7 @@ function buildLineItems(
 
     if (ms?.drinksMode === 'einzeln') {
       for (const d of (ms.drinksEinzeln || [])) {
-        if (!d.name || d.pricePerPerson <= 0 || (d.priceMode ?? 'per_person') !== 'flat') continue;
+        if (!d.name || d.pricePerPerson <= 0 || drinkPriceMode(d.priceMode) !== 'flat') continue;
         items.push({
           type: 'custom',
           name: d.name,

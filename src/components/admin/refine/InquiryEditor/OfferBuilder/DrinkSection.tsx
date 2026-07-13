@@ -231,7 +231,7 @@ interface DrinkRowProps {
   onRemove: (idx: number) => void;
 }
 
-function DrinkRow({ idx, item, quantity, lineTotal, fmtEUR, effPriceMode, pricingMode, disabled, onUpdate, onRemove }: DrinkRowProps) {
+function DrinkRow({ idx, item, quantity, lineTotal, fmtEUR, effPriceMode, disabled, onUpdate, onRemove }: DrinkRowProps) {
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState(item.name);
 
@@ -243,25 +243,23 @@ function DrinkRow({ idx, item, quantity, lineTotal, fmtEUR, effPriceMode, pricin
 
   return (
     <div className="group flex items-center gap-2">
-                {/* Menge (nur bei per_event) */}
-                {pricingMode === 'per_event' && (
-                  <div className="relative w-16 shrink-0">
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={quantity}
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10);
-                        if (!isNaN(v) && v > 0) onUpdate(idx, { quantity: v });
-                      }}
-                      disabled={disabled}
-                      className="h-8 rounded-lg pr-5 text-right text-sm tabular-nums"
-                      title="Menge"
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">×</span>
-                  </div>
-                )}
+                {/* Menge */}
+                <div className="relative w-16 shrink-0">
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={quantity}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      if (!isNaN(v) && v > 0) onUpdate(idx, { quantity: v });
+                    }}
+                    disabled={disabled}
+                    className="h-8 rounded-lg pr-5 text-right text-sm tabular-nums"
+                    title="Menge"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">×</span>
+                </div>
                 <div className="flex-1 min-w-0 flex items-center gap-1">
                   {editingName ? (
                     <Input
@@ -310,8 +308,8 @@ function DrinkRow({ idx, item, quantity, lineTotal, fmtEUR, effPriceMode, pricin
                   onChange={(m) => onUpdate(idx, { priceMode: m })}
                   disabled={disabled}
                 />
-                {/* Zeilen-Total (nur bei per_event mit quantity > 1) */}
-                {pricingMode === 'per_event' && quantity > 1 && (
+                {/* Zeilen-Total */}
+                {quantity > 1 && (
                   <span className="text-xs font-medium tabular-nums w-24 text-right shrink-0">
                     {fmtEUR(lineTotal)}
                   </span>
