@@ -122,6 +122,14 @@ function mapLegacyMode(dbMode: string | null | undefined): OfferMode {
   }
 }
 
+function isMenuLikeOfferMode(mode: OfferBuilderOption['offerMode'] | string | null | undefined): boolean {
+  return mode === 'menu'
+    || mode === 'full_menu'
+    || mode === 'fest_menu'
+    || mode === 'teil_menu'
+    || mode === 'partial_menu';
+}
+
 /**
  * Migriert Legacy-Daten: wenn itemName / drink.name ein "N x Name"-Pattern hat
  * und quantity noch nicht gesetzt ist, wird die Menge extrahiert und der Name
@@ -830,7 +838,7 @@ export function useOfferBuilder({
           changed = true;
           return { ...opt, totalAmount: gross };
         }
-        if (opt.offerMode === 'menu') {
+        if (isMenuLikeOfferMode(opt.offerMode)) {
           // Safety net: Wenn ein freeformProgram im menuSelection liegt, NIEMALS
           // den Menu-Recalc anwenden — er würde totalAmount sonst auf 0 ziehen,
           // weil keine `courses` existieren. Mode wird beim nächsten Save ohnehin
@@ -971,10 +979,10 @@ export function useOfferBuilder({
       return updated;
     });
   }, [isLoading, packagesProp, options.map(o => {
-    const courseKey = (o.offerMode === 'menu' || o.offerMode === 'paket')
+    const courseKey = (isMenuLikeOfferMode(o.offerMode) || o.offerMode === 'paket')
       ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}:${c.quantity ?? ''}:${c.priceMode ?? ''}`).join('|')
       : '';
-    const drinkKey = o.offerMode === 'menu'
+    const drinkKey = isMenuLikeOfferMode(o.offerMode)
       ? `${o.menuSelection.drinksMode ?? 'none'}:${o.menuSelection.winePairingPrice ?? ''}:${o.menuSelection.drinksPauschalePrice ?? ''}:${(o.menuSelection.drinksEinzeln ?? []).map(d => d.pricePerPerson).join('|')}`
       : '';
     const equipKey = (o.menuSelection.equipment ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
@@ -1032,7 +1040,7 @@ export function useOfferBuilder({
     setOptions(prev => {
       let changed = false;
       const updated = prev.map(opt => {
-        if (opt.offerMode !== 'menu') return opt;
+        if (!isMenuLikeOfferMode(opt.offerMode)) return opt;
         // Wenn ein Pauschal-Override (budgetPerPerson) gesetzt ist, hat der Operator
         // die Einzelpreise bewusst auf "inkl." geleert. Auto-Repair darf diese
         // Löschung NICHT rückgängig machen, indem er Katalogpreise nachträgt.
