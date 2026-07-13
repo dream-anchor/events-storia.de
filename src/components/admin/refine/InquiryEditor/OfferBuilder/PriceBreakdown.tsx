@@ -457,10 +457,12 @@ export function PriceBreakdown({
           <span className="text-sm text-muted-foreground">{formatCurrency(calculatedDisplay)}</span>
         </div>
 
-        {/* Finaler Angebotspreis — editierbar */}
+        {/* Basispreis — editierbar. Equipment/Personal werden separat addiert. */}
         <div className="flex items-center justify-between gap-3 pt-1">
           <span className="text-sm font-semibold">
-            {pricingMode === 'per_event' ? 'Angebotspreis gesamt' : 'Angebotspreis / Person'}
+            {fixedGross19 > 0
+              ? (pricingMode === 'per_event' ? 'Basispreis gesamt' : 'Basispreis / Person')
+              : (pricingMode === 'per_event' ? 'Angebotspreis gesamt' : 'Angebotspreis / Person')}
           </span>
           <div className="relative w-28 shrink-0">
             <Input
@@ -479,6 +481,13 @@ export function PriceBreakdown({
             </span>
           </div>
         </div>
+
+        {fixedGross19 > 0 && (
+          <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/20">
+            <span className="text-sm font-semibold">Angebotspreis gesamt</span>
+            <span className="text-sm font-bold tabular-nums">{formatCurrency(finalBrutto)}</span>
+          </div>
+        )}
 
         {/* MwSt-Ausweis: Brutto-Endpreise → enthaltene USt je Steuersatz */}
         {(ustFood > 0 || ustDrink > 0) && (
@@ -662,10 +671,12 @@ export function PriceBreakdown({
         </AnimatePresence>
       </div>
 
-      {/* Finaler Angebotspreis — editierbar */}
+      {/* Basispreis — editierbar. Equipment/Personal werden separat addiert. */}
       <div className="flex items-center justify-between gap-3 pt-1">
         <span className="text-sm font-semibold">
-          {pricingMode === 'per_event' ? 'Angebotspreis gesamt' : 'Angebotspreis / Person'}
+          {fixedGross19 > 0
+            ? (pricingMode === 'per_event' ? 'Basispreis gesamt' : 'Basispreis / Person')
+            : (pricingMode === 'per_event' ? 'Angebotspreis gesamt' : 'Angebotspreis / Person')}
         </span>
         <div className="relative w-28 shrink-0">
           <Input
@@ -688,6 +699,13 @@ export function PriceBreakdown({
           </span>
         </div>
       </div>
+
+      {fixedGross19 > 0 && (
+        <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/20">
+          <span className="text-sm font-semibold">Angebotspreis gesamt</span>
+          <span className="text-sm font-bold tabular-nums">{formatCurrency(pkgNetTotal)}</span>
+        </div>
+      )}
 
       {/* MwSt-Ausweis (Paket-Modus): Brutto-Endpreis, USt 7 % enthalten */}
       {(() => {
