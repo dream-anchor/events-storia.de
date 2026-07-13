@@ -876,28 +876,27 @@ export function useOfferBuilder({
             discountEur > 0 ? Math.min(discountEur, base) : base * (discountPct / 100);
 
           let newTotal: number;
-          // WICHTIG: Sobald Zeileninhalt existiert (Kurspreise oder Getraenke),
-          // gewinnt IMMER die zeilenbasierte Berechnung. Ein evtl. vorhandener
-          // budgetPerPerson-Wert ("Angebotspreis / Person"-Override) wird nicht
-          // mehr als stille Hard-Override verwendet — sonst koennen stale Werte
-          // (z.B. 46,73 € aus einem alten State) jede Mengen-/Preisaenderung
-          // ueberschreiben. budgetPerPerson zaehlt nur noch, wenn keinerlei
-          // Zeileninhalt existiert (reiner Pauschal-Override fuer leere Option).
-          const hasLineContent = subtotalAbs > 0;
-          let clearedBudget = false;
-          if (!hasLineContent && opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
-            const overrideTotal = globalMode === 'per_event'
-              ? opt.budgetPerPerson
-              : opt.budgetPerPerson * guests;
-            newTotal = overrideTotal - computeDiscount(overrideTotal);
+          // Pauschalpreis-Override ("Angebotspreis / Person" bzw. gesamt):
+          // Sobald der Operator einen budgetPerPerson-Wert setzt UND alle
+          // Einzelpreise der Gänge auf "inkl." (overridePrice=null) geleert
+          // hat, ist das Budget die verbindliche Preisgrundlage für die
+          // Speisen. Getränke/Equipment/Personal werden weiterhin separat
+          // addiert. Kein automatisches Wipe mehr — das hat die manuelle
+          // Pauschale nach Reload zerstört, sobald Getränke oder eine
+          // Weinbegleitung ausgewählt waren (drinksAbs > 0).
+          const hasDishContent = dishAbs > 0;
+          const budgetActive = opt.budgetPerPerson != null && opt.budgetPerPerson > 0;
+          if (budgetActive && !hasDishContent) {
+            // Budget ersetzt den Speisen-Anteil; Getränke bleiben additiv.
+            const dishOverride = globalMode === 'per_event'
+              ? (opt.budgetPerPerson as number)
+              : (opt.budgetPerPerson as number) * guests;
+            const base = dishOverride + drinksAbs;
+            newTotal = base - computeDiscount(base);
           } else {
             newTotal = subtotalAbs - computeDiscount(subtotalAbs);
-            // Stale Override aufraeumen, damit das Angebotspreis-Input wieder
-            // den berechneten Placeholder anzeigt und nichts mehr "haengt".
-            if (hasLineContent && opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
-              clearedBudget = true;
-            }
           }
+          const clearedBudget = false;
 
           // Equipment & Staff: Fixkosten addieren (nicht pro Person)
           const equipTotal = (opt.menuSelection.equipment || [])
@@ -910,9 +909,7 @@ export function useOfferBuilder({
 
           if (Math.abs(opt.totalAmount - newTotal) < 0.01 && !clearedBudget) return opt;
           changed = true;
-          return clearedBudget
-            ? { ...opt, totalAmount: newTotal, budgetPerPerson: null }
-            : { ...opt, totalAmount: newTotal };
+          return { ...opt, totalAmount: newTotal };
         }
 
         // Paket-Modus: Preis aus Paket-Kalkulation
