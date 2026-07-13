@@ -313,7 +313,6 @@ export function PriceBreakdown({
     const netAbs = subtotalAbs - discountAmountTotal;
     // Anzeige-Werte je nach globalem Modus
     const subtotalDisplay = pricingMode === 'per_event' ? subtotalAbs : (subtotalAbs / guestsForDiv);
-    const netDisplay = pricingMode === 'per_event' ? netAbs : (netAbs / guestsForDiv);
     const discountDisplay = pricingMode === 'per_event' ? discountAmountTotal : (discountAmountTotal / guestsForDiv);
 
     // Equipment & Staff Summen
@@ -329,6 +328,8 @@ export function PriceBreakdown({
     const fixedGross19 = equipSum + staffSum; // nicht rabattierbar
     const rabattRatio = subtotalAbs > 0 ? netAbs / subtotalAbs : 1;
     const finalBruttoBase = netAbs + fixedGross19;
+    const netDisplay = pricingMode === 'per_event' ? netAbs : (netAbs / guestsForDiv);
+    const calculatedDisplay = pricingMode === 'per_event' ? finalBruttoBase : (finalBruttoBase / guestsForDiv);
     const finalBruttoOverride =
       pricingMode === 'per_event'
         ? (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson : null)
@@ -453,7 +454,7 @@ export function PriceBreakdown({
           <span className="text-xs text-muted-foreground">
             {pricingMode === 'per_event' ? 'Errechnet gesamt' : 'Errechnet / Person'}
           </span>
-          <span className="text-sm text-muted-foreground">{formatCurrency(netDisplay)}</span>
+          <span className="text-sm text-muted-foreground">{formatCurrency(calculatedDisplay)}</span>
         </div>
 
         {/* Finaler Angebotspreis — editierbar */}
@@ -469,7 +470,7 @@ export function PriceBreakdown({
                 const val = e.target.value;
                 onFinalPriceChange?.(val === '' ? null : parseFloat(val) || 0);
               }}
-              placeholder={netDisplay > 0 ? netDisplay.toFixed(2) : '0,00'}
+              placeholder={calculatedDisplay > 0 ? calculatedDisplay.toFixed(2) : '0,00'}
               className="h-9 rounded-xl pr-6 text-right text-sm font-bold"
               disabled={disabled}
             />
@@ -523,6 +524,9 @@ export function PriceBreakdown({
       );
 
   const menuTotal = menuPricePerPerson * guestCount;
+  const equipSum = (equipment || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
+  const staffSum = (staff || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
+  const fixedGross19 = equipSum + staffSum;
   const grandTotal = locationTotal + menuTotal;
 
   // Tier-Breakdown nur ohne Override anzeigen (sonst widerspruechlich zum Override-Wert)
@@ -538,7 +542,7 @@ export function PriceBreakdown({
   const pkgDiscountAmount = pkgDiscountEur > 0
     ? Math.min(pkgDiscountEur, grandTotal)
     : grandTotal * (pkgDiscountPct / 100);
-  const pkgNetTotal = grandTotal - pkgDiscountAmount;
+  const pkgNetTotal = grandTotal - pkgDiscountAmount + fixedGross19;
 
   return (
     <div className="pt-3 border-t border-border/30 space-y-2">
@@ -588,6 +592,20 @@ export function PriceBreakdown({
             </span>
           </span>
           <span className="font-medium">{formatCurrency(menuTotal)}</span>
+        </div>
+      )}
+
+      {equipSum > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Equipment</span>
+          <span className="font-medium">{formatCurrency(equipSum)}</span>
+        </div>
+      )}
+
+      {staffSum > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Personal</span>
+          <span className="font-medium">{formatCurrency(staffSum)}</span>
         </div>
       )}
 
