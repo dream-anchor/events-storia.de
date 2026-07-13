@@ -650,13 +650,14 @@ function buildLineItems(
       const name = drink.customDrink || drink.selectedChoice || drink.drinkLabel;
       const price = drink.pricePerUnit ?? 0;
       if (!name || price <= 0) continue;
+      const mode = drinkPriceMode(drink.priceMode);
       const qty = Math.max(1, drink.quantity ?? 1);
       items.push({
         type: 'custom',
         name,
         description: '',
         quantity: qty,
-        unitName: drinkPriceMode(drink.priceMode) === 'flat' ? 'Stk' : 'Person',
+        unitName: mode === 'flat' ? 'Stk' : 'Person',
         unitPrice: {
           currency: 'EUR',
           grossAmount: round2(price),
@@ -694,13 +695,14 @@ function buildLineItems(
     } else if (drinkMode === 'einzeln' && ms.drinksEinzeln && ms.drinksEinzeln.length > 0) {
       for (const drink of ms.drinksEinzeln) {
         if (drink.pricePerPerson > 0) {
+          const mode = drinkPriceMode(drink.priceMode);
           const qty = Math.max(1, drink.quantity ?? 1);
           items.push({
             type: 'custom',
             name: drink.name,
             description: '',
             quantity: qty,
-            unitName: drinkPriceMode(drink.priceMode) === 'flat' ? 'Stk' : 'Person',
+            unitName: mode === 'flat' ? 'Stk' : 'Person',
             unitPrice: {
               currency: 'EUR',
               grossAmount: drink.pricePerPerson,
@@ -754,10 +756,10 @@ function buildLineItems(
       });
     }
 
-    // Multiplikation: Zwischensummen + (guestCount-1) für korrekte Gesamtsumme (Brutto)
+    // Multiplikation: Nur echte Pro-Person-Zeilen werden mit Gästezahl multipliziert.
     if (guestCount > 1 && items.length > 0) {
       // Equipment/Staff (unitName 'Stk') sind Fixpositionen — NICHT mit Gästezahl multiplizieren
-      const perPersonItems = items.filter(i => i.unitName !== 'Stk');
+      const perPersonItems = items.filter(i => i.unitName === 'Person');
       const foodTotal = round2(perPersonItems
         .filter(i => i.unitPrice.taxRatePercentage === 7)
         .reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0));
@@ -766,6 +768,9 @@ function buildLineItems(
         .reduce((s, i) => s + i.unitPrice.grossAmount * i.quantity, 0));
 
       if (foodTotal > 0) {
+        for (let i = items.length - 1; i >= 0; i--) {
+          if (items[i].unitName === 'Person' && items[i].unitPrice.taxRatePercentage === 7) items.splice(i, 1);
+        }
         items.push({
           type: 'custom',
           name: 'Menü pro Person (brutto)',
@@ -784,6 +789,9 @@ function buildLineItems(
         });
       }
       if (drinkTotal > 0) {
+        for (let i = items.length - 1; i >= 0; i--) {
+          if (items[i].unitName === 'Person' && items[i].unitPrice.taxRatePercentage === 19) items.splice(i, 1);
+        }
         items.push({
           type: 'custom',
           name: 'Getränke pro Person (brutto)',
