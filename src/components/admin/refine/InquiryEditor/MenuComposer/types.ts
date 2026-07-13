@@ -110,6 +110,12 @@ export interface DrinkSelection {
   quantityLabel_it?: string | null;
   quantityLabel_fr?: string | null;
   customDrink?: string | null; // For manual drink entries
+  /** Optionaler Einzelpreis (Brutto). Bei priceMode='per_person' × Gäste, bei 'flat' pauschal. */
+  pricePerUnit?: number | null;
+  /** Menge (Default 1). */
+  quantity?: number | null;
+  /** 'per_person' = Preis × Gäste × Menge, 'flat' = Preis × Menge (Default 'per_person'). */
+  priceMode?: 'per_person' | 'flat' | null;
 }
 
 export interface MenuSelection {
