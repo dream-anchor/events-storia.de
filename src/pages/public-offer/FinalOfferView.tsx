@@ -222,11 +222,11 @@ function FinalOptionCard({
             </div>
             <div className="space-y-3">
               {drinkRows.map((drink, i) => (
-                <div key={i}>
-                  <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
-                    {drink.label}
-                  </p>
-                  <div>
+                <div key={i} className="flex items-baseline justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
+                      {drink.label}
+                    </p>
                     <p className="font-serif text-sm text-foreground">
                       {drink.name}
                     </p>
