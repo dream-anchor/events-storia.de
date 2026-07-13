@@ -876,6 +876,14 @@ export function useOfferBuilder({
             }, 0);
           }
 
+          // Zusätzliche Einzelpreise aus drinks[] (Aperitif/Getränk/Custom-Zeilen mit Preis)
+          drinksAbs += (opt.menuSelection.drinks || []).reduce((s, d) => {
+            const p = d.pricePerUnit;
+            if (p == null || p <= 0) return s;
+            const qty = d.quantity ?? 1;
+            return s + p * qty * lineMult(d.priceMode);
+          }, 0);
+
           const subtotalAbs = dishAbs + drinksAbs;
 
           const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
@@ -931,6 +939,16 @@ export function useOfferBuilder({
         // statt 69 €). Equipment & Personal werden weiter unten separat berücksichtigt.
         const courseSurcharge = 0;
 
+        // Zusatzgetränke mit eigenem Preis werden auf den Paketpreis addiert.
+        const paketLineMult = (m: 'per_person' | 'flat' | null | undefined) =>
+          m === 'flat' ? 1 : opt.guestCount;
+        const paketDrinksExtra = (opt.menuSelection.drinks || []).reduce((s, d) => {
+          const p = d.pricePerUnit;
+          if (p == null || p <= 0) return s;
+          const qty = d.quantity ?? 1;
+          return s + p * qty * paketLineMult(d.priceMode);
+        }, 0);
+
         // Pricing-Modus entscheidet:
         //  per_event: budgetPerPerson ist bereits der Gesamtpreis
         //  per_person: wie bisher (budgetPerPerson * guestCount oder Paket-Kalkulation)
@@ -956,6 +974,7 @@ export function useOfferBuilder({
           ) + (pkg.price_per_person ? courseSurcharge * opt.guestCount : courseSurcharge * opt.guestCount);
           newTotal = baseTotal - computeDiscount(baseTotal);
         }
+        newTotal += paketDrinksExtra;
 
         // Equipment & Staff: Fixkosten addieren (nicht pro Person)
         const equipTotal = (opt.menuSelection.equipment || [])
@@ -985,9 +1004,11 @@ export function useOfferBuilder({
     const drinkKey = isMenuLikeOfferMode(o.offerMode)
       ? `${o.menuSelection.drinksMode ?? 'none'}:${o.menuSelection.winePairingPrice ?? ''}:${o.menuSelection.drinksPauschalePrice ?? ''}:${(o.menuSelection.drinksEinzeln ?? []).map(d => d.pricePerPerson).join('|')}`
       : '';
+    const drinksInlineKey = (o.menuSelection.drinks ?? [])
+      .map(d => `${d.pricePerUnit ?? ''}:${d.quantity ?? ''}:${d.priceMode ?? ''}`).join('|');
     const equipKey = (o.menuSelection.equipment ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
     const staffKey = (o.menuSelection.staff ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
-    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.pricingMode ?? ''}:${o.discountPercent ?? 0}:${o.discountAmount ?? 0}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
+    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.pricingMode ?? ''}:${o.discountPercent ?? 0}:${o.discountAmount ?? 0}:${courseKey}:${drinkKey}:${drinksInlineKey}:${equipKey}:${staffKey}`;
   }).join(',')]);
 
   // =================================================================
