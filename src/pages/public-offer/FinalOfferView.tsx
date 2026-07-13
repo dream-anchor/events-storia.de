@@ -99,7 +99,7 @@ function FinalOptionCard({
   const pricingParts = selectableOptionPricingParts(option);
   const pricePerPerson = isPerEvent ? 0 : pricingParts.perPerson;
 
-  const totalAmount = option.total_amount;
+  const totalAmount = pricingParts.total || option.total_amount;
   const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
   const depositAmount = isFixedDeposit
     ? Math.min(fixedDepositAmount as number, totalAmount)

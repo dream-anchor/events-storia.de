@@ -151,13 +151,13 @@ export function ProposalView({
 
   // Pro-Person-Preis pro Option (per_event: total_amount als Pauschale)
   const perPersonPriceFor = (opt: PublicOfferOption): number => {
-    const parts = selectableOptionPricingParts(opt);
+    const parts = selectableOptionPricingParts({ ...opt, total_amount: effectiveTotalFor(opt) });
     return opt.menu_selection?.pricingMode === 'per_event' ? parts.total : parts.perPerson;
   };
 
   const totalQuantity = Object.values(optionQuantities).reduce((s, q) => s + (q || 0), 0);
   const multiOptionsTotal = options.reduce(
-    (sum, o) => sum + selectableOptionAmount(o, optionQuantities[o.id] || 0),
+    (sum, o) => sum + selectableOptionAmount({ ...o, total_amount: effectiveTotalFor(o) }, optionQuantities[o.id] || 0),
     0
   );
   const hasQuantities = totalQuantity > 0;
@@ -1116,6 +1116,7 @@ function ProposalOptionCard({
   const isPerEvent = menu?.pricingMode === 'per_event';
   const pricingParts = selectableOptionPricingParts(option);
   const pricePerPerson = isPerEvent ? 0 : pricingParts.perPerson;
+  const displayTotal = pricingParts.total || option.total_amount;
 
 
   return (
@@ -1187,7 +1188,7 @@ function ProposalOptionCard({
             <p className="text-2xl font-serif font-bold text-primary leading-none">
               {pricePerPerson > 0
                 ? formatCurrencyDecimal(pricePerPerson)
-                : formatCurrency(option.total_amount)}
+                : formatCurrency(displayTotal)}
             </p>
             <p className="text-[11px] text-muted-foreground font-sans mt-1">
               {pricePerPerson > 0 ? 'pro Person' : 'Gesamtpreis'}
