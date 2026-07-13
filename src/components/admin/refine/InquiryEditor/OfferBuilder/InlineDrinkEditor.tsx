@@ -26,6 +26,68 @@ function getOptionLabel(opt: DrinkOption | string): string {
   return opt.label || opt.type || '';
 }
 
+/** Kompakte Menge + Preis + Modus-Inputs für eine Getränkezeile. */
+function DrinkPriceInputs({
+  drink,
+  idx,
+  onUpdateDrink,
+  disabled,
+}: {
+  drink: DrinkSelection;
+  idx: number;
+  onUpdateDrink: (index: number, update: Partial<DrinkSelection>) => void;
+  disabled: boolean;
+}) {
+  const mode = drink.priceMode ?? 'per_person';
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <Input
+        type="number"
+        min={0}
+        step="1"
+        value={drink.quantity ?? ''}
+        onChange={(e) => {
+          const v = e.target.value === '' ? null : Number(e.target.value);
+          onUpdateDrink(idx, { quantity: v });
+        }}
+        placeholder="Anz."
+        className="h-9 w-16 rounded-xl text-right"
+        disabled={disabled}
+        title="Menge"
+      />
+      <span className="text-xs text-muted-foreground">×</span>
+      <div className="relative">
+        <Input
+          type="number"
+          min={0}
+          step="0.01"
+          value={drink.pricePerUnit ?? ''}
+          onChange={(e) => {
+            const v = e.target.value === '' ? null : Number(e.target.value);
+            onUpdateDrink(idx, { pricePerUnit: v });
+          }}
+          placeholder="Preis"
+          className="h-9 w-20 rounded-xl text-right pr-6"
+          disabled={disabled}
+          title="Preis"
+        />
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">€</span>
+      </div>
+      <button
+        type="button"
+        onClick={() =>
+          onUpdateDrink(idx, { priceMode: mode === 'per_person' ? 'flat' : 'per_person' })
+        }
+        className="h-9 px-2 rounded-xl border border-border/40 text-[11px] text-muted-foreground hover:bg-muted/50 transition-colors"
+        disabled={disabled}
+        title="Preismodus wechseln"
+      >
+        {mode === 'flat' ? 'pauschal' : '/Pers.'}
+      </button>
+    </div>
+  );
+}
+
 /** Häufige Zusatzgetränke für Extra-Drink-Dropdown */
 const COMMON_EXTRA_DRINKS = [
   'Prosecco',
@@ -219,6 +281,9 @@ function DrinkRow({
             {drink.quantityLabel}
           </span>
         )}
+        <div className="ml-auto">
+          <DrinkPriceInputs drink={drink} idx={idx} onUpdateDrink={onUpdateDrink} disabled={disabled} />
+        </div>
       </div>
     );
   }
@@ -258,6 +323,9 @@ function DrinkRow({
             </SelectItem>
           </SelectContent>
         </Select>
+        <div className="ml-auto">
+          <DrinkPriceInputs drink={drink} idx={idx} onUpdateDrink={onUpdateDrink} disabled={disabled} />
+        </div>
         {onRemoveDrink && (
           <button
             type="button"
@@ -296,6 +364,7 @@ function DrinkRow({
           disabled={disabled}
           autoFocus={isCustomActive && !drink.customDrink}
         />
+        <DrinkPriceInputs drink={drink} idx={idx} onUpdateDrink={onUpdateDrink} disabled={disabled} />
         {/* Zurück zum Dropdown (Config-Drinks mit Optionen ODER Extra-Drinks) */}
         {((config?.is_choice && config.options.length > 0) || isExtraDrink) && (
           <button
