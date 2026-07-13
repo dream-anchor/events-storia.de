@@ -294,6 +294,7 @@ export function OptionCard({
       selectedChoice: null,
       quantityLabel: null,
       customDrink: null,
+      priceMode: 'flat',
     };
     onUpdate({
       menuSelection: {

@@ -87,6 +87,10 @@ export function lineMultiplier(
   return mode === 'flat' ? 1 : Math.max(1, guestCount);
 }
 
+function drinkPriceMode(priceMode: LinePriceMode): 'per_person' | 'flat' {
+  return priceMode === 'per_person' ? 'per_person' : 'flat';
+}
+
 export function serviceItemsTotal(items: ServiceItem[] | null | undefined): number {
   return (items ?? [])
     .filter((item) => item.name && toNumber(item.pricePerUnit) > 0 && toNumber(item.quantity) > 0)
@@ -102,7 +106,7 @@ export function inlineDrinksTotal(
     const price = toNumber(drink.pricePerUnit);
     if (price <= 0) return sum;
     const quantity = drink.quantity == null ? 1 : Math.max(0, toNumber(drink.quantity));
-    return sum + price * quantity * lineMultiplier(drink.priceMode, pricingMode, guestCount);
+    return sum + price * quantity * lineMultiplier(drinkPriceMode(drink.priceMode), pricingMode, guestCount);
   }, 0);
 }
 
@@ -127,7 +131,7 @@ export function drinksSectionTotal(
       const price = toNumber(drink.pricePerPerson);
       if (price <= 0) return sum;
       const quantity = drink.quantity == null ? 1 : Math.max(0, toNumber(drink.quantity));
-      return sum + price * quantity * lineMultiplier(drink.priceMode, pricingMode, guests);
+      return sum + price * quantity * lineMultiplier(drinkPriceMode(drink.priceMode), pricingMode, guests);
     }, 0);
   }
 
@@ -240,13 +244,13 @@ export function selectableOptionPricingParts(option: {
     const price = toNumber(drink.pricePerUnit);
     if (price <= 0) return sum;
     const quantity = drink.quantity == null ? 1 : Math.max(0, toNumber(drink.quantity));
-    return (drink.priceMode ?? 'per_person') === 'flat' ? sum + price * quantity : sum;
+    return drinkPriceMode(drink.priceMode) === 'flat' ? sum + price * quantity : sum;
   }, 0);
   const perPersonInlineDrinks = (menuSelection.drinks ?? []).reduce((sum, drink) => {
     const price = toNumber(drink.pricePerUnit);
     if (price <= 0) return sum;
     const quantity = drink.quantity == null ? 1 : Math.max(0, toNumber(drink.quantity));
-    return (drink.priceMode ?? 'per_person') === 'flat' ? sum : sum + price * quantity;
+    return drinkPriceMode(drink.priceMode) === 'flat' ? sum : sum + price * quantity;
   }, 0);
 
   const mode = menuSelection.drinksMode ?? 'none';
@@ -259,7 +263,7 @@ export function selectableOptionPricingParts(option: {
       const price = toNumber(drink.pricePerPerson);
       if (price <= 0) continue;
       const quantity = drink.quantity == null ? 1 : Math.max(0, toNumber(drink.quantity));
-      if ((drink.priceMode ?? 'per_person') === 'flat') fixedDrinkSection += price * quantity;
+      if (drinkPriceMode(drink.priceMode) === 'flat') fixedDrinkSection += price * quantity;
       else perPersonDrinkSection += price * quantity;
     }
   }

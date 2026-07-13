@@ -61,6 +61,8 @@ export function DrinkSection({
       id: dish.id,
       name: dish.name,
       pricePerPerson: dish.price ?? 0,
+      quantity: 1,
+      priceMode: 'flat',
     };
     onUpdate({ drinksEinzeln: [...drinksEinzeln, newItem] });
   };
@@ -178,7 +180,7 @@ export function DrinkSection({
             const quantity = item.quantity ?? 1;
             const lineTotal = item.pricePerPerson > 0 ? item.pricePerPerson * quantity : 0;
             const fmtEUR = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-            const effPriceMode: LinePriceMode = (item.priceMode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person')) as LinePriceMode;
+            const effPriceMode: LinePriceMode = (item.priceMode ?? 'flat') as LinePriceMode;
             return (
               <DrinkRow
                 key={item.id + idx}
