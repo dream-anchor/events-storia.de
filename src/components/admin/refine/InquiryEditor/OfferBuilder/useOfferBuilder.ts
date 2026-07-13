@@ -972,14 +972,14 @@ export function useOfferBuilder({
     });
   }, [isLoading, packagesProp, options.map(o => {
     const courseKey = (o.offerMode === 'menu' || o.offerMode === 'paket')
-      ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}`).join('|')
+      ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}:${c.quantity ?? ''}:${c.priceMode ?? ''}`).join('|')
       : '';
     const drinkKey = o.offerMode === 'menu'
       ? `${o.menuSelection.drinksMode ?? 'none'}:${o.menuSelection.winePairingPrice ?? ''}:${o.menuSelection.drinksPauschalePrice ?? ''}:${(o.menuSelection.drinksEinzeln ?? []).map(d => d.pricePerPerson).join('|')}`
       : '';
     const equipKey = (o.menuSelection.equipment ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
     const staffKey = (o.menuSelection.staff ?? []).map(e => `${e.pricePerUnit}x${e.quantity}`).join('|');
-    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.discountPercent ?? 0}:${o.discountAmount ?? 0}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
+    return `${o.packageId}:${o.guestCount}:${o.budgetPerPerson}:${o.offerMode}:${o.pricingMode ?? ''}:${o.discountPercent ?? 0}:${o.discountAmount ?? 0}:${courseKey}:${drinkKey}:${equipKey}:${staffKey}`;
   }).join(',')]);
 
   // =================================================================
