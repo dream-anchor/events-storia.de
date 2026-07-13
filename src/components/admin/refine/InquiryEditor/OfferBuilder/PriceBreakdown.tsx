@@ -336,10 +336,12 @@ export function PriceBreakdown({
     const netDisplay = pricingMode === 'per_event' ? netAbs : (netAbs / guestsForDiv);
     const calculatedDisplay = pricingMode === 'per_event' ? finalBruttoBase : (finalBruttoBase / guestsForDiv);
     const hasAdditiveItems = drinkGross > 0 || fixedGross19 > 0;
-    const finalBruttoOverride =
-      pricingMode === 'per_event'
-        ? (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson + drinkGross + fixedGross19 : null)
-        : (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson * guestsForDiv + drinkGross + fixedGross19 : null);
+    const overrideBase = pricingMode === 'per_event'
+      ? (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson + drinkGross : null)
+      : (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson * guestsForDiv + drinkGross : null);
+    const finalBruttoOverride = overrideBase != null
+      ? overrideBase - computeDiscount(overrideBase) + fixedGross19
+      : null;
     const finalBrutto = finalBruttoOverride ?? finalBruttoBase;
     const refBrutto = (foodGross + drinkGross) * rabattRatio + fixedGross19;
     const scale = refBrutto > 0 ? finalBrutto / refBrutto : 0;
@@ -730,7 +732,7 @@ export function PriceBreakdown({
           <span className="text-sm font-bold tabular-nums">
             {formatCurrency(
               finalPricePerPerson != null && finalPricePerPerson > 0
-                ? (pricingMode === 'per_event' ? finalPricePerPerson : finalPricePerPerson * guestCount) + inlineDrinkSum + fixedGross19
+                ? pkgNetTotal
                 : pkgNetTotal,
             )}
           </span>
@@ -739,9 +741,7 @@ export function PriceBreakdown({
 
       {/* MwSt-Ausweis (Paket-Modus): Brutto-Endpreis, USt 7 % enthalten */}
       {(() => {
-        const finalBrutto = (finalPricePerPerson != null && finalPricePerPerson > 0)
-          ? (pricingMode === 'per_event' ? finalPricePerPerson + inlineDrinkSum + fixedGross19 : finalPricePerPerson * guestCount + inlineDrinkSum + fixedGross19)
-          : pkgNetTotal;
+        const finalBrutto = pkgNetTotal;
         const ust = finalBrutto > 0 ? finalBrutto - finalBrutto / 1.07 : 0;
         if (ust <= 0) return null;
         return (
