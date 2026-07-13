@@ -105,10 +105,8 @@ export function EmailComposer({
 
   const buildTemplateOptions = useCallback((): TemplateOption[] => {
     return activeOptions.map(opt => {
-      // Finaler Angebotspreis: budgetPerPerson × Gäste, fallback auf totalAmount
-      const finalTotal = (opt.budgetPerPerson && opt.budgetPerPerson > 0)
-        ? opt.budgetPerPerson * opt.guestCount
-        : opt.totalAmount;
+      // Maestro-Total ist die Quelle der Wahrheit: enthält auch Equipment/Personal.
+      const finalTotal = opt.totalAmount;
       return {
       label: opt.optionLabel,
       packageName: opt.packageName || undefined,
