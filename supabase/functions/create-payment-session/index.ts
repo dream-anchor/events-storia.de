@@ -59,7 +59,7 @@ function selectableParts(opt: { total_amount: number; guest_count: number; menu_
     const price = Number(d.pricePerUnit || 0);
     if (price <= 0) continue;
     const qty = d.quantity == null ? 1 : Math.max(0, Number(d.quantity));
-    if ((d.priceMode ?? 'per_person') === 'flat') fixed += price * qty;
+    if ((d.priceMode ?? 'flat') === 'flat') fixed += price * qty;
     else perPersonAdd += price * qty;
   }
 
@@ -71,7 +71,7 @@ function selectableParts(opt: { total_amount: number; guest_count: number; menu_
       const price = Number(d.pricePerPerson || 0);
       if (price <= 0) continue;
       const qty = d.quantity == null ? 1 : Math.max(0, Number(d.quantity));
-      if ((d.priceMode ?? 'per_person') === 'flat') fixed += price * qty;
+      if ((d.priceMode ?? 'flat') === 'flat') fixed += price * qty;
       else perPersonAdd += price * qty;
     }
   }

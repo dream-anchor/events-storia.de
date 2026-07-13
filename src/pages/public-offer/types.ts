@@ -212,7 +212,7 @@ export function buildDrinkRows(menu: MenuSelection | null): DrinkRow[] {
           label: 'Getränk',
           name: qty > 1 ? `${qty} × ${d.name}` : d.name,
           price,
-          priceSuffix: price !== null ? (d.priceMode === 'flat' ? '' : perPersonSuffix) : '',
+          priceSuffix: price !== null ? (d.priceMode === 'per_person' ? perPersonSuffix : '') : '',
         };
       });
   }
@@ -247,7 +247,7 @@ export function buildDrinkRows(menu: MenuSelection | null): DrinkRow[] {
         label: d.drinkGroup || 'Getränk',
         name: quantity > 1 ? `${quantity} × ${d.customDrink || d.selectedChoice || d.drinkLabel}` : d.customDrink || d.selectedChoice || d.drinkLabel,
         price,
-        priceSuffix: price !== null ? (d.priceMode === 'flat' ? '' : perPersonSuffix) : '',
+        priceSuffix: price !== null ? (d.priceMode === 'per_person' ? perPersonSuffix : '') : '',
       };
     });
   }

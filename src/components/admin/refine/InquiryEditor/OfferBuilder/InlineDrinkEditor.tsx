@@ -38,7 +38,7 @@ function DrinkPriceInputs({
   onUpdateDrink: (index: number, update: Partial<DrinkSelection>) => void;
   disabled: boolean;
 }) {
-  const mode = drink.priceMode ?? 'per_person';
+  const mode = drink.priceMode ?? 'flat';
   return (
     <div className="flex items-center gap-1.5 shrink-0">
       <Input
