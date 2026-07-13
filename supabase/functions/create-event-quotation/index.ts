@@ -19,6 +19,7 @@ interface CourseSelectionDB {
   overridePrice?: number | null;
   /** Menge (quantity); bei Zeilen-Total = quantity * overridePrice */
   quantity?: number | null;
+  priceMode?: 'per_person' | 'flat' | null;
 }
 
 interface DrinkSelectionDB {
@@ -27,6 +28,9 @@ interface DrinkSelectionDB {
   selectedChoice: string | null;
   quantityLabel: string | null;
   customDrink?: string | null;
+  pricePerUnit?: number | null;
+  quantity?: number | null;
+  priceMode?: 'per_person' | 'flat' | null;
 }
 
 interface DrinkEinzelnItemDB {
@@ -35,6 +39,7 @@ interface DrinkEinzelnItemDB {
   pricePerPerson: number;
   /** Menge bei per_event. Zeilen-Total = quantity * pricePerPerson. */
   quantity?: number | null;
+  priceMode?: 'per_person' | 'flat' | null;
 }
 
 interface EquipmentItemDB {
@@ -134,6 +139,60 @@ interface LexOfficeLineItem {
 const FOOD_TAX_RATE = 7;
 const DRINK_TAX_RATE = 19;
 
+function lineMult(mode: 'per_person' | 'flat' | null | undefined, pricingMode: 'per_person' | 'per_event' | undefined, guests: number): number {
+  const effective = mode ?? (pricingMode === 'per_event' ? 'flat' : 'per_person');
+  return effective === 'flat' ? 1 : Math.max(1, guests);
+}
+
+function serviceTotal(items: EquipmentItemDB[] | null | undefined): number {
+  return (items || [])
+    .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
+    .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
+}
+
+function fixedDrinkTotal(ms: MenuSelectionDB | null | undefined): number {
+  if (!ms) return 0;
+  let sum = 0;
+  for (const d of (ms.drinks || [])) {
+    const price = d.pricePerUnit ?? 0;
+    if (price <= 0) continue;
+    const qty = d.quantity ?? 1;
+    if ((d.priceMode ?? 'per_person') === 'flat') sum += price * qty;
+  }
+  if (ms.drinksMode === 'einzeln') {
+    for (const d of (ms.drinksEinzeln || [])) {
+      const price = d.pricePerPerson ?? 0;
+      if (price <= 0) continue;
+      const qty = d.quantity ?? 1;
+      if ((d.priceMode ?? 'per_person') === 'flat') sum += price * qty;
+    }
+  }
+  return sum;
+}
+
+function perPersonDrinkTotal(ms: MenuSelectionDB | null | undefined): number {
+  if (!ms) return 0;
+  let sum = 0;
+  for (const d of (ms.drinks || [])) {
+    const price = d.pricePerUnit ?? 0;
+    if (price <= 0) continue;
+    const qty = d.quantity ?? 1;
+    if ((d.priceMode ?? 'per_person') !== 'flat') sum += price * qty;
+  }
+  const mode = ms.drinksMode ?? 'none';
+  if (mode === 'pauschale') sum += ms.drinksPauschalePrice ?? 0;
+  if (mode === 'weinbegleitung' || mode === 'none') sum += ms.winePairingPrice ?? 0;
+  if (mode === 'einzeln') {
+    for (const d of (ms.drinksEinzeln || [])) {
+      const price = d.pricePerPerson ?? 0;
+      if (price <= 0) continue;
+      const qty = d.quantity ?? 1;
+      if ((d.priceMode ?? 'per_person') !== 'flat') sum += price * qty;
+    }
+  }
+  return sum;
+}
+
 /**
  * Hängt — sofern in `menu_selection` ein Rabatt konfiguriert ist — eine
  * negative LexOffice-Position pro Steuersatz an, sodass die Summe der
@@ -224,7 +283,12 @@ function buildDrinkInfoLines(ms: MenuSelectionDB | null | undefined): string[] {
     const label = d.drinkLabel || '';
     if (!label && !choice) continue;
     const qty = d.quantityLabel ? ` (${d.quantityLabel})` : '';
-    lines.push(choice ? `${label}: ${choice}${qty}` : `${label}${qty}`);
+    const price = d.pricePerUnit ?? 0;
+    const amount = d.quantity ?? 1;
+    const priced = price > 0
+      ? ` (${amount > 1 ? `${amount} × ` : ''}${price.toFixed(2).replace('.', ',')} €${d.priceMode === 'flat' ? '' : ' / Pers.'})`
+      : '';
+    lines.push(choice ? `${label}: ${choice}${qty}${priced}` : `${label}${qty}${priced}`);
   }
 
   // 2. Neuer drinksMode
@@ -249,7 +313,7 @@ function buildDrinkInfoLines(ms: MenuSelectionDB | null | undefined): string[] {
       const baseName = qty > 1 ? `${qty} × ${d.name}` : d.name;
       const price = d.pricePerPerson ?? 0;
       lines.push(price > 0
-        ? `${baseName} (${price.toFixed(2).replace('.', ',')} € / Pers.)`
+        ? `${baseName} (${price.toFixed(2).replace('.', ',')} €${d.priceMode === 'flat' ? '' : ' / Pers.'})`
         : `${baseName} (inklusive)`);
     }
   } else if (mode === 'none' && (ms.winePairingPrice ?? 0) > 0) {
@@ -417,38 +481,53 @@ function buildLineItems(
 
     // --- Getränke ---
     const drinkMode = ms.drinksMode ?? 'none';
+    for (const d of (ms.drinks || [])) {
+      const name = d.customDrink || d.selectedChoice || d.drinkLabel;
+      const price = d.pricePerUnit ?? 0;
+      if (!name || price <= 0) continue;
+      const qty = Math.max(1, d.quantity ?? 1) * lineMult(d.priceMode, ms.pricingMode, guestCount);
+      entries.push({
+        name,
+        description: '',
+        qty,
+        unitBrutto: round2(price),
+        tax: DRINK_TAX,
+        unitName: d.priceMode === 'flat' ? 'Stk' : 'Person',
+        fixed: d.priceMode === 'flat',
+      });
+    }
     if (drinkMode === 'einzeln' && ms.drinksEinzeln) {
       for (const d of ms.drinksEinzeln) {
         if (!d.name || d.pricePerPerson <= 0) continue;
-        const qty = Math.max(1, d.quantity ?? 1);
+        const qty = Math.max(1, d.quantity ?? 1) * lineMult(d.priceMode, ms.pricingMode, guestCount);
         entries.push({
           name: d.name,
           description: '',
           qty,
           unitBrutto: round2(d.pricePerPerson),
           tax: DRINK_TAX,
-          unitName: 'Stk',
-          fixed: false,
+          unitName: d.priceMode === 'flat' ? 'Stk' : 'Person',
+          fixed: d.priceMode === 'flat',
         });
       }
     } else if (drinkMode === 'pauschale' && ms.drinksPauschalePrice && ms.drinksPauschalePrice > 0) {
       entries.push({
         name: ms.drinksPauschaleDescription || 'Getränkepauschale',
         description: '',
-        qty: 1,
+        qty: guestCount,
         unitBrutto: round2(ms.drinksPauschalePrice),
         tax: DRINK_TAX,
-        unitName: 'Pauschale',
+        unitName: 'Person',
         fixed: false,
       });
     } else if ((drinkMode === 'weinbegleitung' || drinkMode === 'none') && ms.winePairingPrice && ms.winePairingPrice > 0) {
       entries.push({
         name: 'Weinbegleitung',
         description: '',
-        qty: 1,
+        qty: guestCount,
         unitBrutto: round2(ms.winePairingPrice),
         tax: DRINK_TAX,
-        unitName: 'Pauschale',
+        unitName: 'Person',
         fixed: false,
       });
     }
@@ -561,6 +640,25 @@ function buildLineItems(
     // Getränke: je nach drinksMode eigene Positionen
     const drinkMode = ms.drinksMode ?? 'none';
 
+    for (const drink of (ms.drinks || [])) {
+      const name = drink.customDrink || drink.selectedChoice || drink.drinkLabel;
+      const price = drink.pricePerUnit ?? 0;
+      if (!name || price <= 0) continue;
+      const qty = Math.max(1, drink.quantity ?? 1);
+      items.push({
+        type: 'custom',
+        name,
+        description: '',
+        quantity: qty,
+        unitName: drink.priceMode === 'flat' ? 'Stk' : 'Person',
+        unitPrice: {
+          currency: 'EUR',
+          grossAmount: round2(price),
+          taxRatePercentage: 19,
+        },
+      });
+    }
+
     if (drinkMode === 'pauschale' && ms.drinksPauschalePrice && ms.drinksPauschalePrice > 0) {
       items.push({
         type: 'custom',
@@ -590,12 +688,13 @@ function buildLineItems(
     } else if (drinkMode === 'einzeln' && ms.drinksEinzeln && ms.drinksEinzeln.length > 0) {
       for (const drink of ms.drinksEinzeln) {
         if (drink.pricePerPerson > 0) {
+          const qty = Math.max(1, drink.quantity ?? 1);
           items.push({
             type: 'custom',
             name: drink.name,
             description: '',
-            quantity: 1,
-            unitName: 'Person',
+            quantity: qty,
+            unitName: drink.priceMode === 'flat' ? 'Stk' : 'Person',
             unitPrice: {
               currency: 'EUR',
               grossAmount: drink.pricePerPerson,
@@ -701,16 +800,13 @@ function buildLineItems(
     // Paket-Modus oder E-Mail-Modus: eine Gesamtposition
     // totalAmount ist BRUTTO (Maestro-Eingabe) — direkt als grossAmount durchreichen.
     // Equipment/Staff-Kosten vom Gesamtpreis abziehen für die Pro-Person-Berechnung
-    const equipStaffTotal = round2(
-      ((ms?.equipment || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0)) +
-      ((ms?.staff || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0))
-    );
-    const packageTotal = round2(totalAmount - equipStaffTotal);
+    const fixedTotal = round2(serviceTotal(ms?.equipment) + serviceTotal(ms?.staff) + fixedDrinkTotal(ms));
+    const packageTotal = round2(totalAmount - fixedTotal);
     // Pro-Person-Preis: bevorzugt aus budgetPerPerson (= echter Paket-Preis aus UI),
     // damit der Beleg die im UI sichtbare Zahl spiegelt (z. B. 69 €) und nicht durch
     // historische overridePrice-Aufschläge verzerrt wird. Fallback: Summe / Gäste.
     const unitPriceBrutto = (ms?.budgetPerPerson != null && ms.budgetPerPerson > 0)
-      ? round2(ms.budgetPerPerson)
+      ? round2(ms.budgetPerPerson + perPersonDrinkTotal(ms))
       : (guestCount > 0 ? round2(packageTotal / guestCount) : 0);
 
     // Beschreibung: enthaltene Speisen & Getränke auflisten (wie in MAESTRO sichtbar).
@@ -739,6 +835,34 @@ function buildLineItems(
         taxRatePercentage: 7,
       },
     });
+
+    for (const d of (ms?.drinks || [])) {
+      const name = d.customDrink || d.selectedChoice || d.drinkLabel;
+      const price = d.pricePerUnit ?? 0;
+      if (!name || price <= 0 || (d.priceMode ?? 'per_person') !== 'flat') continue;
+      items.push({
+        type: 'custom',
+        name,
+        description: '',
+        quantity: Math.max(1, d.quantity ?? 1),
+        unitName: 'Stk',
+        unitPrice: { currency: 'EUR', grossAmount: round2(price), taxRatePercentage: 19 },
+      });
+    }
+
+    if (ms?.drinksMode === 'einzeln') {
+      for (const d of (ms.drinksEinzeln || [])) {
+        if (!d.name || d.pricePerPerson <= 0 || (d.priceMode ?? 'per_person') !== 'flat') continue;
+        items.push({
+          type: 'custom',
+          name: d.name,
+          description: '',
+          quantity: Math.max(1, d.quantity ?? 1),
+          unitName: 'Stk',
+          unitPrice: { currency: 'EUR', grossAmount: round2(d.pricePerPerson), taxRatePercentage: 19 },
+        });
+      }
+    }
 
     // --- Equipment (19% MwSt, Fixposition) ---
     for (const eq of (ms?.equipment || [])) {

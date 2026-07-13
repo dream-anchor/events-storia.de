@@ -33,6 +33,54 @@ function effectiveTotalForOption(opt: { total_amount: number; menu_selection: Re
   return Math.max(0, gross - discountAmount);
 }
 
+function money(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function serviceTotal(ms: Record<string, unknown> | null, key: 'equipment' | 'staff'): number {
+  return (((ms?.[key] as Array<{ name?: string; pricePerUnit?: number; quantity?: number }>) || [])
+    .filter(e => e.name && Number(e.pricePerUnit || 0) > 0 && Number(e.quantity || 0) > 0)
+    .reduce((s, e) => s + Number(e.pricePerUnit || 0) * Number(e.quantity || 0), 0));
+}
+
+function selectableParts(opt: { total_amount: number; guest_count: number; menu_selection: Record<string, unknown> | null }) {
+  const ms = opt.menu_selection;
+  const total = effectiveTotalForOption(opt);
+  const guests = Math.max(1, Number(opt.guest_count || 1));
+  const pricingMode = (ms?.pricingMode as string | undefined) ?? 'per_person';
+  if (!ms || pricingMode === 'per_event' || !!ms.freeformProgram) {
+    return { perPerson: pricingMode === 'per_event' ? total : total / guests, fixed: 0, total };
+  }
+
+  let fixed = serviceTotal(ms, 'equipment') + serviceTotal(ms, 'staff');
+  let perPersonAdd = 0;
+
+  for (const d of ((ms.drinks as Array<{ pricePerUnit?: number; quantity?: number; priceMode?: string | null }>) || [])) {
+    const price = Number(d.pricePerUnit || 0);
+    if (price <= 0) continue;
+    const qty = d.quantity == null ? 1 : Math.max(0, Number(d.quantity));
+    if ((d.priceMode ?? 'per_person') === 'flat') fixed += price * qty;
+    else perPersonAdd += price * qty;
+  }
+
+  const mode = (ms.drinksMode as string | undefined) ?? 'none';
+  if (mode === 'pauschale') perPersonAdd += Number(ms.drinksPauschalePrice || 0);
+  if (mode === 'weinbegleitung' || mode === 'none') perPersonAdd += Number(ms.winePairingPrice || 0);
+  if (mode === 'einzeln') {
+    for (const d of ((ms.drinksEinzeln as Array<{ pricePerPerson?: number; quantity?: number; priceMode?: string | null }>) || [])) {
+      const price = Number(d.pricePerPerson || 0);
+      if (price <= 0) continue;
+      const qty = d.quantity == null ? 1 : Math.max(0, Number(d.quantity));
+      if ((d.priceMode ?? 'per_person') === 'flat') fixed += price * qty;
+      else perPersonAdd += price * qty;
+    }
+  }
+
+  const fallbackBudget = Number(ms.budgetPerPerson || 0) + perPersonAdd;
+  const perPerson = total > 0 ? Math.max(0, total - fixed) / guests : fallbackBudget;
+  return { perPerson, fixed, total };
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
@@ -164,45 +212,20 @@ serve(async (req) => {
         if (!opt) throw new Error(`Option ${oid} nicht gefunden`);
 
         const pricingMode = (opt.menu_selection?.pricingMode as string | undefined) ?? 'per_person';
-        const effectiveTotal = effectiveTotalForOption(opt);
-
-        let pricePerUnitEur: number;
-        // Equipment & Staff sind Fixkosten — nicht pro Person skalieren
-        const ms = opt.menu_selection;
-        const equipStaffFixed = (
-          ((ms?.equipment as Array<{name:string;pricePerUnit:number;quantity:number}>) || [])
-            .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
-            .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0)
-          +
-          ((ms?.staff as Array<{name:string;pricePerUnit:number;quantity:number}>) || [])
-            .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
-            .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0)
-        );
+        const parts = selectableParts(opt);
 
         if (pricingMode === 'per_event' || !!opt.menu_selection?.freeformProgram) {
           if (quantity !== 1) {
             throw new Error(`Option "${opt.option_label}": pauschale Preisstellung erlaubt nur Menge 1`);
           }
-          pricePerUnitEur = effectiveTotal; // per_event/freeform: Gesamtbetrag enthält alles, quantity=1
-        } else {
-          // per_person: Equipment/Staff-Fixkosten vom totalAmount abziehen,
-          // nur den Personenanteil pro Gast berechnen, Fixkosten einmalig addieren
-          const budgetPerPerson = Number(ms?.budgetPerPerson ?? 0);
-          if (budgetPerPerson > 0) {
-            pricePerUnitEur = budgetPerPerson;
-          } else if (opt.guest_count > 0) {
-            // totalAmount minus Fixkosten = skalierbarer Anteil
-            pricePerUnitEur = (effectiveTotal - equipStaffFixed) / opt.guest_count;
-          } else {
-            throw new Error(`Option "${opt.option_label}": Preis pro Person nicht ermittelbar`);
-          }
+        } else if (parts.perPerson <= 0 && opt.guest_count <= 0) {
+          throw new Error(`Option "${opt.option_label}": Preis pro Person nicht ermittelbar`);
         }
 
-        // Personenkosten × gewählte Menge + einmalige Fixkosten
         const lineEur = pricingMode === 'per_event' || !!opt.menu_selection?.freeformProgram
-          ? pricePerUnitEur
-          : (pricePerUnitEur * quantity) + equipStaffFixed;
-        grandTotalEur += lineEur;
+          ? parts.total
+          : (parts.perPerson * quantity) + parts.fixed;
+        grandTotalEur += money(lineEur);
 
         const overrideName = (opt.menu_selection?.packageNameOverride as string | undefined)?.trim();
         const pkgName = opt.packages?.name?.trim();

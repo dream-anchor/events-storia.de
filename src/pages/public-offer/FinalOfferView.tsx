@@ -15,6 +15,7 @@ import { createPaymentSession } from "@/lib/createPaymentSession";
 import type { PublicInquiry, PublicOfferOption } from "./types";
 import { formatCurrency, formatCurrencyDecimal, buildDrinkRows } from "./types";
 import { CancellationTermsAccordion } from "./ContactSection";
+import { selectableOptionPricingParts } from "@/lib/offerPricing";
 
 export function FinalOfferView({
   inquiry,
@@ -95,15 +96,10 @@ function FinalOptionCard({
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
   const drinkRows = buildDrinkRows(menu);
   const isPerEvent = menu?.pricingMode === 'per_event';
-  const pricePerPerson = isPerEvent
-    ? 0
-    : option.guest_count > 0
-      ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
-          ? menu.budgetPerPerson
-          : option.total_amount / option.guest_count)
-      : 0;
+  const pricingParts = selectableOptionPricingParts(option);
+  const pricePerPerson = isPerEvent ? 0 : pricingParts.perPerson;
 
-  const totalAmount = option.total_amount;
+  const totalAmount = pricingParts.total || option.total_amount;
   const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
   const depositAmount = isFixedDeposit
     ? Math.min(fixedDepositAmount as number, totalAmount)
@@ -226,15 +222,20 @@ function FinalOptionCard({
             </div>
             <div className="space-y-3">
               {drinkRows.map((drink, i) => (
-                <div key={i}>
-                  <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
-                    {drink.label}
-                  </p>
-                  <div>
+                <div key={i} className="flex items-baseline justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-sans font-semibold uppercase tracking-[0.15em] text-primary/40 mb-0.5">
+                      {drink.label}
+                    </p>
                     <p className="font-serif text-sm text-foreground">
                       {drink.name}
                     </p>
                   </div>
+                  {drink.price !== null && (
+                    <span className="text-xs font-sans text-muted-foreground tabular-nums shrink-0">
+                      {formatCurrencyDecimal(drink.price)}{drink.priceSuffix}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

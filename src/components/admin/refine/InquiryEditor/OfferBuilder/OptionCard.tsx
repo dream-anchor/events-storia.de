@@ -574,6 +574,7 @@ export function OptionCard({
             courses={option.offerMode === 'menu' ? option.menuSelection.courses : undefined}
             menuItems={option.offerMode === 'menu' ? menuItems : undefined}
             winePairingPrice={option.offerMode === 'menu' ? computeDrinksPerPerson(option) : option.menuSelection.winePairingPrice}
+            drinks={option.menuSelection.drinks}
             drinksLabel={option.offerMode === 'menu' ? computeDrinksLabel(option) : undefined}
             totalAmount={option.totalAmount}
             onTotalChange={option.offerMode === 'menu' ? (total) => onUpdate({ totalAmount: total }) : undefined}
