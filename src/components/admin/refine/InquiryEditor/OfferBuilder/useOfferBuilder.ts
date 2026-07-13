@@ -1036,6 +1036,10 @@ export function useOfferBuilder({
       let changed = false;
       const updated = prev.map(opt => {
         if (opt.offerMode !== 'menu') return opt;
+        // Wenn ein Pauschal-Override (budgetPerPerson) gesetzt ist, hat der Operator
+        // die Einzelpreise bewusst auf "inkl." geleert. Auto-Repair darf diese
+        // Löschung NICHT rückgängig machen, indem er Katalogpreise nachträgt.
+        const hasBudgetOverride = opt.budgetPerPerson != null && opt.budgetPerPerson > 0;
         const updatedCourses = opt.menuSelection.courses.map(course => {
           if (!course.itemId && !course.itemName) return course;
 
@@ -1057,7 +1061,9 @@ export function useOfferBuilder({
           }
 
           // Fix fehlender overridePrice (voller Katalogpreis, Rabatt wird am Ende ausgewiesen)
-          if (!(course.overridePrice != null && course.overridePrice > 0) && menuItem.price && menuItem.price > 0) {
+          // Nur, wenn KEIN Pauschal-Override aktiv ist — sonst würde "inkl." nach Reload
+          // wieder mit Katalogpreisen überschrieben (Bug: Pauschalpreis kippt zurück).
+          if (!hasBudgetOverride && !(course.overridePrice != null && course.overridePrice > 0) && menuItem.price && menuItem.price > 0) {
             updates.overridePrice = menuItem.price;
           }
 
