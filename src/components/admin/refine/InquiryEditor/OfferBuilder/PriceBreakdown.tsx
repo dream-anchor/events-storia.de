@@ -336,11 +336,14 @@ export function PriceBreakdown({
     const netDisplay = pricingMode === 'per_event' ? netAbs : (netAbs / guestsForDiv);
     const calculatedDisplay = pricingMode === 'per_event' ? finalBruttoBase : (finalBruttoBase / guestsForDiv);
     const hasAdditiveItems = drinkGross > 0 || fixedGross19 > 0;
+    const computeDiscountForBase = (base: number) => discountMode === 'amount'
+      ? Math.min(discountEurVal, base)
+      : base * (discountPctVal / 100);
     const overrideBase = pricingMode === 'per_event'
       ? (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson + drinkGross : null)
       : (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson * guestsForDiv + drinkGross : null);
     const finalBruttoOverride = overrideBase != null
-      ? overrideBase - computeDiscount(overrideBase) + fixedGross19
+      ? overrideBase - computeDiscountForBase(overrideBase) + fixedGross19
       : null;
     const finalBrutto = finalBruttoOverride ?? finalBruttoBase;
     const refBrutto = (foodGross + drinkGross) * rabattRatio + fixedGross19;
