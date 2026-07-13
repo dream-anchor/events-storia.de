@@ -332,8 +332,8 @@ export function PriceBreakdown({
     const calculatedDisplay = pricingMode === 'per_event' ? finalBruttoBase : (finalBruttoBase / guestsForDiv);
     const finalBruttoOverride =
       pricingMode === 'per_event'
-        ? (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson : null)
-        : (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson * guestsForDiv : null);
+        ? (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson + fixedGross19 : null)
+        : (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson * guestsForDiv + fixedGross19 : null);
     const finalBrutto = finalBruttoOverride ?? finalBruttoBase;
     const refBrutto = (foodGross + drinkGross) * rabattRatio + fixedGross19;
     const scale = refBrutto > 0 ? finalBrutto / refBrutto : 0;
@@ -710,7 +710,7 @@ export function PriceBreakdown({
       {/* MwSt-Ausweis (Paket-Modus): Brutto-Endpreis, USt 7 % enthalten */}
       {(() => {
         const finalBrutto = (finalPricePerPerson != null && finalPricePerPerson > 0)
-          ? (pricingMode === 'per_event' ? finalPricePerPerson : finalPricePerPerson * guestCount)
+          ? (pricingMode === 'per_event' ? finalPricePerPerson + fixedGross19 : finalPricePerPerson * guestCount + fixedGross19)
           : pkgNetTotal;
         const ust = finalBrutto > 0 ? finalBrutto - finalBrutto / 1.07 : 0;
         if (ust <= 0) return null;
