@@ -35,6 +35,7 @@ import type {
 import { formatCurrency, formatCurrencyDecimal, buildDrinkRows } from "./types";
 import { CancellationTermsAccordion } from "./ContactSection";
 import { FreeformProgramSection } from "./FreeformProgramSection";
+import { selectableOptionAmount, selectableOptionPricingParts } from "@/lib/offerPricing";
 
 export function ProposalView({
   inquiry,
@@ -150,18 +151,13 @@ export function ProposalView({
 
   // Pro-Person-Preis pro Option (per_event: total_amount als Pauschale)
   const perPersonPriceFor = (opt: PublicOfferOption): number => {
-    const ms = opt.menu_selection;
-    const effTotal = effectiveTotalFor(opt);
-    if (ms?.pricingMode === 'per_event') return effTotal;
-    const budget = ms?.budgetPerPerson;
-    if (budget && budget > 0) return budget;
-    if (opt.guest_count > 0) return effTotal / opt.guest_count;
-    return 0;
+    const parts = selectableOptionPricingParts(opt);
+    return opt.menu_selection?.pricingMode === 'per_event' ? parts.total : parts.perPerson;
   };
 
   const totalQuantity = Object.values(optionQuantities).reduce((s, q) => s + (q || 0), 0);
   const multiOptionsTotal = options.reduce(
-    (sum, o) => sum + (optionQuantities[o.id] || 0) * perPersonPriceFor(o),
+    (sum, o) => sum + selectableOptionAmount(o, optionQuantities[o.id] || 0),
     0
   );
   const hasQuantities = totalQuantity > 0;
@@ -1118,13 +1114,8 @@ function ProposalOptionCard({
   // fuer den ganzen Anlass (nicht pro Gast). Dann zeigen wir statt "pro Person"
   // den Gesamtbetrag mit Label "Gesamtpreis".
   const isPerEvent = menu?.pricingMode === 'per_event';
-  const pricePerPerson = isPerEvent
-    ? 0
-    : option.guest_count > 0
-      ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
-          ? menu.budgetPerPerson
-          : option.total_amount / option.guest_count)
-      : 0;
+  const pricingParts = selectableOptionPricingParts(option);
+  const pricePerPerson = isPerEvent ? 0 : pricingParts.perPerson;
 
 
   return (
@@ -1257,6 +1248,11 @@ function ProposalOptionCard({
                         {d.name}
                       </p>
                     </div>
+                    {d.price !== null && (
+                      <span className="text-xs font-sans text-muted-foreground tabular-nums shrink-0">
+                        {formatCurrencyDecimal(d.price)}{d.priceSuffix}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

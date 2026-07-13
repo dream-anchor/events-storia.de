@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/typed-client";
-import { flattenCourses } from './menuDaysHelpers';
 import { freeformToMenuDays } from './freeformToMenuDays';
 import type { FreeformProgram } from './types';
 
@@ -58,6 +57,7 @@ const retryParseFreeformFromText = async (text: string): Promise<FreeformProgram
 };
 import { toast } from "sonner";
 import { calculateEventPackagePrice } from "@/lib/eventPricing";
+import { calculateOfferTotal } from "@/lib/offerPricing";
 import { useCombinedMenuItems } from "@/hooks/useCombinedMenuItems";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { CourseConfig, DrinkConfig, DrinkOption, CourseSelection } from "../MenuComposer/types";
@@ -824,167 +824,8 @@ export function useOfferBuilder({
     setOptions(prev => {
       let changed = false;
       const updated = prev.map(opt => {
-        if (opt.offerMode === 'freeform') {
-          const prog = opt.menuSelection.freeformProgram;
-          const grossBase = prog?.totalsFromText?.gross ?? 0;
-          const d = prog?.discount;
-          const discountAmount = d
-            ? d.mode === 'percent'
-              ? (grossBase * (Number(d.value) || 0)) / 100
-              : (Number(d.value) || 0)
-            : 0;
-          const gross = Math.max(0, grossBase - discountAmount);
-          if (Math.abs(opt.totalAmount - gross) < 0.01) return opt;
-          changed = true;
-          return { ...opt, totalAmount: gross };
-        }
-        if (isMenuLikeOfferMode(opt.offerMode)) {
-          // Safety net: Wenn ein freeformProgram im menuSelection liegt, NIEMALS
-          // den Menu-Recalc anwenden — er würde totalAmount sonst auf 0 ziehen,
-          // weil keine `courses` existieren. Mode wird beim nächsten Save ohnehin
-          // korrigiert (defensive Hydration in der Load-Phase).
-          if (opt.menuSelection?.freeformProgram) {
-            return opt;
-          }
-          // Menue-Modus: per-line priceMode bestimmt ob × Gäste oder pauschal
-          const guests = Math.max(1, opt.guestCount);
-          const globalMode = opt.pricingMode ?? 'per_person';
-          const lineMult = (priceMode?: 'per_person' | 'flat' | null): number => {
-            const m = priceMode ?? (globalMode === 'per_event' ? 'flat' : 'per_person');
-            return m === 'flat' ? 1 : guests;
-          };
-
-          let dishAbs = 0;
-          for (const course of flattenCourses(opt)) {
-            if (course.overridePrice != null && course.overridePrice > 0) {
-              const qty = course.quantity ?? 1;
-              dishAbs += course.overridePrice * qty * lineMult(course.priceMode);
-            }
-          }
-
-          // Getränke
-          let drinksAbs = 0;
-          const drinkMode = opt.menuSelection.drinksMode ?? 'none';
-          if (drinkMode === 'weinbegleitung' || drinkMode === 'none') {
-            drinksAbs = (opt.menuSelection.winePairingPrice || 0) * guests;
-          } else if (drinkMode === 'pauschale') {
-            drinksAbs = (opt.menuSelection.drinksPauschalePrice || 0) * guests;
-          } else if (drinkMode === 'einzeln') {
-            drinksAbs = (opt.menuSelection.drinksEinzeln || []).reduce((s, d) => {
-              const qty = d.quantity ?? 1;
-              return s + d.pricePerPerson * qty * lineMult(d.priceMode);
-            }, 0);
-          }
-
-          // Zusätzliche Einzelpreise aus drinks[] (Aperitif/Getränk/Custom-Zeilen mit Preis)
-          drinksAbs += (opt.menuSelection.drinks || []).reduce((s, d) => {
-            const p = d.pricePerUnit;
-            if (p == null || p <= 0) return s;
-            const qty = d.quantity ?? 1;
-            return s + p * qty * lineMult(d.priceMode);
-          }, 0);
-
-          const subtotalAbs = dishAbs + drinksAbs;
-
-          const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
-          const discountEur = Math.max(0, opt.discountAmount ?? 0);
-          const computeDiscount = (base: number) =>
-            discountEur > 0 ? Math.min(discountEur, base) : base * (discountPct / 100);
-
-          let newTotal: number;
-          // Pauschalpreis-Override ("Angebotspreis / Person" bzw. gesamt):
-          // Sobald der Operator einen budgetPerPerson-Wert setzt UND alle
-          // Einzelpreise der Gänge auf "inkl." (overridePrice=null) geleert
-          // hat, ist das Budget die verbindliche Preisgrundlage für die
-          // Speisen. Getränke/Equipment/Personal werden weiterhin separat
-          // addiert. Kein automatisches Wipe mehr — das hat die manuelle
-          // Pauschale nach Reload zerstört, sobald Getränke oder eine
-          // Weinbegleitung ausgewählt waren (drinksAbs > 0).
-          const hasDishContent = dishAbs > 0;
-          const budgetActive = opt.budgetPerPerson != null && opt.budgetPerPerson > 0;
-          if (budgetActive && !hasDishContent) {
-            // Budget ersetzt den Speisen-Anteil; Getränke bleiben additiv.
-            const dishOverride = globalMode === 'per_event'
-              ? (opt.budgetPerPerson as number)
-              : (opt.budgetPerPerson as number) * guests;
-            const base = dishOverride + drinksAbs;
-            newTotal = base - computeDiscount(base);
-          } else {
-            newTotal = subtotalAbs - computeDiscount(subtotalAbs);
-          }
-          const clearedBudget = false;
-
-          // Equipment & Staff: Fixkosten addieren (nicht pro Person)
-          const equipTotal = (opt.menuSelection.equipment || [])
-            .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
-            .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
-          const staffTotal = (opt.menuSelection.staff || [])
-            .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
-            .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
-          newTotal += equipTotal + staffTotal;
-
-          if (Math.abs(opt.totalAmount - newTotal) < 0.01 && !clearedBudget) return opt;
-          changed = true;
-          return { ...opt, totalAmount: newTotal };
-        }
-
-        // Paket-Modus: Preis aus Paket-Kalkulation
-        if (!opt.packageId || !packagesProp?.length) return opt;
-        const pkg = packagesProp.find(p => p.id === opt.packageId);
-        if (!pkg) return opt;
-
-        // Paket-Modus: enthaltene Gänge sind als „inkl." Bestandteil des Pakets.
-        // Etwaige overridePrice-Werte sind reine Anzeige-/Katalog-Daten und werden
-        // NICHT zum Paketpreis addiert (sonst entstehen Phantom-Aufschläge wie 84,90 €
-        // statt 69 €). Equipment & Personal werden weiter unten separat berücksichtigt.
-        const courseSurcharge = 0;
-
-        // Zusatzgetränke mit eigenem Preis werden auf den Paketpreis addiert.
-        const paketLineMult = (m: 'per_person' | 'flat' | null | undefined) =>
-          m === 'flat' ? 1 : opt.guestCount;
-        const paketDrinksExtra = (opt.menuSelection.drinks || []).reduce((s, d) => {
-          const p = d.pricePerUnit;
-          if (p == null || p <= 0) return s;
-          const qty = d.quantity ?? 1;
-          return s + p * qty * paketLineMult(d.priceMode);
-        }, 0);
-
-        // Pricing-Modus entscheidet:
-        //  per_event: budgetPerPerson ist bereits der Gesamtpreis
-        //  per_person: wie bisher (budgetPerPerson * guestCount oder Paket-Kalkulation)
-        const mode = opt.pricingMode ?? 'per_person';
-        const discountPct = Math.min(100, Math.max(0, opt.discountPercent ?? 0));
-        const discountEur = Math.max(0, opt.discountAmount ?? 0);
-        const computeDiscount = (base: number) =>
-          discountEur > 0 ? Math.min(discountEur, base) : base * (discountPct / 100);
-        let newTotal: number;
-        if (opt.budgetPerPerson != null && opt.budgetPerPerson > 0) {
-          if (mode === 'per_event') {
-            newTotal = opt.budgetPerPerson + courseSurcharge * opt.guestCount;
-          } else {
-            newTotal = pkg.price_per_person
-              ? (opt.budgetPerPerson + courseSurcharge) * opt.guestCount
-              : opt.budgetPerPerson + courseSurcharge * opt.guestCount;
-          }
-          // Rabatt auch auf Override anwenden (analog Menü-Modus)
-          newTotal = newTotal - computeDiscount(newTotal);
-        } else {
-          const baseTotal = calculateEventPackagePrice(
-            pkg.id, pkg.price, opt.guestCount, !!pkg.price_per_person
-          ) + (pkg.price_per_person ? courseSurcharge * opt.guestCount : courseSurcharge * opt.guestCount);
-          newTotal = baseTotal - computeDiscount(baseTotal);
-        }
-        newTotal += paketDrinksExtra;
-
-        // Equipment & Staff: Fixkosten addieren (nicht pro Person)
-        const equipTotal = (opt.menuSelection.equipment || [])
-          .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
-          .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
-        const staffTotal = (opt.menuSelection.staff || [])
-          .filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0)
-          .reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
-        newTotal += equipTotal + staffTotal;
-
+        const newTotal = calculateOfferTotal(opt, packagesProp);
+        if (newTotal == null) return opt;
         if (Math.abs(opt.totalAmount - newTotal) < 0.01) return opt;
         changed = true;
         return { ...opt, totalAmount: newTotal };
@@ -1002,7 +843,7 @@ export function useOfferBuilder({
       ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}:${c.quantity ?? ''}:${c.priceMode ?? ''}`).join('|')
       : '';
     const drinkKey = isMenuLikeOfferMode(o.offerMode)
-      ? `${o.menuSelection.drinksMode ?? 'none'}:${o.menuSelection.winePairingPrice ?? ''}:${o.menuSelection.drinksPauschalePrice ?? ''}:${(o.menuSelection.drinksEinzeln ?? []).map(d => d.pricePerPerson).join('|')}`
+      ? `${o.menuSelection.drinksMode ?? 'none'}:${o.menuSelection.winePairingPrice ?? ''}:${o.menuSelection.drinksPauschalePrice ?? ''}:${(o.menuSelection.drinksEinzeln ?? []).map(d => `${d.pricePerPerson}:${d.quantity ?? ''}:${d.priceMode ?? ''}`).join('|')}`
       : '';
     const drinksInlineKey = (o.menuSelection.drinks ?? [])
       .map(d => `${d.pricePerUnit ?? ''}:${d.quantity ?? ''}:${d.priceMode ?? ''}`).join('|');

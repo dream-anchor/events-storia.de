@@ -55,6 +55,9 @@ export interface DrinkSelection {
   selectedChoice: string | null;
   quantityLabel: string | null;
   customDrink?: string | null;
+  pricePerUnit?: number | null;
+  quantity?: number | null;
+  priceMode?: 'per_person' | 'flat' | null;
 }
 
 export interface MenuSelection {
@@ -63,6 +66,10 @@ export interface MenuSelection {
   winePairingPrice?: number | null;
   budgetPerPerson?: number | null;
   pricingMode?: 'per_person' | 'per_event';
+  drinksMode?: 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
+  drinksPauschalePrice?: number | null;
+  drinksPauschaleDescription?: string | null;
+  drinksEinzeln?: Array<{ name: string; pricePerPerson: number; quantity?: number | null; priceMode?: 'per_person' | 'flat' | null }>;
   equipment?: Array<{ id: string; name: string; pricePerUnit: number; quantity: number }>;
   staff?: Array<{ id: string; name: string; pricePerUnit: number; quantity: number }>;
   freeformProgram?: PublicFreeformProgram | null;
@@ -189,7 +196,7 @@ export function buildDrinkRows(menu: MenuSelection | null): DrinkRow[] {
     drinksMode?: 'none' | 'pauschale' | 'weinbegleitung' | 'einzeln';
     drinksPauschalePrice?: number | null;
     drinksPauschaleDescription?: string | null;
-    drinksEinzeln?: Array<{ name: string; pricePerPerson: number; quantity?: number | null }>;
+    drinksEinzeln?: Array<{ name: string; pricePerPerson: number; quantity?: number | null; priceMode?: 'per_person' | 'flat' | null }>;
   };
   const mode = m.drinksMode;
   const isPerEvent = m.pricingMode === 'per_event';
@@ -232,12 +239,16 @@ export function buildDrinkRows(menu: MenuSelection | null): DrinkRow[] {
 
   // Legacy / 'none' / kein Modus → klassische drinks[]
   if (Array.isArray(m.drinks) && m.drinks.length > 0) {
-    return m.drinks.filter(d => d?.drinkLabel).map(d => ({
+    return m.drinks.filter(d => d?.drinkLabel || d?.selectedChoice || d?.customDrink).map(d => {
+      const quantity = d.quantity ?? 1;
+      const price = d.pricePerUnit != null && d.pricePerUnit > 0 ? d.pricePerUnit * quantity : null;
+      return {
       label: d.drinkGroup || 'Getränk',
-      name: d.customDrink || d.selectedChoice || d.drinkLabel,
-      price: null,
-      priceSuffix: '',
-    }));
+      name: quantity > 1 ? `${quantity} × ${d.customDrink || d.selectedChoice || d.drinkLabel}` : d.customDrink || d.selectedChoice || d.drinkLabel,
+      price,
+      priceSuffix: price !== null ? (d.priceMode === 'flat' ? '' : ' pro Person') : '',
+    };
+    });
   }
 
   return [];

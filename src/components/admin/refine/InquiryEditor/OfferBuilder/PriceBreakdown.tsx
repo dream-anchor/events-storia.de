@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { calculateEventPackagePrice, isLocationPackage, getLocationPricingBreakdown } from "@/lib/eventPricing";
 import type { Package } from "../types";
-import type { CourseSelection } from "./types";
+import type { CourseSelection, DrinkSelection } from "./types";
+import { inlineDrinksTotal } from "@/lib/offerPricing";
 import type { CombinedMenuItem } from "@/hooks/useCombinedMenuItems";
 import type { PricingMode } from "./pricingMode";
 import type { EquipmentItem } from "./types";
@@ -17,6 +18,8 @@ interface PriceBreakdownProps {
   menuItems?: CombinedMenuItem[];
   /** Getränke/Weinbegleitung pro Person */
   winePairingPrice?: number | null;
+  /** Inline-Getränke mit eigener Anzahl/Preis (Paket-Konfiguration) */
+  drinks?: DrinkSelection[];
   /** Label für die Getränke-Zeile (default: 'Getränke') */
   drinksLabel?: string;
   /** Manueller Gesamtpreis (frei editierbar) */
@@ -235,6 +238,7 @@ export function PriceBreakdown({
   courses,
   menuItems,
   winePairingPrice,
+  drinks,
   totalAmount,
   onTotalChange,
   onCourseUpdate,
@@ -305,7 +309,8 @@ export function PriceBreakdown({
     }, 0);
     const winePerPerson = winePairingPrice || 0;
     const wineAbs = winePerPerson * guestsForDiv;
-    const subtotalAbs = dishAbs + wineAbs;
+    const inlineDrinkAbs = inlineDrinksTotal(drinks, guestsForDiv, pricingMode);
+    const subtotalAbs = dishAbs + wineAbs + inlineDrinkAbs;
     // Rabatt: €-Betrag hat Vorrang, % auf Subtotal
     const discountAmountTotal = discountMode === 'amount'
       ? Math.min(discountEurVal, subtotalAbs)
@@ -324,16 +329,17 @@ export function PriceBreakdown({
     // Aus den Brutto-Buckets ergibt sich proportional die enthaltene USt
     // auf dem finalen Brutto-Angebotspreis.
     const foodGross = dishAbs; // bereits rabattierbar
-    const drinkGross = wineAbs; // rabattierbar
+    const drinkGross = wineAbs + inlineDrinkAbs; // rabattierbar
     const fixedGross19 = equipSum + staffSum; // nicht rabattierbar
     const rabattRatio = subtotalAbs > 0 ? netAbs / subtotalAbs : 1;
     const finalBruttoBase = netAbs + fixedGross19;
     const netDisplay = pricingMode === 'per_event' ? netAbs : (netAbs / guestsForDiv);
     const calculatedDisplay = pricingMode === 'per_event' ? finalBruttoBase : (finalBruttoBase / guestsForDiv);
+    const hasAdditiveItems = drinkGross > 0 || fixedGross19 > 0;
     const finalBruttoOverride =
       pricingMode === 'per_event'
-        ? (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson + fixedGross19 : null)
-        : (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson * guestsForDiv + fixedGross19 : null);
+        ? (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson + drinkGross + fixedGross19 : null)
+        : (finalPricePerPerson != null && finalPricePerPerson > 0 ? finalPricePerPerson * guestsForDiv + drinkGross + fixedGross19 : null);
     const finalBrutto = finalBruttoOverride ?? finalBruttoBase;
     const refBrutto = (foodGross + drinkGross) * rabattRatio + fixedGross19;
     const scale = refBrutto > 0 ? finalBrutto / refBrutto : 0;
@@ -377,6 +383,15 @@ export function PriceBreakdown({
                 <span className="text-xs text-muted-foreground">{drinksLabel ?? 'Getränke'}</span>
                 <span className="text-xs text-muted-foreground shrink-0 w-24 text-right pr-6">
                   {formatCurrency(winePerPerson)}
+                </span>
+              </div>
+            )}
+
+            {inlineDrinkAbs > 0 && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Zusatzgetränke</span>
+                <span className="text-xs text-muted-foreground shrink-0 w-24 text-right pr-6">
+                  {formatCurrency(pricingMode === 'per_event' ? inlineDrinkAbs : inlineDrinkAbs / guestsForDiv)}
                 </span>
               </div>
             )}
@@ -460,7 +475,7 @@ export function PriceBreakdown({
         {/* Basispreis — editierbar. Equipment/Personal werden separat addiert. */}
         <div className="flex items-center justify-between gap-3 pt-1">
           <span className="text-sm font-semibold">
-            {fixedGross19 > 0
+            {hasAdditiveItems
               ? (pricingMode === 'per_event' ? 'Basispreis gesamt' : 'Basispreis / Person')
               : (pricingMode === 'per_event' ? 'Angebotspreis gesamt' : 'Angebotspreis / Person')}
           </span>
@@ -482,7 +497,7 @@ export function PriceBreakdown({
           </div>
         </div>
 
-        {fixedGross19 > 0 && (
+        {hasAdditiveItems && (
           <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/20">
             <span className="text-sm font-semibold">Angebotspreis gesamt</span>
             <span className="text-sm font-bold tabular-nums">{formatCurrency(finalBrutto)}</span>
@@ -533,10 +548,11 @@ export function PriceBreakdown({
       );
 
   const menuTotal = menuPricePerPerson * guestCount;
+  const inlineDrinkSum = inlineDrinksTotal(drinks, guestCount, pricingMode);
   const equipSum = (equipment || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
   const staffSum = (staff || []).filter(e => e.name && e.pricePerUnit > 0 && e.quantity > 0).reduce((s, e) => s + e.pricePerUnit * e.quantity, 0);
   const fixedGross19 = equipSum + staffSum;
-  const grandTotal = locationTotal + menuTotal;
+  const grandTotal = locationTotal + menuTotal + inlineDrinkSum;
 
   // Tier-Breakdown nur ohne Override anzeigen (sonst widerspruechlich zum Override-Wert)
   const isLocation = !isOverridden && isLocationPackage(packageData.id, packageData.price);
@@ -552,6 +568,7 @@ export function PriceBreakdown({
     ? Math.min(pkgDiscountEur, grandTotal)
     : grandTotal * (pkgDiscountPct / 100);
   const pkgNetTotal = grandTotal - pkgDiscountAmount + fixedGross19;
+  const hasPackageAdditiveItems = inlineDrinkSum > 0 || fixedGross19 > 0;
 
   return (
     <div className="pt-3 border-t border-border/30 space-y-2">
@@ -601,6 +618,13 @@ export function PriceBreakdown({
             </span>
           </span>
           <span className="font-medium">{formatCurrency(menuTotal)}</span>
+        </div>
+      )}
+
+      {inlineDrinkSum > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Zusatzgetränke</span>
+          <span className="font-medium">{formatCurrency(inlineDrinkSum)}</span>
         </div>
       )}
 
@@ -674,7 +698,7 @@ export function PriceBreakdown({
       {/* Basispreis — editierbar. Equipment/Personal werden separat addiert. */}
       <div className="flex items-center justify-between gap-3 pt-1">
         <span className="text-sm font-semibold">
-          {fixedGross19 > 0
+          {hasPackageAdditiveItems
             ? (pricingMode === 'per_event' ? 'Basispreis gesamt' : 'Basispreis / Person')
             : (pricingMode === 'per_event' ? 'Angebotspreis gesamt' : 'Angebotspreis / Person')}
         </span>
@@ -700,17 +724,23 @@ export function PriceBreakdown({
         </div>
       </div>
 
-      {fixedGross19 > 0 && (
+      {hasPackageAdditiveItems && (
         <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/20">
           <span className="text-sm font-semibold">Angebotspreis gesamt</span>
-          <span className="text-sm font-bold tabular-nums">{formatCurrency(pkgNetTotal)}</span>
+          <span className="text-sm font-bold tabular-nums">
+            {formatCurrency(
+              finalPricePerPerson != null && finalPricePerPerson > 0
+                ? (pricingMode === 'per_event' ? finalPricePerPerson : finalPricePerPerson * guestCount) + inlineDrinkSum + fixedGross19
+                : pkgNetTotal,
+            )}
+          </span>
         </div>
       )}
 
       {/* MwSt-Ausweis (Paket-Modus): Brutto-Endpreis, USt 7 % enthalten */}
       {(() => {
         const finalBrutto = (finalPricePerPerson != null && finalPricePerPerson > 0)
-          ? (pricingMode === 'per_event' ? finalPricePerPerson + fixedGross19 : finalPricePerPerson * guestCount + fixedGross19)
+          ? (pricingMode === 'per_event' ? finalPricePerPerson + inlineDrinkSum + fixedGross19 : finalPricePerPerson * guestCount + inlineDrinkSum + fixedGross19)
           : pkgNetTotal;
         const ust = finalBrutto > 0 ? finalBrutto - finalBrutto / 1.07 : 0;
         if (ust <= 0) return null;

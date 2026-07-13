@@ -15,6 +15,7 @@ import { createPaymentSession } from "@/lib/createPaymentSession";
 import type { PublicInquiry, PublicOfferOption } from "./types";
 import { formatCurrency, formatCurrencyDecimal, buildDrinkRows } from "./types";
 import { CancellationTermsAccordion } from "./ContactSection";
+import { selectableOptionPricingParts } from "@/lib/offerPricing";
 
 export function FinalOfferView({
   inquiry,
@@ -95,13 +96,8 @@ function FinalOptionCard({
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
   const drinkRows = buildDrinkRows(menu);
   const isPerEvent = menu?.pricingMode === 'per_event';
-  const pricePerPerson = isPerEvent
-    ? 0
-    : option.guest_count > 0
-      ? (menu?.budgetPerPerson && menu.budgetPerPerson > 0
-          ? menu.budgetPerPerson
-          : option.total_amount / option.guest_count)
-      : 0;
+  const pricingParts = selectableOptionPricingParts(option);
+  const pricePerPerson = isPerEvent ? 0 : pricingParts.perPerson;
 
   const totalAmount = option.total_amount;
   const isFixedDeposit = fixedDepositAmount != null && fixedDepositAmount > 0;
@@ -235,6 +231,11 @@ function FinalOptionCard({
                       {drink.name}
                     </p>
                   </div>
+                  {drink.price !== null && (
+                    <span className="text-xs font-sans text-muted-foreground tabular-nums shrink-0">
+                      {formatCurrencyDecimal(drink.price)}{drink.priceSuffix}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
