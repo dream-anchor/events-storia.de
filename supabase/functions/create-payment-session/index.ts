@@ -212,7 +212,6 @@ serve(async (req) => {
         if (!opt) throw new Error(`Option ${oid} nicht gefunden`);
 
         const pricingMode = (opt.menu_selection?.pricingMode as string | undefined) ?? 'per_person';
-        const ms = opt.menu_selection;
         const parts = selectableParts(opt);
 
         if (pricingMode === 'per_event' || !!opt.menu_selection?.freeformProgram) {
