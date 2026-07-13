@@ -972,7 +972,7 @@ export function useOfferBuilder({
     });
   }, [isLoading, packagesProp, options.map(o => {
     const courseKey = (o.offerMode === 'menu' || o.offerMode === 'paket')
-      ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}`).join('|')
+      ? o.menuSelection.courses.map(c => `${c.overridePrice ?? ''}:${c.quantity ?? ''}:${c.priceMode ?? ''}`).join('|')
       : '';
     const drinkKey = o.offerMode === 'menu'
       ? `${o.menuSelection.drinksMode ?? 'none'}:${o.menuSelection.winePairingPrice ?? ''}:${o.menuSelection.drinksPauschalePrice ?? ''}:${(o.menuSelection.drinksEinzeln ?? []).map(d => d.pricePerPerson).join('|')}`
