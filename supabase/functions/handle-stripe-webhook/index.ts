@@ -5,6 +5,13 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
 import { sendEmailWithFallback } from '../_shared/email-sender.ts';
 import { buildVoucherPdf, generateVoucherCode } from '../_shared/voucher-pdf.ts';
+import {
+  buildOrderPayload,
+  enqueueMaestroHandoff,
+  handoffEnabled,
+  type MaestroPaymentType,
+  type MaestroTransaction,
+} from '../_shared/maestroHandoff.ts';
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -72,12 +79,17 @@ serve(async (req) => {
       // sodass ein doppeltes bzw. nachgelagertes Event eine bereits bezahlte
       // Zahlung nicht erneut verarbeitet.
       const session = event.data.object as Stripe.Checkout.Session;
+      // MAESTRO-Handoff: Bestellung (order-only) unabhängig vom Zahlungsstatus
+      // enqueuen. Zahlungstransaktion folgt separat, sobald Erfolg vorliegt.
+      await maestroEnqueueOrder(supabase, session, event.id);
       const result = await processCheckoutPaid(supabase, stripe, session, event.type);
       if (result.skippedUnpaid) {
         return new Response(JSON.stringify({ received: true, action: "skipped_unpaid" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      // Zahlung tatsächlich erfolgreich → Transaction-Handoff mit eigener Delivery-ID
+      await maestroEnqueuePayment(supabase, session, event.id);
     } else if (event.type === "checkout.session.async_payment_failed") {
       // ━━━ SEPA / asynchrone Zahlung FEHLGESCHLAGEN ━━━
       // Wird ausschließlich für asynchrone Methoden ausgelöst, NIE für Karten
@@ -86,10 +98,14 @@ serve(async (req) => {
       await processCheckoutFailed(supabase, session);
     } else if (event.type === "charge.refunded") {
       // ━━━ RÜCKERSTATTUNG (voll oder teilweise) ━━━
-      await handleChargeRefunded(supabase, event.data.object as Stripe.Charge);
+      const charge = event.data.object as Stripe.Charge;
+      await handleChargeRefunded(supabase, charge);
+      await maestroEnqueueRefund(supabase, charge, event.id);
     } else if (event.type === "charge.dispute.created") {
       // ━━━ CHARGEBACK / DISPUTE eröffnet ━━━
-      await handleChargeDisputeCreated(supabase, event.data.object as Stripe.Dispute);
+      const dispute = event.data.object as Stripe.Dispute;
+      await handleChargeDisputeCreated(supabase, dispute);
+      await maestroEnqueueDispute(supabase, dispute, event.id);
     } else if (event.type === "checkout.session.expired") {
       logStep("Checkout session expired", { sessionId: (event.data.object as Stripe.Checkout.Session).id });
       // Could update order status to 'expired' here if needed
