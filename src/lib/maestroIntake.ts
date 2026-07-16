@@ -6,7 +6,22 @@
  * Erfolg gilt NUR, wenn eine konkrete Inquiry-ID zurückkommt; jeder 4xx/5xx oder eine Antwort ohne
  * ID wirft (kein Silent-Fallback auf Supabase v1, keine falsche Erfolgsmeldung).
  */
-export const MAESTRO_INTAKE_URL = "https://storia.schrittmacher.ai/api/public/inquiries";
+/**
+ * Ziel-Endpunkt AUSSCHLIESSLICH aus der Build-Time-Konfiguration (VITE_MAESTRO_INTAKE_URL).
+ * KEIN hartkodierter Produktions-Fallback: Produktions-Builds zeigen auf den produktiven STORIA-
+ * Mandanten, Preview/Test-Builds auf einen nichtproduktiven Endpoint. Fehlt/ungültig -> sichtbarer
+ * Fehler (kein stiller Rückfall von Preview auf Produktion). Nur öffentliche URL, kein Secret.
+ */
+export function requireMaestroUrl(raw: string | undefined, name: string): string {
+  const u = (raw ?? "").trim();
+  if (!/^https:\/\/[^\s]+$/.test(u)) {
+    throw new Error(`${name} ist nicht konfiguriert (erwartet https-URL) — Build-Time-Konfiguration fehlt.`);
+  }
+  return u;
+}
+// Lazy (erst beim Submit ausgewertet) — eine fehlende Konfiguration crasht nicht die ganze Seite,
+// sondern lässt genau den Absende-Versuch sichtbar fehlschlagen.
+const intakeUrl = () => requireMaestroUrl(import.meta.env.VITE_MAESTRO_INTAKE_URL, "VITE_MAESTRO_INTAKE_URL");
 
 export interface MaestroInquiryInput {
   customerName: string;
@@ -45,7 +60,7 @@ function clean(input: MaestroInquiryInput): Record<string, unknown> {
 export async function submitMaestroInquiry(input: MaestroInquiryInput): Promise<MaestroInquiryResult> {
   let res: Response;
   try {
-    res = await fetch(MAESTRO_INTAKE_URL, {
+    res = await fetch(intakeUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(clean(input)),
