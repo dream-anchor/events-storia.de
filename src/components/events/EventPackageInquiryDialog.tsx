@@ -11,7 +11,7 @@ import { SmartDatePicker } from "@/components/ui/smart-date-picker";
 import { Clock, Users, Building2, User, Mail, Phone, MessageSquare, ArrowRight, ArrowLeft, Loader2, CheckCircle, Send } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { submitMaestroInquiry, collectIntakeDetails } from "@/lib/maestroIntake";
 import { toast } from "sonner";
 import { z } from "zod";
 import { calculateEventPackagePrice, isLocationPackage, getLocationPricingBreakdown, LOCATION_BASE_GUESTS } from "@/lib/eventPricing";
@@ -153,26 +153,26 @@ const EventPackageInquiryDialog = ({
     setIsSubmitting(true);
     
     try {
-      // Use receive-event-inquiry Edge Function which handles BOTH:
-      // 1. Database insertion into event_inquiries
-      // 2. Email notifications to customer and restaurant
-      const { error } = await supabase.functions.invoke("receive-event-inquiry", {
-        body: {
-          companyName: formData.company,
-          contactName: formData.name,
-          email: formData.email,
-          phone: formData.phone || undefined,
-          guestCount: formData.guestCount.toString(),
-          preferredDate: formData.date ? format(formData.date, "yyyy-MM-dd") : undefined,
-          timeSlot: formData.time,
-          packageId: packageId,
-          eventType: displayName,
-          message: formData.message || undefined,
-          source: `package_inquiry_${packageId}`,
-        },
+      // STORIA-Cutover: Lead ausschliesslich nach MAESTRO 2.0 (Tenant serverseitig; kein tenant_id
+      // im Browser). Erfolg NUR bei konkreter Inquiry-ID. Die unverbindliche Preisschätzung ist
+      // reine WEBSITE-Info in details.estimatedPrice - NIE ein verbindlicher MAESTRO-Angebotspreis.
+      const safePackageId = packageId.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 60);
+      await submitMaestroInquiry({
+        customerName: formData.name,
+        customerEmail: formData.email,
+        company: formData.company || undefined,
+        phone: formData.phone || undefined,
+        guests: formData.guestCount > 0 ? formData.guestCount : undefined,
+        eventType: displayName,
+        eventDate: formData.date ? formData.date.toISOString() : undefined,
+        eventTime: formData.time || undefined,
+        message: formData.message || undefined,
+        language: language === "en" ? "en" : "de",
+        packageId: packageId,
+        packageName: displayName,
+        sourceDetail: `events_package_inquiry_${safePackageId}`,
+        details: collectIntakeDetails({ estimatedPrice: String(estimatedTotal) }),
       });
-
-      if (error) throw error;
 
       setIsSuccess(true);
       

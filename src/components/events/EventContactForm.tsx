@@ -29,7 +29,7 @@ import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { submitMaestroInquiry, collectIntakeDetails } from "@/lib/maestroIntake";
 
 const formSchema = z.object({
   company: z.string().trim().max(120).optional(),
@@ -98,34 +98,32 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
     setIsSubmitting(true);
     
     try {
-      // Call the correct receive-event-inquiry Edge Function
-      // which saves to event_inquiries AND sends emails
-      const { error } = await supabase.functions.invoke('receive-event-inquiry', {
-        body: {
-          companyName: data.company,
-          contactName: data.name,
-          email: data.email,
-          phone: data.phone || undefined,
-          guestCount: data.guests,
-          eventType: data.eventType === 'sonstiges' && data.eventTypeOther
-            ? data.eventTypeOther
-            : data.eventType,
-          preferredDate: data.date ? format(data.date, "yyyy-MM-dd") : undefined,
-          timeSlot: data.time || undefined,
-          packageId: data.selectedPackage || undefined,
-          message: data.message || undefined,
-          source: data.selectedPackage ? `website_package_${data.selectedPackage}` : 'website_contact_form',
-        }
+      // STORIA-Cutover: Lead geht ausschliesslich nach MAESTRO 2.0. Tenant serverseitig aus dem
+      // Host aufgeloest (kein tenant_id im Browser). Erfolg NUR bei konkreter Inquiry-ID
+      // (submitMaestroInquiry wirft bei 4xx/5xx oder fehlender ID) - kein Fallback auf v1.
+      const guestsNum = Number.parseInt(data.guests, 10);
+      await submitMaestroInquiry({
+        customerName: data.name,
+        customerEmail: data.email,
+        company: data.company || undefined,
+        phone: data.phone || undefined,
+        guests: Number.isFinite(guestsNum) && guestsNum > 0 ? guestsNum : undefined,
+        eventType: data.eventType === 'sonstiges' && data.eventTypeOther ? data.eventTypeOther : data.eventType,
+        eventDate: data.date ? data.date.toISOString() : undefined,
+        eventTime: data.time || undefined,
+        message: data.message || undefined,
+        language: language === 'en' ? 'en' : 'de',
+        packageId: data.selectedPackage || undefined,
+        sourceDetail: 'events_contact_form',
+        details: collectIntakeDetails(),
       });
 
-      if (error) throw error;
-
       toast.success(
-        language === 'de' 
-          ? 'Vielen Dank! Wir melden uns innerhalb von 24 Stunden bei Ihnen.' 
+        language === 'de'
+          ? 'Vielen Dank! Wir melden uns innerhalb von 24 Stunden bei Ihnen.'
           : 'Thank you! We will contact you within 24 hours.'
       );
-      
+
       form.reset();
     } catch (error) {
       console.error('Error submitting form:', error);

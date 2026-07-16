@@ -234,6 +234,10 @@ const Checkout = () => {
   const [newsletterSignup, setNewsletterSignup] = useState(true);
   const [chafingDishQuantity, setChafingDishQuantity] = useState(0);
   const [termsError, setTermsError] = useState(false);
+  // Phase 9: bereits angelegte Pending-Bestellung (orderId/orderNumber + Warenkorb-Signatur). Schlägt
+  // die Zahlungsweiterleitung fehl, bleibt sie erhalten; ein Retry mit UNVERAENDERTEM Warenkorb nutzt
+  // sie wieder (kein zweiter Auftrag) statt eine neue Bestellung anzulegen.
+  const createdOrderRef = useRef<{ orderId: string; orderNumber: string; signature: string } | null>(null);
 
   // GA4: begin_checkout — einmalig beim ersten Laden der Checkout-Seite mit Artikeln
   const beginCheckoutFired = useRef(false);
@@ -899,7 +903,6 @@ const Checkout = () => {
     }
 
     setIsSubmitting(true);
-    const newOrderNumber = generateOrderNumber(isEventBooking);
     const existingUserId = user?.id || null;
 
     const orderItems = [
@@ -943,12 +946,20 @@ const Checkout = () => {
         };
 
     try {
-      const orderId = crypto.randomUUID();
+      // Phase 9: Idempotenz — bei UNVERAENDERTEM Warenkorb+Kunde die zuvor angelegte Pending-
+      // Bestellung wiederverwenden statt eine zweite anzulegen (Retry nach fehlgeschlagener Zahlung).
+      const orderSignature = JSON.stringify({
+        items: orderItems.map(i => [i.id, i.quantity, i.price]),
+        grandTotal, paymentMethod, email: formData.email, isEventBooking,
+      });
+      const reuseExisting = createdOrderRef.current?.signature === orderSignature;
+      const orderId = reuseExisting ? createdOrderRef.current!.orderId : crypto.randomUUID();
+      const newOrderNumber = reuseExisting ? createdOrderRef.current!.orderNumber : generateOrderNumber(isEventBooking);
       const eventItem = isEventBooking ? items.find(item => item.id.startsWith('event-')) : null;
       const eventGuestCount = eventItem?.quantity || 0;
       const eventPackageId = eventItem?.id.replace('event-', '') || null;
       
-      if (isEventBooking && eventItem) {
+      if (!reuseExisting && isEventBooking && eventItem) {
         const { error } = await supabase.rpc('checkout_create_event_booking', {
           payload: {
             id: orderId,
@@ -970,7 +981,7 @@ const Checkout = () => {
         });
 
         if (error) throw error;
-      } else {
+      } else if (!reuseExisting) {
         const { error } = await supabase.rpc('checkout_create_catering_order', {
           payload: {
             id: orderId,
@@ -1007,6 +1018,9 @@ const Checkout = () => {
         });
 
         if (error) throw error;
+      }
+      if (!reuseExisting) {
+        createdOrderRef.current = { orderId, orderNumber: newOrderNumber, signature: orderSignature };
       }
 
       setOrderNumber(newOrderNumber);
@@ -1131,15 +1145,26 @@ const Checkout = () => {
           );
 
           if (paymentError || !paymentData?.url) {
-            console.error('Payment error:', paymentError);
-            toast.error(language === 'de' ? 'Fehler bei der Zahlungsweiterleitung' : 'Payment redirect error');
+            // Phase 9: KEIN Falscherfolg. Warenkorb + Formular bleiben, wir bleiben auf dem Checkout;
+            // die Pending-Bestellung bleibt via createdOrderRef fuer einen IDEMPOTENTEN Retry erhalten
+            // (kein zweiter Auftrag). Keine Bestaetigungsmail (bei Stripe/Billie ohnehin erst per Webhook).
+            console.error('Payment redirect creation failed (order %s):', newOrderNumber, paymentError);
             setIsProcessingPayment(false);
-            localStorage.removeItem(cachedOrderKey);
-            clearCart();
-            navigate(getPath('account.orderSuccess'), { 
-              state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
-              replace: true
-            });
+            toast.error(
+              language === 'de'
+                ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten – bitte versuchen Sie es erneut.'
+                : 'Payment could not be started. Your cart is kept – please try again.',
+              { duration: 8000 }
+            );
+            // Error-Hub ohne PII: nur Order-Nummer + technischer Grund.
+            supabase.functions.invoke('notify-checkout-error', {
+              body: {
+                errorMessage: `payment_redirect_failed: ${paymentError ? (paymentError.message ?? String(paymentError)) : 'no_url'}`,
+                orderNumber: newOrderNumber,
+                paymentMethod,
+                timestamp: new Date().toISOString(),
+              }
+            }).catch(() => {});
             return;
           }
 
@@ -1150,15 +1175,23 @@ const Checkout = () => {
           }
           return;
         } catch (payErr) {
-          console.error('Payment error:', payErr);
-          toast.error(language === 'de' ? 'Fehler bei der Zahlung' : 'Payment error');
+          // Phase 9: identisch — kein Falscherfolg, Warenkorb bleibt, idempotenter Retry moeglich.
+          console.error('Payment start failed (order %s):', newOrderNumber, payErr);
           setIsProcessingPayment(false);
-          localStorage.removeItem(cachedOrderKey);
-          clearCart();
-          navigate(getPath('account.orderSuccess'), { 
-            state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
-            replace: true
-          });
+          toast.error(
+            language === 'de'
+              ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten – bitte versuchen Sie es erneut.'
+              : 'Payment could not be started. Your cart is kept – please try again.',
+            { duration: 8000 }
+          );
+          supabase.functions.invoke('notify-checkout-error', {
+            body: {
+              errorMessage: `payment_start_exception: ${payErr instanceof Error ? payErr.message : String(payErr)}`,
+              orderNumber: newOrderNumber,
+              paymentMethod,
+              timestamp: new Date().toISOString(),
+            }
+          }).catch(() => {});
           return;
         }
       }
