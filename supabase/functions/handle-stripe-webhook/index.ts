@@ -5,6 +5,13 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
 import { sendEmailWithFallback } from '../_shared/email-sender.ts';
 import { buildVoucherPdf, generateVoucherCode } from '../_shared/voucher-pdf.ts';
+import {
+  buildOrderPayload,
+  enqueueMaestroHandoff,
+  handoffEnabled,
+  type MaestroPaymentType,
+  type MaestroTransaction,
+} from '../_shared/maestroHandoff.ts';
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -72,12 +79,17 @@ serve(async (req) => {
       // sodass ein doppeltes bzw. nachgelagertes Event eine bereits bezahlte
       // Zahlung nicht erneut verarbeitet.
       const session = event.data.object as Stripe.Checkout.Session;
+      // MAESTRO-Handoff: Bestellung (order-only) unabhängig vom Zahlungsstatus
+      // enqueuen. Zahlungstransaktion folgt separat, sobald Erfolg vorliegt.
+      await maestroEnqueueOrder(supabase, session, event.id);
       const result = await processCheckoutPaid(supabase, stripe, session, event.type);
       if (result.skippedUnpaid) {
         return new Response(JSON.stringify({ received: true, action: "skipped_unpaid" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      // Zahlung tatsächlich erfolgreich → Transaction-Handoff mit eigener Delivery-ID
+      await maestroEnqueuePayment(supabase, session, event.id);
     } else if (event.type === "checkout.session.async_payment_failed") {
       // ━━━ SEPA / asynchrone Zahlung FEHLGESCHLAGEN ━━━
       // Wird ausschließlich für asynchrone Methoden ausgelöst, NIE für Karten
@@ -86,10 +98,14 @@ serve(async (req) => {
       await processCheckoutFailed(supabase, session);
     } else if (event.type === "charge.refunded") {
       // ━━━ RÜCKERSTATTUNG (voll oder teilweise) ━━━
-      await handleChargeRefunded(supabase, event.data.object as Stripe.Charge);
+      const charge = event.data.object as Stripe.Charge;
+      await handleChargeRefunded(supabase, charge);
+      await maestroEnqueueRefund(supabase, charge, event.id);
     } else if (event.type === "charge.dispute.created") {
       // ━━━ CHARGEBACK / DISPUTE eröffnet ━━━
-      await handleChargeDisputeCreated(supabase, event.data.object as Stripe.Dispute);
+      const dispute = event.data.object as Stripe.Dispute;
+      await handleChargeDisputeCreated(supabase, dispute);
+      await maestroEnqueueDispute(supabase, dispute, event.id);
     } else if (event.type === "checkout.session.expired") {
       logStep("Checkout session expired", { sessionId: (event.data.object as Stripe.Checkout.Session).id });
       // Could update order status to 'expired' here if needed
@@ -2052,3 +2068,214 @@ function bytesToBase64(bytes: Uint8Array): string {
   }
   return btoa(binary);
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MAESTRO HANDOFF — additive Enqueue-Helfer
+//
+// Muss immer awaitet werden. Wirft nur, wenn der Outbox-Insert selbst
+// als DB-Fehler scheitert (keine Duplicate, kein Conflict) — dann kommt
+// ein 500 zurück und Stripe redelivered automatisch. Bei ausgeschaltetem
+// Feature-Flag oder ordentlicher Idempotenz/Konflikt-Erkennung wird kein
+// Fehler geworfen; der Provider-Fluss bleibt unverändert.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function stripeAmountCents(n: number | null | undefined): number {
+  return typeof n === "number" && Number.isFinite(n) ? Math.trunc(n) : 0;
+}
+
+function extractPaymentType(md: Record<string, string> | null): MaestroPaymentType {
+  const raw = (md?.payment_type ?? "").toLowerCase();
+  if (raw === "deposit" || raw === "prepayment" || raw === "final") return raw;
+  if (md?.kind === "prepayment_per_person") return "prepayment";
+  return "full";
+}
+
+async function maestroEnqueueOrder(
+  supabase: ReturnType<typeof createClient>,
+  session: Stripe.Checkout.Session,
+  stripeEventId: string,
+): Promise<void> {
+  if (!handoffEnabled()) return;
+  try {
+    const md = (session.metadata ?? {}) as Record<string, string>;
+    const details = session.customer_details;
+    const sourceOrderId =
+      md.order_number || md.inquiry_id || md.payment_id || session.id;
+    const orderNumber = md.order_number || `session-${session.id}`;
+
+    const payload = buildOrderPayload({
+      deliveryEventId: `order_${sourceOrderId}`,
+      sourceOrderId,
+      orderNumber,
+      customerName: details?.name || md.customer_name || "",
+      customerEmail: details?.email || session.customer_email || "",
+      company: md.company_name || null,
+      phone: details?.phone || null,
+      amountTotalCents: stripeAmountCents(session.amount_total),
+    });
+
+    const result = await enqueueMaestroHandoff(supabase, payload);
+    if (!result.ok && result.status === "conflict") {
+      logStep("MAESTRO order handoff CONFLICT", { deliveryId: payload.deliveryEventId.slice(0, 24) });
+    }
+  } catch (err) {
+    // DB-Fehler beim Insert → an Aufrufer weiterreichen, damit Stripe 500 sieht
+    // und die Bestellung nicht dauerhaft verloren geht (Recovery via Redelivery).
+    logStep("MAESTRO order enqueue FAILED — will bubble", { stripeEventId });
+    reportEdgeError({
+      source: "edge:handle-stripe-webhook:maestro-order",
+      severity: "critical",
+      message: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+async function maestroEnqueuePayment(
+  supabase: ReturnType<typeof createClient>,
+  session: Stripe.Checkout.Session,
+  stripeEventId: string,
+): Promise<void> {
+  if (!handoffEnabled()) return;
+  try {
+    const md = (session.metadata ?? {}) as Record<string, string>;
+    const details = session.customer_details;
+    const sourceOrderId =
+      md.order_number || md.inquiry_id || md.payment_id || session.id;
+    const orderNumber = md.order_number || `session-${session.id}`;
+    const amountCents = stripeAmountCents(session.amount_total);
+
+    const txn: MaestroTransaction = {
+      provider: "stripe",
+      providerTransactionId: (session.payment_intent as string) || session.id,
+      providerEventId: stripeEventId,
+      txnKind: "charge",
+      status: "succeeded",
+      amountCents,
+      currency: (session.currency || "eur").toLowerCase(),
+      paymentType: extractPaymentType(md),
+      occurredAt: new Date().toISOString(),
+    };
+
+    const payload = buildOrderPayload({
+      deliveryEventId: `pay_${stripeEventId}`,
+      sourceOrderId,
+      orderNumber,
+      customerName: details?.name || md.customer_name || "",
+      customerEmail: details?.email || session.customer_email || "",
+      company: md.company_name || null,
+      phone: details?.phone || null,
+      amountTotalCents: amountCents,
+      transaction: txn,
+    });
+
+    const result = await enqueueMaestroHandoff(supabase, payload);
+    if (!result.ok && result.status === "conflict") {
+      logStep("MAESTRO payment handoff CONFLICT", { deliveryId: payload.deliveryEventId.slice(0, 24) });
+    }
+  } catch (err) {
+    logStep("MAESTRO payment enqueue FAILED — will bubble", { stripeEventId });
+    reportEdgeError({
+      source: "edge:handle-stripe-webhook:maestro-payment",
+      severity: "critical",
+      message: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+async function maestroEnqueueRefund(
+  supabase: ReturnType<typeof createClient>,
+  charge: Stripe.Charge,
+  stripeEventId: string,
+): Promise<void> {
+  if (!handoffEnabled()) return;
+  try {
+    const md = (charge.metadata ?? {}) as Record<string, string>;
+    const bd = charge.billing_details;
+    const sourceOrderId = md.order_number || (charge.payment_intent as string) || charge.id;
+    const orderNumber = md.order_number || `charge-${charge.id}`;
+    const amountCents = stripeAmountCents(charge.amount_refunded);
+
+    const txn: MaestroTransaction = {
+      provider: "stripe",
+      providerTransactionId: charge.id,
+      providerEventId: stripeEventId,
+      txnKind: "refund",
+      status: "succeeded",
+      amountCents,
+      currency: (charge.currency || "eur").toLowerCase(),
+      occurredAt: new Date().toISOString(),
+    };
+
+    const payload = buildOrderPayload({
+      deliveryEventId: `refund_${stripeEventId}`,
+      sourceOrderId,
+      orderNumber,
+      customerName: bd?.name || md.customer_name || "",
+      customerEmail: bd?.email || charge.receipt_email || "",
+      company: md.company_name || null,
+      phone: bd?.phone || null,
+      amountTotalCents: stripeAmountCents(charge.amount),
+      transaction: txn,
+    });
+
+    await enqueueMaestroHandoff(supabase, payload);
+  } catch (err) {
+    logStep("MAESTRO refund enqueue FAILED — will bubble", { stripeEventId });
+    reportEdgeError({
+      source: "edge:handle-stripe-webhook:maestro-refund",
+      severity: "critical",
+      message: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+async function maestroEnqueueDispute(
+  supabase: ReturnType<typeof createClient>,
+  dispute: Stripe.Dispute,
+  stripeEventId: string,
+): Promise<void> {
+  if (!handoffEnabled()) return;
+  try {
+    const md = (dispute.metadata ?? {}) as Record<string, string>;
+    const sourceOrderId = md.order_number || (dispute.payment_intent as string) || (dispute.charge as string) || dispute.id;
+    const orderNumber = md.order_number || `dispute-${dispute.id}`;
+    const amountCents = stripeAmountCents(dispute.amount);
+
+    const txn: MaestroTransaction = {
+      provider: "stripe",
+      providerTransactionId: dispute.id,
+      providerEventId: stripeEventId,
+      txnKind: "chargeback",
+      status: "succeeded",
+      amountCents,
+      currency: (dispute.currency || "eur").toLowerCase(),
+      occurredAt: new Date().toISOString(),
+    };
+
+    const payload = buildOrderPayload({
+      deliveryEventId: `dispute_${stripeEventId}`,
+      sourceOrderId,
+      orderNumber,
+      customerName: md.customer_name || "",
+      customerEmail: md.customer_email || "",
+      company: md.company_name || null,
+      phone: null,
+      amountTotalCents: amountCents,
+      transaction: txn,
+    });
+
+    await enqueueMaestroHandoff(supabase, payload);
+  } catch (err) {
+    logStep("MAESTRO dispute enqueue FAILED — will bubble", { stripeEventId });
+    reportEdgeError({
+      source: "edge:handle-stripe-webhook:maestro-dispute",
+      severity: "critical",
+      message: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
