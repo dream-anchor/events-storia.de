@@ -3115,6 +3115,63 @@ export type Database = {
           },
         ]
       }
+      maestro_handoff_outbox: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          delivery_event_id: string
+          id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          maestro_event_id: string | null
+          maestro_payment_id: string | null
+          next_attempt_at: string
+          payload: Json
+          payload_hash: string
+          raw_body: string
+          sent_at: string | null
+          source_order_id: string
+          source_system: string
+          status: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          delivery_event_id: string
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          maestro_event_id?: string | null
+          maestro_payment_id?: string | null
+          next_attempt_at?: string
+          payload: Json
+          payload_hash: string
+          raw_body: string
+          sent_at?: string | null
+          source_order_id: string
+          source_system?: string
+          status?: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          delivery_event_id?: string
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          maestro_event_id?: string | null
+          maestro_payment_id?: string | null
+          next_attempt_at?: string
+          payload?: Json
+          payload_hash?: string
+          raw_body?: string
+          sent_at?: string | null
+          source_order_id?: string
+          source_system?: string
+          status?: string
+        }
+        Relationships: []
+      }
       menu_categories: {
         Row: {
           archived_at: string | null
@@ -7026,6 +7083,15 @@ export type Database = {
       checkout_create_event_booking: {
         Args: { payload: Json }
         Returns: string
+      }
+      claim_maestro_handoffs: {
+        Args: { batch_size: number }
+        Returns: {
+          attempt_count: number
+          delivery_event_id: string
+          id: string
+          raw_body: string
+        }[]
       }
       confirm_offline_booking: {
         Args: { p_inquiry_id: string; p_selected_option_id: string }
