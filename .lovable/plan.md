@@ -1,48 +1,90 @@
-## Problem
+# STORIA Shop → MAESTRO 2.0 Handoff — V1-Patch (Preview only)
 
-Die Freitext-Anfrage wurde korrekt an `parse-freeform-offer` gegeben und in `menuSelection.days[0].courses[]` als Custom-Items gespeichert (DB-Check bestätigt: `itemName="Aperitif-Getränke und Fingerfood"`, `"3 Abendessengänge"`, `"3 Gläser Wein/Person"`, `"Kaffee, Wasser"`, alle mit `isCustom: true`, `itemId: null`).
+Status: **umgesetzt**, kein Produktionsdeploy. Alle 10 verbindlichen Korrekturen aus dem Approval eingebaut.
 
-Zwei sichtbare Probleme:
+## Geänderte / neue Dateien
 
-1. **UI zeigt Platzhalter statt Custom-Name.** `InlineCourseEditor` rendert für jede Zeile den `DishPicker` mit `value={course.itemId ? {…} : null}`. Da Freitext-Items kein `itemId` haben, sieht der Operator "Abendessen wählen…" — obwohl der Name in der DB steht. Der Bearbeiten-Stift erscheint auch nur, wenn `course.itemId && course.itemName` gesetzt sind, also nie für Freitext-Items.
+| Datei | Art | Zweck |
+|---|---|---|
+| `supabase/migrations/*_maestro_handoff_outbox.sql` | neu | Tabelle `maestro_handoff_outbox` + RPC `claim_maestro_handoffs` (SECURITY DEFINER, FOR UPDATE SKIP LOCKED) |
+| `supabase/functions/_shared/maestroHandoff.ts` | neu | Signatur, deterministische Serialisierung, `enqueueMaestroHandoff`, `postToMaestro`, `handoffEnabled` (fail-closed), Backoff |
+| `supabase/functions/deliver-maestro-handoff/index.ts` | neu | Cron-Zusteller, `x-cron-secret` in konstanter Zeit, atomarer RPC-Claim |
+| `supabase/functions/retry-maestro-handoff/index.ts` | neu | Admin-JWT-geschützter manueller Retry, `delivery_event_id` bleibt |
+| `supabase/functions/handle-stripe-webhook/index.ts` | ergänzt | 4 additive `await maestro*`-Aufrufe (order, payment, refund, dispute) |
 
-2. **Preise fehlen.** Text "Budget 90 € pro Person" wurde vom Parser nicht als `meal.pricePerPersonNet=90` erkannt, deshalb kein `overridePrice` auf den Items.
+## Umsetzung der 10 Korrekturen
 
-## Fix
+1. **Kein Fire-and-forget** — jeder Enqueue-Aufruf wird `await`et; DB-Insert-Fehler wird via `throw` weitergereicht → Stripe erhält 500 → Redelivery.
+2. **Verlustfreies Recovery** — Stripe-Redelivery ist der belastbare Reparaturpfad: bei Outbox-Insert-Fehler kommt vom v1-Webhook 500 zurück, Stripe redelivert dasselbe Event, `deliveryEventId` bleibt stabil, Enqueue ist idempotent (Unique + Hash-Vergleich). v1-Handler sind bereits idempotent → keine Doppelverarbeitung.
+3. **Atomarer Claim** — RPC `claim_maestro_handoffs(batch_size)` als `SECURITY DEFINER`; `FOR UPDATE SKIP LOCKED` + `UPDATE SET status='processing', attempt_count+1` in einer Transaktion.
+4. **Exakter Byte-Body** — `stableStringify` (Keys sortiert) erzeugt den signierten String einmal, wird als `raw_body TEXT NOT NULL` gespeichert und beim Retry byteweise wiederverwendet. `payload jsonb` bleibt additiv für Diagnose.
+5. **Kollisionen sichtbar** — gleiche `delivery_event_id`: identischer Hash = idempotenter No-Op, anderer Hash = `status='conflict'` + `last_error='payload_hash_mismatch_on_reenqueue'`. Kein stilles `ignoreDuplicates`.
+6. **Fail-closed Flag** — `MAESTRO_HANDOFF_ENABLED === "true"` (Stringvergleich); alles andere → deaktiviert.
+7. **Order und Payment getrennt** — `checkout.session.completed` enqueue-t immer die Order (`order_<sourceOrderId>`); bei echtem Zahlungserfolg folgt ein separater Transaction-Handoff (`pay_<stripeEventId>`).
+8. **Kein Float-Cents** — Beträge stammen 1:1 aus Stripe-Integer-Feldern (`session.amount_total`, `charge.amount_refunded`, `dispute.amount`); nur `Math.trunc` als defensiver Cast.
+9. **Cron-/Retry-Auth** — `deliver-maestro-handoff` verlangt `x-cron-secret` in konstanter Zeit; falsch → 401. `retry-maestro-handoff` nutzt `requireAuth` (admin/staff JWT). Kein Secret in Migrations-SQL, kein Secret in Logs.
+10. **Keine PII an externe Testdienste** — Testmatrix läuft gegen privaten Mock mit synthetischen Daten.
 
-### 1. `InlineCourseEditor.tsx` — Custom-Items korrekt anzeigen
+## Payload-Signatur
 
-Im Namens-Slot (Zeile ~308-353): Wenn `course.isCustom && course.itemName && !course.itemId`, statt `DishPicker` einen bearbeitbaren Text-Chip rendern:
+```
+rawBody   = stableStringify(payload)            // Keys deterministisch sortiert
+timestamp = floor(Date.now() / 1000)
+sig       = HMAC-SHA256(SHOP_ORDER_WEBHOOK_SECRET, `${timestamp}.${rawBody}`)  // hex, lowercase
+header    = X-Maestro-Signature: t=<timestamp>,v1=<sig>
+```
 
-- Klickbar → wechselt in Input-Modus (`editingName`, existiert schon).
-- Zeigt den `itemName` als Text mit dezentem Border, Pencil-Icon rechts.
-- Optional: kleiner "Katalog-Suche"-Button, der auf DishPicker umschaltet (setzt `isCustom=false`, öffnet Picker).
+## Delivery-Event-IDs
 
-Bearbeiten-Pencil-Bedingung (Zeile 341) lockern: auch anzeigen wenn `course.isCustom && course.itemName` (nicht nur bei `itemId`).
+| Ereignis | Format | Idempotenz |
+|---|---|---|
+| Bestellung angelegt | `order_<sourceOrderId>` | 1× pro Bestellung |
+| Zahlung erfolgreich | `pay_<stripeEventId>` | 1× pro Stripe-Zahlungsereignis |
+| Refund | `refund_<stripeEventId>` | 1× pro Stripe-Refund-Event |
+| Chargeback | `dispute_<stripeEventId>` | 1× pro Stripe-Dispute-Event |
 
-### 2. `parse-freeform-offer/index.ts` — Prompt-Regel ergänzen
+## Benötigte Secrets (nicht im Repo)
 
-Regel 12 präzisieren: "Auch Formulierungen wie 'Budget X € pro Person', 'X € p.P.', 'inklusive X € pro Person' zählen als pricePerPersonNet=X auf der Mahlzeit. Prefix leer lassen, außer der Text sagt explizit 'ab'/'ca.'."
+| Name | Zweck |
+|---|---|
+| `SHOP_ORDER_WEBHOOK_SECRET` | HMAC-Shared-Secret mit MAESTRO |
+| `MAESTRO_SHOP_ORDER_URL` | Ziel-URL (Preview) |
+| `MAESTRO_HANDOFF_CRON_SECRET` | schützt den Cron-Endpoint |
+| `MAESTRO_HANDOFF_ENABLED` | genau `"true"` schaltet frei |
 
-### 3. `freeformToMenuDays.ts` — kleines Follow-up
+## Aktivierung (später, ein Schritt)
 
-`courseLabel` intelligenter setzen: wenn `heading` fehlt, statt `meal.label` (führt zu 4× "Abendessen") die `COURSE_TYPE_LABELS[courseType]` (Vorspeise, Hauptgang, Dessert …) benutzen. `meal.label` bleibt weiter als Tages-/Meal-Titel im Tab.
+1. Secrets setzen.
+2. Cron via `insert`-Tool, Secret aus Vault:
+   ```sql
+   select cron.schedule(
+     'maestro-handoff', '* * * * *',
+     $$ select net.http_post(
+          url := 'https://<project>.functions.supabase.co/deliver-maestro-handoff',
+          headers := jsonb_build_object('x-cron-secret', <vault-lookup>),
+          body := '{}'::jsonb) $$);
+   ```
+3. `MAESTRO_HANDOFF_ENABLED=true`.
 
-## Technische Details
+## Rollback
 
-Betroffene Dateien:
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/InlineCourseEditor.tsx` (Render-Zweig für Custom-Items + Pencil-Bedingung)
-- `supabase/functions/parse-freeform-offer/index.ts` (Prompt-Regel 12 erweitern, Deploy)
-- `src/components/admin/refine/InquiryEditor/OfferBuilder/freeformToMenuDays.ts` (courseLabel-Fallback)
+- `MAESTRO_HANDOFF_ENABLED` löschen → Enqueue und Cron sofort stumm.
+- Optional: `select cron.unschedule('maestro-handoff');`.
+- Migration bleibt (nur neue Tabelle + RPC, keine bestehenden Objekte geändert).
 
-Keine DB-Migration, keine Änderung an `useOfferBuilder` — die bestehenden Daten der Anfrage werden nach dem Fix sofort korrekt gerendert (Reload reicht).
+## Bekannte Grenzen
 
-## Testfall
+- **Billie**: kein separater Billie-Webhook. Billie-Zahlungen laufen über den Stripe-Checkout-Success-Pfad; ein reiner Billie-Genehmigt-aber-nicht-bezahlt-Zustand wird v1-seitig nicht erfasst.
+- **Order-only vor Stripe**: v1 legt Order-Records bereits im Checkout-Endpoint (vor Stripe) an. Der Order-Handoff wird bei `checkout.session.completed` ausgelöst — nicht bei der DB-Anlage.
+- Reconciliation-Sweep nicht als eigene Function; Stripe-Redelivery + Idempotenz decken den Recovery-Pfad ab.
 
-Text: *"Anfrage für ein Abendessen für NovoNordisk am 28. August für 19 Personen um 19:30 Uhr, inklusive 3 Gänge, Wein, Aperitif und Fingerfood. Budget 90€ pro Person."*
+## Testmatrix (Preview, synthetische Daten, privater Mock)
 
-Erwartet nach Fix:
-- 4 Zeilen mit sichtbaren Custom-Namen (Aperitif-Getränke und Fingerfood / 3 Abendessengänge / 3 Gläser Wein/Person / Kaffee, Wasser).
-- Pencil-Icon zum Umbenennen sichtbar.
-- Auf einer Zeile ein `overridePrice=90 /Pers.` (durch die neue Parser-Regel).
-- Gang-Labels: Aperitif → "Vorspeise", die anderen → "Hauptgang" statt 4× "Abendessen".
+- Duplicate Stripe-Event → 1 Outbox-Zeile.
+- Teil- / Voll-Refund, Dispute → getrennte `delivery_event_id`.
+- Mock 500 / Timeout → Backoff (1m → 24h, 6 Versuche).
+- Mock 401 → `status='failed'`, kein Retry.
+- Mock 409 → `status='failed'`, Operator-Review.
+- Zwei parallele Cron-Aufrufe → `FOR UPDATE SKIP LOCKED` verteilt Zeilen.
+- Manueller Retry → gleicher `raw_body`, gleiche Signatur (byte-genau).
+- `MAESTRO_HANDOFF_ENABLED` fehlt → keinerlei Enqueue oder Zustellversuche.
