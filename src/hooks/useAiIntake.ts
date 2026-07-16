@@ -13,6 +13,7 @@ import {
   type AiRequiredField,
 } from "@/lib/aiIntake/types";
 import { uploadAttachmentWithConversation } from "@/lib/aiIntake/uploadAttachment";
+import { submitMaestroInquiry, collectIntakeDetails } from "@/lib/maestroIntake";
 
 const CONVERSATION_STORAGE_KEY = "storia.aiIntake.conversationId";
 const AI_REQUEST_TIMEOUT_MS = 30_000;
@@ -384,7 +385,9 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
           message: trimmed,
           language,
           action: "chat",
-          submitAfterProcessing,
+          // STORIA-Cutover: v1 dient NUR noch Konversation/Extraktion und schreibt NIE den Lead.
+          // Der finale Submit geht ausschliesslich nach MAESTRO 2.0 (submitInquiry).
+          submitAfterProcessing: false,
           clientState: {
             uploadedFiles: uploadedRemote,
             currentExtraction: extractionRef.current,
@@ -621,47 +624,52 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
   }, [setConversationId]);
 
   const submitInquiry = useCallback(async () => {
-    if (!conversationId) {
+    // STORIA-Cutover: der finale Lead geht AUSSCHLIESSLICH nach MAESTRO 2.0 (source=chat,
+    // sourceDetail=events_ai_chat). v1 schreibt keinen Lead mehr. Erfolg NUR bei konkreter
+    // MAESTRO-Inquiry-ID (submitMaestroInquiry wirft bei 4xx/5xx oder fehlender ID).
+    if (submittedInquiryId || submitting) return;
+    const e = extractionRef.current;
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e.email ?? "").trim());
+    if (!e.contactName || !emailValid || !e.guestCount || !(e.preferredDate || e.dateRange)) {
+      setServerMissing(computeMissing(e));
+      setReadyFromServer(false);
       setErrorMessage(
         language === "de"
-          ? "Bitte senden Sie zunächst eine Nachricht, damit die Anfrage vorbereitet werden kann."
-          : "Please send a message first so the request can be prepared.",
+          ? "Es fehlen noch Pflichtangaben (Name, E-Mail, Datum, Personenzahl)."
+          : "Some required details are still missing (name, email, date, guests).",
       );
       return;
     }
-    if (submittedInquiryId || submitting) return;
     const requestStartedAt = Date.now();
     setSubmitting(true);
     setErrorMessage(null);
     try {
-      const payload = await invokeAiAssistant<{
-        success?: boolean;
-        inquiryId?: string;
-        reply?: string;
-        error?: string;
-        missingFields?: unknown;
-      }>(
-        {
-          conversationId,
-          action: "submit_inquiry",
-          confirmed: true,
-        },
-        { allowErrorJson: true },
-      );
-      if (!payload?.success || !payload?.inquiryId) {
-        if (payload?.error === "missing_required_fields") {
-          setServerMissing(toRequiredFields(payload.missingFields));
-          setReadyFromServer(false);
-        }
-        const reply =
-          payload?.reply ||
-          (language === "de"
-            ? "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut oder kontaktieren Sie STORIA direkt."
-            : "The request could not be sent right now. Please try again or contact STORIA directly.");
-        setErrorMessage(reply);
-        return;
-      }
-      setSubmittedInquiryId(payload.inquiryId);
+      const conversation = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
+      const dateText = e.preferredDate || e.dateRange || "";
+      const message = [
+        dateText ? `${language === "de" ? "Wunschtermin" : "Preferred date"}: ${dateText}` : null,
+        e.locationName ? `${language === "de" ? "Ort" : "Location"}: ${e.locationName}` : null,
+        conversation ? `${language === "de" ? "Gespräch" : "Conversation"}:\n${conversation}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      const result = await submitMaestroInquiry({
+        customerName: e.contactName,
+        customerEmail: (e.email ?? "").trim(),
+        company: e.companyName || undefined,
+        phone: e.phone || undefined,
+        guests: typeof e.guestCount === "number" ? e.guestCount : undefined,
+        eventType: e.eventType || undefined,
+        message: message || undefined,
+        language: language === "en" ? "en" : "de",
+        sourceDetail: "events_ai_chat",
+        details: collectIntakeDetails({
+          preferredMenu: e.foodPreferences && e.foodPreferences.length ? e.foodPreferences.join(", ") : undefined,
+          dietaryRequirements: e.dietaryRequirements && e.dietaryRequirements.length ? e.dietaryRequirements.join(", ") : undefined,
+          budget: e.budget || undefined,
+        }),
+      });
+      setSubmittedInquiryId(result.id);
       setAwaitingConfirmation(false);
       setMessages((m) => [
         ...m,
@@ -669,20 +677,18 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
           id: uid(),
           role: "assistant",
           content:
-            payload.reply ||
-            (language === "de"
+            language === "de"
               ? "Vielen Dank. Ihre Anfrage wurde an STORIA übermittelt. Wir melden uns mit einem individuellen Angebot."
-              : "Thank you. Your request has been submitted to STORIA."),
+              : "Thank you. Your request has been submitted to STORIA.",
           createdAt: Date.now(),
         },
       ]);
-    } catch (e) {
-      if (isRequestTimeout(e, requestStartedAt)) {
-        console.error("submit_inquiry_timeout", e);
+    } catch (err) {
+      if (isRequestTimeout(err, requestStartedAt)) {
         setErrorMessage(timeoutMessage(language));
         return;
       }
-      console.error("submit_inquiry_failed", e);
+      console.error("maestro_ai_submit_failed", err);
       setErrorMessage(
         language === "de"
           ? "Die Anfrage konnte gerade nicht übermittelt werden. Bitte versuchen Sie es erneut oder kontaktieren Sie STORIA direkt."
@@ -691,7 +697,7 @@ export function useAiIntake({ language }: UseAiIntakeOptions) {
     } finally {
       setSubmitting(false);
     }
-  }, [conversationId, language, submitting, submittedInquiryId]);
+  }, [messages, language, submitting, submittedInquiryId]);
 
   return {
     // state
