@@ -7158,6 +7158,7 @@ export type Database = {
           subject: string
         }[]
       }
+      get_maestro_cron_secret: { Args: never; Returns: string }
       get_next_order_number: {
         Args: { p_prefix: string; p_year: number }
         Returns: number
@@ -7210,6 +7211,10 @@ export type Database = {
         }[]
       }
       run_retention_purge: { Args: never; Returns: undefined }
+      set_maestro_cron_secret: {
+        Args: { p_secret: string }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       submit_offer_response: {
