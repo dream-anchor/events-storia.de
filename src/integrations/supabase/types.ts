@@ -3121,6 +3121,7 @@ export type Database = {
           created_at: string
           delivery_event_id: string
           id: string
+          kind: string
           last_attempt_at: string | null
           last_error: string | null
           maestro_event_id: string | null
@@ -3139,6 +3140,7 @@ export type Database = {
           created_at?: string
           delivery_event_id: string
           id?: string
+          kind?: string
           last_attempt_at?: string | null
           last_error?: string | null
           maestro_event_id?: string | null
@@ -3157,6 +3159,7 @@ export type Database = {
           created_at?: string
           delivery_event_id?: string
           id?: string
+          kind?: string
           last_attempt_at?: string | null
           last_error?: string | null
           maestro_event_id?: string | null
@@ -7090,6 +7093,7 @@ export type Database = {
           attempt_count: number
           delivery_event_id: string
           id: string
+          kind: string
           raw_body: string
         }[]
       }
