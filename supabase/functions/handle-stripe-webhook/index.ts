@@ -2195,15 +2195,23 @@ async function maestroEnqueueRefund(
     const bd = charge.billing_details;
     const sourceOrderId = md.order_number || (charge.payment_intent as string) || charge.id;
     const orderNumber = md.order_number || `charge-${charge.id}`;
-    const amountCents = stripeAmountCents(charge.amount_refunded);
+    // EINZELner Refundbetrag statt kumulativem charge.amount_refunded: Teilrefunds muessen
+    // jeweils mit ihrem eigenen Betrag UND ihrer eigenen Refund-ID uebergeben werden. Sonst
+    // (a) verschickt der zweite Teilrefund die kumulierte Summe und (b) kollidiert er in MAESTRO
+    // auf derselben providerTransactionId=charge.id (transaction_conflict/409). Die ausloesende
+    // Rueckerstattung ist die neueste in charge.refunds (Stripe: neueste zuerst). Fallback auf
+    // die kumulative/charge-Ebene nur, falls die Refund-Liste nicht mitgeliefert wurde.
+    const latestRefund = charge.refunds?.data?.[0];
+    const refundId = latestRefund?.id || charge.id;
+    const refundAmountCents = stripeAmountCents(latestRefund?.amount ?? charge.amount_refunded);
 
     const txn: MaestroTransaction = {
       provider: "stripe",
-      providerTransactionId: charge.id,
+      providerTransactionId: refundId,
       providerEventId: stripeEventId,
       txnKind: "refund",
       status: "succeeded",
-      amountCents,
+      amountCents: refundAmountCents,
       currency: (charge.currency || "eur").toLowerCase(),
       occurredAt: new Date().toISOString(),
     };

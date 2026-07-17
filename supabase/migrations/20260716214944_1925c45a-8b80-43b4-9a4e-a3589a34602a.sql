@@ -29,6 +29,11 @@ CREATE INDEX idx_maestro_handoff_due
 CREATE INDEX idx_maestro_handoff_status
   ON public.maestro_handoff_outbox (status);
 
+-- Reaper-Index: haengende 'processing'-Zeilen nach Lease-Timeout wiederfinden.
+CREATE INDEX idx_maestro_handoff_processing
+  ON public.maestro_handoff_outbox (last_attempt_at)
+  WHERE status = 'processing';
+
 -- Rechte: NUR service_role. Kein authenticated/anon-Zugriff.
 GRANT ALL ON public.maestro_handoff_outbox TO service_role;
 
@@ -61,8 +66,15 @@ BEGIN
   WITH claimed AS (
     SELECT o.id
     FROM public.maestro_handoff_outbox o
-    WHERE o.status IN ('pending','retry')
-      AND o.next_attempt_at <= now()
+    WHERE (
+            (o.status IN ('pending','retry') AND o.next_attempt_at <= now())
+            -- Processing-Recovery (Lease-Timeout / Reaper): stuerzt ein Worker NACH dem Claim
+            -- (status='processing'), aber VOR dem Abschluss (sent/retry/failed) ab, wird die Zeile
+            -- nach 5 min Lease automatisch wieder aufgenommen. attempt_count wurde beim Claim bereits
+            -- erhoeht -> MAX_ATTEMPTS begrenzt die Gesamtversuche weiterhin. 5 min > jede normale
+            -- Zustelldauer, damit eine noch laufende Zustellung nicht doppelt geclaimt wird.
+            OR (o.status = 'processing' AND o.last_attempt_at < now() - interval '5 minutes')
+          )
     ORDER BY o.next_attempt_at
     FOR UPDATE SKIP LOCKED
     LIMIT COALESCE(batch_size, 20)
