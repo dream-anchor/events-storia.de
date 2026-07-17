@@ -3121,6 +3121,7 @@ export type Database = {
           created_at: string
           delivery_event_id: string
           id: string
+          kind: string
           last_attempt_at: string | null
           last_error: string | null
           maestro_event_id: string | null
@@ -3139,6 +3140,7 @@ export type Database = {
           created_at?: string
           delivery_event_id: string
           id?: string
+          kind?: string
           last_attempt_at?: string | null
           last_error?: string | null
           maestro_event_id?: string | null
@@ -3157,6 +3159,7 @@ export type Database = {
           created_at?: string
           delivery_event_id?: string
           id?: string
+          kind?: string
           last_attempt_at?: string | null
           last_error?: string | null
           maestro_event_id?: string | null
@@ -7090,6 +7093,7 @@ export type Database = {
           attempt_count: number
           delivery_event_id: string
           id: string
+          kind: string
           raw_body: string
         }[]
       }
@@ -7154,6 +7158,7 @@ export type Database = {
           subject: string
         }[]
       }
+      get_maestro_cron_secret: { Args: never; Returns: string }
       get_next_order_number: {
         Args: { p_prefix: string; p_year: number }
         Returns: number
@@ -7206,6 +7211,10 @@ export type Database = {
         }[]
       }
       run_retention_purge: { Args: never; Returns: undefined }
+      set_maestro_cron_secret: {
+        Args: { p_secret: string }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       submit_offer_response: {
