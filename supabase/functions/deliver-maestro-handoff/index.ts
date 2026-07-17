@@ -35,6 +35,7 @@ serve(async (req) => {
   }
 
   const url = Deno.env.get("MAESTRO_SHOP_ORDER_URL");
+  const inquiryUrl = Deno.env.get("MAESTRO_INQUIRY_URL") ?? "";
   const secret = Deno.env.get("SHOP_ORDER_WEBHOOK_SECRET");
   if (!url || !secret) {
     log("missing_config");
@@ -61,6 +62,7 @@ serve(async (req) => {
     delivery_event_id: string;
     raw_body: string;
     attempt_count: number;
+    kind: string;
   }>;
 
   log("claimed", { n: rows.length });
@@ -69,7 +71,25 @@ serve(async (req) => {
 
   for (const row of rows) {
     const started = Date.now();
-    const result = await postToMaestro(row.raw_body, secret, url);
+
+    // Routing nach kind: 'inquiry' -> MAESTRO_INQUIRY_URL, alles andere -> Shop-Order-URL.
+    // Fehlt die Inquiry-URL, gehen die Zeilen fail-closed in Backoff-Retry (kein Verlust,
+    // kein failed) und werden nach dem Setzen der Env automatisch nachgeliefert.
+    const targetUrl = row.kind === "inquiry" ? inquiryUrl : url;
+    if (!targetUrl) {
+      const cfgAttempt = row.attempt_count ?? 0;
+      const cfgBackoff = BACKOFF_SECONDS[Math.min(cfgAttempt, BACKOFF_SECONDS.length - 1)];
+      await supabase.from("maestro_handoff_outbox").update({
+        status: "retry",
+        next_attempt_at: new Date(Date.now() + cfgBackoff * 1000).toISOString(),
+        last_error: "inquiry_url_missing",
+      }).eq("id", row.id);
+      transient++;
+      log("retry_missing_inquiry_url", { delivery: shortId(row.delivery_event_id) });
+      continue;
+    }
+
+    const result = await postToMaestro(row.raw_body, secret, targetUrl);
     const durationMs = Date.now() - started;
 
     const shortDelivery = shortId(row.delivery_event_id);

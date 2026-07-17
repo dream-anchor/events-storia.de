@@ -231,7 +231,9 @@ export async function postToMaestro(
     };
   }
 
-  let json: { eventId?: string; paymentId?: string; errorCode?: string } = {};
+  // MAESTRO antwortet { data: {...} } (Erfolg) bzw. { error: <code> } (Fehler);
+  // aeltere Annahme (top-level eventId/errorCode) bleibt als Fallback bestehen.
+  let json: { eventId?: string; paymentId?: string; errorCode?: string; error?: string; data?: { eventId?: string; paymentId?: string; inquiryId?: string } } = {};
   try {
     json = await res.json();
   } catch { /* body optional */ }
@@ -239,9 +241,9 @@ export async function postToMaestro(
   return {
     ok: res.ok,
     httpStatus: res.status,
-    maestroEventId: json.eventId,
-    maestroPaymentId: json.paymentId,
-    errorCode: json.errorCode,
+    maestroEventId: json.data?.eventId ?? json.data?.inquiryId ?? json.eventId,
+    maestroPaymentId: json.data?.paymentId ?? json.paymentId,
+    errorCode: json.error ?? json.errorCode,
     isTransient: res.status >= 500 || res.status === 408 || res.status === 429,
     isAuth: res.status === 401 || res.status === 403,
     isConflict: res.status === 409,
