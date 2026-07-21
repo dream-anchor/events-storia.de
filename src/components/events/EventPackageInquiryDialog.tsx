@@ -441,7 +441,7 @@ const EventPackageInquiryDialog = ({
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Phone className="h-4 w-4" />
-                  {language === "de" ? "Telefon" : "Phone"}
+                  {language === "de" ? "Telefon *" : "Phone *"}
                 </Label>
                 <Input
                   name="phone"
@@ -449,6 +449,7 @@ const EventPackageInquiryDialog = ({
                   value={formData.phone}
                   onChange={handleInputChange}
                   placeholder="+49 89 123456"
+                  required
                 />
               </div>
             </div>
