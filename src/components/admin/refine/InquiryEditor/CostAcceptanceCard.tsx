@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,6 +88,7 @@ export function CostAcceptanceCard({
   lockedAfterSignature,
   depositMethod,
   balanceMethod,
+  costAcceptanceRequested,
 }: {
   inquiryId: string;
   publicOfferUrl?: string | null;
@@ -93,6 +96,7 @@ export function CostAcceptanceCard({
   lockedAfterSignature?: boolean | null;
   depositMethod?: string | null;
   balanceMethod?: string | null;
+  costAcceptanceRequested?: boolean | null;
 }) {
   const { isAdmin } = usePermissions();
   const [loading, setLoading] = useState(true);
@@ -101,10 +105,43 @@ export function CostAcceptanceCard({
   const [integration, setIntegration] = useState<IntegrationStatus | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [requested, setRequested] = useState<boolean>(!!costAcceptanceRequested);
+  const [savingRequested, setSavingRequested] = useState(false);
+  useEffect(() => {
+    setRequested(!!costAcceptanceRequested);
+  }, [costAcceptanceRequested]);
   const requirement = evaluateCostAcceptanceRequirement({
+    requested,
     depositMethod: (depositMethod ?? null) as never,
     balanceMethod: (balanceMethod ?? null) as never,
   });
+
+  async function onToggleRequested(next: boolean) {
+    const prev = requested;
+    setRequested(next);
+    setSavingRequested(true);
+    try {
+      const patch: Record<string, unknown> = {
+        cost_acceptance_requested: next,
+      };
+      if (next) patch.cost_acceptance_requested_at = new Date().toISOString();
+      const { error } = await (supabase as any)
+        .from("v2_events")
+        .update(patch)
+        .eq("id", inquiryId);
+      if (error) throw error;
+      toast.success(
+        next
+          ? "Kostenübernahme angefordert — Kunde sieht den Block im Angebot."
+          : "Kostenübernahme deaktiviert — Kunde sieht den Block nicht mehr.",
+      );
+    } catch (e: any) {
+      setRequested(prev);
+      toast.error(e?.message ?? "Konnte Status nicht speichern.");
+    } finally {
+      setSavingRequested(false);
+    }
+  }
 
   async function loadAll() {
     setLoading(true);
@@ -272,13 +309,13 @@ export function CostAcceptanceCard({
               variant="outline"
               className={
                 "text-xs " +
-                (requirement.required
-                  ? "border-amber-300 bg-amber-50 text-amber-900"
+                (requested
+                  ? "border-neutral-900 bg-neutral-900 text-white"
                   : "border-neutral-200 bg-neutral-50 text-neutral-700")
               }
               title={requirement.reasonDe}
             >
-              {requirement.required ? "Pflicht" : "Optional"}
+              {requested ? "Angefordert" : "Nicht angefordert"}
             </Badge>
           </div>
         </div>
@@ -291,15 +328,23 @@ export function CostAcceptanceCard({
           </div>
         ) : (
           <>
-            {requirement.required && row?.status !== "signed" && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 flex gap-2">
-                <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
-                <div>
-                  <div className="font-semibold">Pflicht für Vertragsschluss</div>
-                  <div className="text-xs mt-0.5">{requirement.reasonDe}</div>
-                </div>
+            <div className="flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/30 p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="cost-acceptance-requested" className="text-sm font-medium">
+                  Kostenübernahme anfordern
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Unabhängig von Anzahlung/Restzahlung. Nur wenn aktiv, sieht der Kunde
+                  den Signatur-Block im Angebot und kann elektronisch unterschreiben.
+                </p>
               </div>
-            )}
+              <Switch
+                id="cost-acceptance-requested"
+                checked={requested}
+                disabled={savingRequested || !!lockedAfterSignature}
+                onCheckedChange={onToggleRequested}
+              />
+            </div>
             {lockedAfterSignature && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 flex gap-2">
                 <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />

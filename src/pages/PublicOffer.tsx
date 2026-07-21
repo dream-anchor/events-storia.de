@@ -73,6 +73,7 @@ interface PublicInquiry {
   payment_method?: string | null;
   deposit_method?: string | null;
   balance_method?: string | null;
+  cost_acceptance_requested?: boolean | null;
   balance_due_days_before_event?: number | null;
   invoice_due_days?: number | null;
   customer_language?: 'de' | 'en' | 'it' | 'fr' | null;
@@ -673,7 +674,12 @@ export default function PublicOffer() {
           // Bei reinen E-Mail-Angeboten (keine Option mit Preis/Stripe) ist
           // keine verbindliche Kostenübernahme nötig — Block ausblenden.
           if (options.length > 0 && options.every(o => o.offer_mode === 'email')) return null;
+          // Kostenübernahme ist eine eigenständige Admin-Aktion — nur zeigen,
+          // wenn der Admin sie im Backend explizit angefordert hat.
+          const requested = inquiry.cost_acceptance_requested === true;
+          if (!requested) return null;
           const req = evaluateCostAcceptanceRequirement({
+            requested,
             depositMethod: (inquiry.deposit_method ?? null) as never,
             balanceMethod: (inquiry.balance_method ?? null) as never,
           });
