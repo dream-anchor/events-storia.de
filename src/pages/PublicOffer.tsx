@@ -73,6 +73,7 @@ interface PublicInquiry {
   payment_method?: string | null;
   deposit_method?: string | null;
   balance_method?: string | null;
+  cost_acceptance_requested?: boolean | null;
   balance_due_days_before_event?: number | null;
   invoice_due_days?: number | null;
   customer_language?: 'de' | 'en' | 'it' | 'fr' | null;
