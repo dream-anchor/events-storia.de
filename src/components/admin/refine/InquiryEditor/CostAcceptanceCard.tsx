@@ -40,6 +40,116 @@ import { CostAcceptanceAuditDrawer } from "./CostAcceptanceAuditDrawer";
 import { PrivacyBlur } from "@/components/admin/PrivacyBlur";
 import { evaluateCostAcceptanceRequirement } from "@/lib/costAcceptanceRequirement";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+async function runPreflightChecks(
+  inquiryId: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const { data: event } = await (supabase as any)
+      .from("v2_events")
+      .select(
+        "customer_id, company_street, company_postal_code, company_city, billing_address_different, billing_street, billing_postal_code, billing_city, amount_total, date, guest_count",
+      )
+      .eq("id", inquiryId)
+      .maybeSingle();
+    if (!event) return { ok: false, message: "Anfrage nicht gefunden." };
+    if (!event.customer_id)
+      return { ok: false, message: "Kein Kunde an dieser Anfrage." };
+    if (!event.date)
+      return { ok: false, message: "Veranstaltungsdatum fehlt in Maestro." };
+    const guests = Number(event.guest_count);
+    if (!Number.isFinite(guests) || guests <= 0)
+      return { ok: false, message: "Gästezahl fehlt in Maestro." };
+
+    const { data: customer } = await (supabase as any)
+      .from("v2_customers")
+      .select("name, email, phone, address_street, address_zip, address_city")
+      .eq("id", event.customer_id)
+      .maybeSingle();
+    if (!customer)
+      return { ok: false, message: "Kundenprofil nicht gefunden." };
+
+    const name = String(customer.name ?? "").trim();
+    const email = String(customer.email ?? "").trim();
+    const phone = String(customer.phone ?? "").trim();
+
+    if (name.length < 2)
+      return { ok: false, message: "Kundenname fehlt im Kundenprofil." };
+    if (!EMAIL_RE.test(email))
+      return {
+        ok: false,
+        message: "Kunden-E-Mail fehlt oder ist ungültig im Kundenprofil.",
+      };
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 7 || digits.length > 20)
+      return {
+        ok: false,
+        message: `Kunden-Mobilnummer ist zu kurz oder ungültig${
+          phone ? ` ("${phone}")` : ""
+        } — bitte mit Ländervorwahl und mind. 7 Ziffern im Kundenprofil pflegen.`,
+      };
+
+    const useBilling = Boolean(event.billing_address_different);
+    const street = (
+      (useBilling ? event.billing_street : null) ??
+      event.company_street ??
+      customer.address_street ??
+      ""
+    )
+      .toString()
+      .trim();
+    const zip = (
+      (useBilling ? event.billing_postal_code : null) ??
+      event.company_postal_code ??
+      customer.address_zip ??
+      ""
+    )
+      .toString()
+      .trim();
+    const city = (
+      (useBilling ? event.billing_city : null) ??
+      event.company_city ??
+      customer.address_city ??
+      ""
+    )
+      .toString()
+      .trim();
+    if (!street || !(zip || city))
+      return {
+        ok: false,
+        message:
+          "Rechnungsadresse fehlt — bitte Firmenadresse (oder abweichende Rechnungsadresse) an dieser Anfrage pflegen (Straße + PLZ/Ort).",
+      };
+
+    // Amount: fallback zu aktiver Offer-Option
+    const totalNum = Number(event.amount_total);
+    if (!Number.isFinite(totalNum) || totalNum <= 0) {
+      const { data: opt } = await (supabase as any)
+        .from("v2_offer_options")
+        .select("amount_total")
+        .eq("event_id", inquiryId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const optTotal = Number(opt?.amount_total);
+      if (!Number.isFinite(optTotal) || optTotal <= 0)
+        return {
+          ok: false,
+          message:
+            "Kein Betrag am Angebot — bitte im Angebot einen Gesamtbetrag hinterlegen.",
+        };
+    }
+    return { ok: true };
+  } catch (e: any) {
+    return {
+      ok: false,
+      message: e?.message ?? "Vorabprüfung fehlgeschlagen.",
+    };
+  }
+}
+
 type Status =
   | "draft"
   | "pending_signature"
