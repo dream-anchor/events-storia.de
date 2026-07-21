@@ -247,7 +247,7 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{language === 'de' ? 'Telefon' : 'Phone'}</FormLabel>
+                      <FormLabel>{language === 'de' ? 'Telefon *' : 'Phone *'}</FormLabel>
                       <FormControl>
                         <Input type="tel" placeholder="+49..." {...field} />
                       </FormControl>
