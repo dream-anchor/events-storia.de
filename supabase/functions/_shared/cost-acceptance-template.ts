@@ -7,7 +7,7 @@
  * bestehende Kostenübernahmen weiterhin an ihren Originaltext gebunden bleiben.
  */
 
-export const TEMPLATE_VERSION = "1.0.0";
+export const TEMPLATE_VERSION = "1.1.0";
 export const REFERENCE_PDF_NAME = "KOSTENÜBERNAHME.pdf";
 
 export const COST_ACCEPTANCE_TEMPLATE_TITLE =
@@ -57,7 +57,9 @@ Hiermit bestätigen wir, dass wir sämtliche Kosten übernehmen, die im Rahmen d
 
 Die Kostenübernahme umfasst die gemäß Angebot vereinbarten Leistungen. Grundlage der Abrechnung ist die vom oben genannten Ansprechpartner vor Ort bestätigte Gesamtrechnung.
 
-**Zahlungsziel:** Der Rechnungsbetrag ist innerhalb von 5 Werktagen nach Rechnungserhalt ohne Abzug auf folgendes Konto zu überweisen.
+**Zahlungskonditionen:** {{payment_terms}}
+
+{{deposit_terms}}
 
 **Kontoverbindung**
 Kontoinhaber: Domenico Speranza
@@ -126,6 +128,8 @@ export interface CostAcceptancePlaceholders {
   signer_company_name: string;
   signature_date: string;
   additional_terms: string;
+  payment_terms: string;
+  deposit_terms: string;
 }
 
 export function renderCostAcceptanceMarkdown(
@@ -135,6 +139,96 @@ export function renderCostAcceptanceMarkdown(
     const re = new RegExp(`{{\\s*${k}\\s*}}`, "g");
     return acc.replace(re, (v ?? "—").toString());
   }, COST_ACCEPTANCE_TEMPLATE_MARKDOWN).replace(/{{[^}]+}}/g, "—");
+}
+
+/**
+ * Baut die deutschsprachigen Zahlungskonditions-Texte aus dem konfigurierten
+ * Zahlungsplan der Anfrage. Reine, testbare Funktion — keine Seiteneffekte.
+ */
+export interface PaymentTermsInput {
+  balance_method?: string | null;
+  balance_due_days_before_event?: number | null;
+  invoice_due_days?: number | null;
+  deposit_method?: string | null;
+  deposit_percent?: number | null;
+  deposit_amount?: number | null;
+  deposit_due_days?: number | null;
+}
+
+function formatEur(amount: number): string {
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function buildPaymentTerms(
+  input: PaymentTermsInput,
+): { payment_terms: string; deposit_terms: string } {
+  const bank =
+    "Kontoinhaber: Domenico Speranza · Deutsche Bank · IBAN DE47 7007 0024 0095 6946 00";
+
+  const method = (input.balance_method ?? "").toString();
+  const days =
+    Number(input.balance_due_days_before_event) ||
+    Number(input.invoice_due_days) ||
+    5;
+
+  let payment_terms = "";
+  switch (method) {
+    case "invoice_after":
+      payment_terms =
+        `Der Rechnungsbetrag ist innerhalb von ${days} Tagen nach dem Veranstaltungstag ohne Abzug zu überweisen. ${bank}`;
+      break;
+    case "invoice_before":
+      payment_terms =
+        `Der Rechnungsbetrag ist spätestens ${days} Tage vor dem Veranstaltungstag ohne Abzug zu überweisen. ${bank}`;
+      break;
+    case "on_site":
+      payment_terms =
+        "Die Zahlung erfolgt vollständig vor Ort am Veranstaltungstag (Bar, EC- oder Kreditkarte).";
+      break;
+    case "stripe_prepay":
+      payment_terms =
+        "Die Zahlung erfolgt vollständig vor dem Veranstaltungstag über den zugesendeten Zahlungslink.";
+      break;
+    default:
+      payment_terms =
+        `Der Rechnungsbetrag ist innerhalb von ${days} Werktagen nach Rechnungserhalt ohne Abzug zu überweisen. ${bank}`;
+  }
+
+  const depositMethod = (input.deposit_method ?? "").toString();
+  const depositPercent = Number(input.deposit_percent) || 0;
+  const depositAmount = Number(input.deposit_amount) || 0;
+  const depositDays = Number(input.deposit_due_days) || 0;
+
+  const hasDeposit =
+    depositMethod && depositMethod !== "none" &&
+    (depositPercent > 0 || depositAmount > 0);
+
+  let deposit_terms = "";
+  if (hasDeposit) {
+    const parts: string[] = [];
+    if (depositPercent > 0) parts.push(`${depositPercent} %`);
+    if (depositAmount > 0) parts.push(formatEur(depositAmount));
+    const amountLabel = parts.join(" / ") || "gemäß Angebot";
+    const dueLabel = depositDays > 0
+      ? ` — fällig innerhalb von ${depositDays} Tagen nach Angebotsannahme`
+      : "";
+    const methodLabel = depositMethod === "stripe"
+      ? " per Zahlungslink"
+      : depositMethod === "invoice"
+        ? " per Rechnung"
+        : depositMethod === "on_site"
+          ? " vor Ort"
+          : "";
+    deposit_terms =
+      `**Anzahlung:** ${amountLabel}${methodLabel}${dueLabel}. Der Restbetrag richtet sich nach den oben genannten Zahlungskonditionen.`;
+  }
+
+  return { payment_terms, deposit_terms };
 }
 
 /** Stable hash for template-version diffing. */
