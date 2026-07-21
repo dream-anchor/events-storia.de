@@ -36,21 +36,59 @@ import Footer from '@/components/Footer';
 import { format, parseISO } from 'date-fns';
 
 // Zod schema for checkout form validation with length limits (security)
-const checkoutSchema = z.object({
-  name: z.string().min(2, 'Name zu kurz').max(100, 'Name zu lang'),
-  email: z.string().email('Ungültige E-Mail').max(255, 'E-Mail zu lang'),
-  phone: z.string().min(5, 'Telefonnummer zu kurz').max(30, 'Telefonnummer zu lang'),
-  company: z.string().max(100, 'Firmenname zu lang').optional().or(z.literal('')),
-  deliveryStreet: z.string().max(200, 'Straße zu lang').optional().or(z.literal('')),
-  deliveryZip: z.string().max(10, 'PLZ zu lang').optional().or(z.literal('')),
-  deliveryCity: z.string().max(100, 'Stadt zu lang').optional().or(z.literal('')),
-  deliveryFloor: z.string().max(50, 'Stockwerk zu lang').optional().or(z.literal('')),
-  notes: z.string().max(2000, 'Nachricht zu lang').optional().or(z.literal('')),
-  billingName: z.string().max(100, 'Name zu lang').optional().or(z.literal('')),
-  billingStreet: z.string().max(200, 'Straße zu lang').optional().or(z.literal('')),
-  billingZip: z.string().max(10, 'PLZ zu lang').optional().or(z.literal('')),
-  billingCity: z.string().max(100, 'Stadt zu lang').optional().or(z.literal('')),
-});
+const checkoutSchema = z
+  .object({
+    name: z.string().min(2, 'Name zu kurz').max(100, 'Name zu lang'),
+    email: z.string().email('Ungültige E-Mail').max(255, 'E-Mail zu lang'),
+    phone: z
+      .string()
+      .trim()
+      .min(5, 'Bitte Telefonnummer angeben')
+      .max(30, 'Telefonnummer zu lang'),
+    company: z.string().max(100, 'Firmenname zu lang').optional().or(z.literal('')),
+    deliveryType: z.string().optional(),
+    deliveryStreet: z.string().max(200, 'Straße zu lang').optional().or(z.literal('')),
+    deliveryZip: z.string().max(10, 'PLZ zu lang').optional().or(z.literal('')),
+    deliveryCity: z.string().max(100, 'Stadt zu lang').optional().or(z.literal('')),
+    deliveryFloor: z.string().max(50, 'Stockwerk zu lang').optional().or(z.literal('')),
+    notes: z.string().max(2000, 'Nachricht zu lang').optional().or(z.literal('')),
+    billingName: z.string().max(100, 'Name zu lang').optional().or(z.literal('')),
+    billingStreet: z.string().max(200, 'Straße zu lang').optional().or(z.literal('')),
+    billingZip: z.string().max(10, 'PLZ zu lang').optional().or(z.literal('')),
+    billingCity: z.string().max(100, 'Stadt zu lang').optional().or(z.literal('')),
+  })
+  .superRefine((val, ctx) => {
+    if (val.deliveryType === 'delivery') {
+      if (!val.deliveryStreet || !val.deliveryStreet.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['deliveryStreet'],
+          message: 'Bitte Lieferadresse (Straße & Hausnummer) angeben',
+        });
+      }
+      if (!val.deliveryZip || !val.deliveryZip.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['deliveryZip'],
+          message: 'Bitte PLZ der Lieferadresse angeben',
+        });
+      }
+      if (!val.deliveryCity || !val.deliveryCity.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['deliveryCity'],
+          message: 'Bitte Stadt der Lieferadresse angeben',
+        });
+      }
+      if (!val.deliveryFloor || !val.deliveryFloor.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['deliveryFloor'],
+          message: 'Bitte Stockwerk angeben',
+        });
+      }
+    }
+  });
 
 interface DeliveryCalculation {
   distanceKm: number;
@@ -833,6 +871,7 @@ const Checkout = () => {
       email: formData.email,
       phone: formData.phone,
       company: formData.company,
+      deliveryType: formData.deliveryType,
       deliveryStreet: formData.deliveryStreet,
       deliveryZip: formData.deliveryZip,
       deliveryCity: formData.deliveryCity,
