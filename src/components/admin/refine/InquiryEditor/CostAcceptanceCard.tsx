@@ -566,80 +566,10 @@ export function CostAcceptanceCard({
               )}
             </div>
 
-            {/* Integration Check (Admin only) */}
-            {isAdmin && (
-              <div className="mt-4 rounded-xl border border-border/60 bg-muted/30 p-4 space-y-3">
-                <div className="text-sm font-medium">Integration Check</div>
-                <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-xs">
-                  <CheckRow
-                    label="ESIGNATURES_API_KEY"
-                    ok={!!integration?.has_api_key}
-                  />
-                  <CheckRow
-                    label="ESIGNATURES_WEBHOOK_SECRET"
-                    ok={!!integration?.has_webhook_secret}
-                  />
-                  <CheckRow
-                    label="Template-ID hinterlegt"
-                    ok={!!integration?.template_id}
-                  />
-                  <CheckRow
-                    label={`Template-Version aktuell (v${integration?.current_template_version ?? "?"})`}
-                    ok={
-                      !!integration?.template_version &&
-                      integration?.template_version ===
-                        integration?.current_template_version
-                    }
-                  />
-                </div>
-                {integration?.webhook_url ? (
-                  <div className="text-xs space-y-1">
-                    <div className="text-muted-foreground">Webhook URL:</div>
-                    <code className="block break-all rounded-md bg-background px-2 py-1.5 text-[11px]">
-                      {integration.webhook_url}
-                    </code>
-                    <div className="text-muted-foreground">
-                      Diese URL muss in eSignatures.com als Webhook URL hinterlegt
-                      sein, falls nicht pro Contract <code>custom_webhook_url</code>{" "}
-                      verwendet wird.
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
-                    SUPABASE_URL nicht verfügbar. Bitte Function-URL aus dem
-                    Supabase Dashboard kopieren und in eSignatures.com hinterlegen.
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={onInitTemplate}
-                    disabled={busy !== null}
-                  >
-                    {busy === "create-esignatures-cost-acceptance-template" && (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                    )}
-                    Template initialisieren
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={onSync}
-                    disabled={busy !== null}
-                  >
-                    {busy === "sync-esignatures-template" && (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                    )}
-                    Template synchronisieren
-                  </Button>
-                </div>
-                {integration?.template_id && (
-                  <p className="text-xs text-muted-foreground">
-                    Template ist bereits eingerichtet · ID{" "}
-                    <code className="text-[11px]">{integration.template_id}</code>
-                  </p>
-                )}
+            {isAdmin && !integration?.template_id && (
+              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                Es ist noch kein eSignatures-Template konfiguriert. Bitte in den
+                Einstellungen unter <em>eSignatures</em> die Template-ID hinterlegen.
               </div>
             )}
           </>
