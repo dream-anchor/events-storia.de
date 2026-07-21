@@ -1,58 +1,46 @@
-## Ziel
+## Antwort auf die Frage
+**Nein — aktuell wird nichts davon übernommen.** Der Kostenübernahme-Vertragstext in `supabase/functions/_shared/cost-acceptance-template.ts` enthält den Zahlungsziel-Satz **fest verdrahtet**:
 
-1. Im Anfrage-Editor nur noch **einen primären Button** „Kostenübernahme an Kunden schicken" statt der großen Integration-Check-Karte.
-2. Alle Integrations-/Template-Einstellungen wandern in **Einstellungen → eSignatures**, inkl. editierbarem Template-ID-Feld (vorbelegt mit `0f9f9ad4-02a8-4678-889a-52d3b4bd459e`).
-3. eSign-Anbindung: laut Integration-Check (Screenshot) sind API-Key, Webhook-Secret, Template und Webhook-URL bereits gesetzt — es fehlt nur der Admin-Send-Weg und die UI-Vereinfachung.
+> „Der Rechnungsbetrag ist innerhalb von **5 Werktagen nach Rechnungserhalt** ohne Abzug auf folgendes Konto zu überweisen."
 
-## Antwort auf deine Frage
-Ich brauche von dir **nichts mehr** — Template-ID hast du geliefert, alle Secrets sind gesetzt. Eine Entscheidung möchte ich aber im Plan festhalten (unten, "Offen").
+Die Function `admin-send-cost-acceptance` liest weder `invoice_due_days`, noch `balance_method`, `balance_due_days_before_event`, `payment_method` oder `deposit_*` aus `v2_events` — das Zahlungsziel im Vertrag ist also unabhängig von der Anfrage-Konfiguration und ändert sich nie, egal was im Admin unter „Zahlung" gewählt wurde.
 
----
+## Was der Plan ändert
+Die im Anfrage-Editor konfigurierten Zahlungskonditionen in den generierten Kostenübernahme-Vertrag übernehmen — dynamisch, sprachlich sauber, revisionssicher.
 
-## Änderungen
+### Regeln (auf Basis der bestehenden Felder in `v2_events`)
+- **`balance_method = invoice_after`** → „Zahlungsziel: **X Tage nach Event**", mit `X = balance_due_days_before_event` (bzw. Fallback `invoice_due_days`, sonst 5).
+- **`balance_method = invoice_before`** → „Zahlungsziel: **X Tage vor Event**".
+- **`balance_method = on_site`** → „Zahlung **vor Ort am Veranstaltungstag**".
+- **`balance_method = stripe_prepay`** → „Zahlung **vor dem Event per Zahlungslink**".
+- **Anzahlung**: falls `deposit_method` gesetzt und `deposit_percent > 0` oder `deposit_amount > 0`, wird zusätzlich ein Satz ergänzt (z. B. „**Anzahlung: 30 % / 500 €** — fällig `deposit_due_days` Tage nach Angebotsannahme, per `deposit_method`").
 
-### A. Neue Edge-Function `admin-send-cost-acceptance`
-Startet den Signatur-Flow vom Admin aus (nicht mehr erst durch Kunden-Klick im Public Offer).
+### Technische Umsetzung
+1. **Template (`supabase/functions/_shared/cost-acceptance-template.ts`)**
+   - Fester Satz mit „5 Werktagen" ersetzt durch Platzhalter `{{payment_terms}}` (Zahlungsziel-Kernsatz) und `{{deposit_terms}}` (optionaler Anzahlungssatz).
+   - `TEMPLATE_VERSION` von `1.0.0` → `1.1.0` (revisionssicher, alte Verträge bleiben unangetastet).
+   - `CostAcceptancePlaceholders`-Typ um beide Felder erweitert.
 
-- Auth: `requireAuth` (admin/staff).
-- Input: `{ inquiry_id }`.
-- Zieht aus `v2_events` + aktiver `v2_offer_options`-Zeile: Signer (Kunde), Event, Rechnungsadresse, Betrag (Maestro-Total, unverändert).
-- Ruft `createEsignaturesContract` mit aktuellem Template aus `crm_settings.esignatures_cost_acceptance_template`.
-- Legt/aktualisiert `cost_acceptances`-Row (Idempotenz analog Public-Offer-Function: aktive/signed Row → 409-artig; defekte Pending-Row wird bereinigt).
-- Setzt `cost_acceptance_requested=true` + Zeitstempel auf `v2_events`.
-- Response: `{ id, status, sign_page_url }`.
-- eSignatures verschickt die Signatur-E-Mail selbst (`emails: "signer"`); der bestehende `send-cost-acceptance-email` bleibt für „Erneut senden" nutzbar.
+2. **Neuer Helper `buildPaymentTerms(event)`** im selben Shared-Modul
+   - Nimmt Event-Row (`balance_method`, `balance_due_days_before_event`, `invoice_due_days`, `deposit_method`, `deposit_percent`, `deposit_amount`, `deposit_due_days`) und liefert `{ payment_terms, deposit_terms }` als fertige deutsche Textzeilen.
+   - Reine, testbare Funktion — kein Fetch, keine Seiteneffekte.
 
-### B. `CostAcceptanceCard.tsx` radikal verschlanken
-Neuer Aufbau (eine Karte, keine Integration-Check-Sektion, kein „Template initialisieren/synchronisieren"-Panel mehr):
+3. **`supabase/functions/admin-send-cost-acceptance/index.ts`**
+   - Selektiert die neuen Felder mit aus `v2_events`.
+   - Ruft `buildPaymentTerms(...)` auf und übergibt die Ergebnisse an `renderCostAcceptanceMarkdown({ ..., payment_terms, deposit_terms })`.
+   - `additional_terms` bleibt erhalten (der aktuelle Storia-Marker wird nicht überschrieben).
 
-- Header: Titel + Status-Badge.
-- **Vor Versand**: großer Primary-Button „Kostenübernahme an Kunden schicken" → ruft `admin-send-cost-acceptance`.
-- **Nach Versand**: kompakte Info-Zeile (Signer, versendet am, Status) + Sekundär-Buttons „Erneut senden", „Signatur-Seite öffnen", „Zurückziehen", „Signiertes PDF" (nur wenn vorhanden), „Audit".
-- Der bestehende „Kostenübernahme anfordern"-Switch entfällt — Klick auf den Send-Button setzt das Flag automatisch.
-- Kein Integration-Health-Check mehr in dieser Karte (wandert komplett in Settings).
+4. **Deploy** nur der beiden betroffenen Function-Artefakte:
+   - `_shared/cost-acceptance-template.ts` (kein eigenständiger Deploy — kommt mit)
+   - `admin-send-cost-acceptance`
 
-### C. Settings → neuer Tab „eSignatures"
-In `src/components/admin/refine/Settings.tsx` neue Section:
+### Was bewusst NICHT geändert wird
+- Bereits versendete Kostenübernahmen: eSignatures-Verträge sind revisionssicher — die alte Version `1.0.0` bleibt so, wie sie beim Kunden liegt.
+- Kontoverbindung, Absender, MFA-Regeln, Signer-Felder.
+- Preis-/Maestro-Logik.
+- Frontend (`CostAcceptanceCard.tsx`): keine UI-Änderung nötig — die Konditionen kommen ausschließlich aus den bereits im Anfrage-Editor eingegebenen Zahlungsfeldern.
 
-- **Integration-Status** (read-only): API-Key ✓/✗, Webhook-Secret ✓/✗, Webhook-URL (kopierbar), aktive Template-Version.
-- **Template-ID** (editierbar): Textfeld, vorbefüllt aus `crm_settings.esignatures_cost_acceptance_template.template_id`. Falls leer → Default `0f9f9ad4-02a8-4678-889a-52d3b4bd459e` als Placeholder + „Übernehmen"-Button.
-  - Speichern via neuer Edge-Function `set-esignatures-template-id` (admin-only, schreibt in `crm_settings`, ergänzt `history`-Eintrag).
-- Buttons: „Template initialisieren" (bestehende `create-esignatures-cost-acceptance-template`), „Template synchronisieren" (bestehende `sync-esignatures-template`).
-- Kein Verhalten für bereits signierte Verträge — die behalten ihre alte `template_id` (revisionssicher, unverändert).
-
-### D. Public-Offer bleibt Fallback
-Die vorhandene `create-cost-acceptance-from-public-offer` bleibt bestehen, damit Kunden bei Bedarf auch selbst starten können. Standardpfad ist ab jetzt aber Admin-Send.
-
----
-
-## Betroffene Dateien
-
-- **Neu**: `supabase/functions/admin-send-cost-acceptance/index.ts`
-- **Neu**: `supabase/functions/set-esignatures-template-id/index.ts`
-- **Ändern**: `src/components/admin/refine/InquiryEditor/CostAcceptanceCard.tsx` (großer Rewrite, ~60 % Code weg)
-- **Ändern**: `src/components/admin/refine/Settings.tsx` (neue eSignatures-Sektion)
-- optional: `esignatures-integration-status` bleibt unverändert und wird nur noch von Settings genutzt
-
-## Offene Entscheidung (bitte kurz bestätigen im Build)
-Bei Admin-Send werden die 4 Kunden-Bestätigungs-Checkboxen (AGB, Widerruf, Auftragsverarbeitung, Datenschutz) **nicht** vorab vom Kunden gesetzt — der Kunde bestätigt sie stattdessen direkt im eSignatures-Signaturprozess (Template enthält sie bereits als Markdown-Klauseln). Falls du willst, dass sie zusätzlich als separate Checkboxen im Public Offer erscheinen müssen, bevor Admin senden darf: sag Bescheid, dann drehe ich das um. Default im Plan: **direkt versendbar, ohne Kunden-Vorab-Klick**.
+### Verifikation nach Umsetzung
+- Neue Anfrage: `balance_method=invoice_after`, `balance_due_days_before_event=5` → Kunde bekommt „Zahlungsziel: 5 Tage nach Event".
+- Neue Anfrage: `balance_method=on_site`, `deposit_percent=0` → Kunde bekommt „Zahlung vor Ort am Veranstaltungstag", kein Anzahlungssatz.
+- Alte bereits versendete Kostenübernahme bleibt unverändert (TEMPLATE_VERSION-Diff).
