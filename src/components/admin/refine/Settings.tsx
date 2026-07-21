@@ -43,6 +43,7 @@ import { useList } from "@refinedev/core";
 import { usePermissions } from "@/hooks/usePermissions";
 import { EquipmentCatalogCard } from "./EquipmentCatalogCard";
 import { ReviewRequestsCard } from "./ReviewRequestsCard";
+import { ESignaturesSettingsCard } from "./ESignaturesSettingsCard";
 
 // Business data interface
 interface BusinessData {
@@ -1310,6 +1311,7 @@ export const Settings = () => {
           {/* Vorlagen Tab */}
           <TabsContent value="vorlagen" className="space-y-6">
             <TemplateManager />
+            <ESignaturesSettingsCard />
           </TabsContent>
 
           {/* Nutzer Tab */}
