@@ -311,7 +311,21 @@ Deno.serve(async (req) => {
     }
 
     // 7. Markdown-Snapshot
-    const today = new Date().toISOString().slice(0, 10);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const offerSentIso = (event as any).offer_sent_at
+      ? new Date((event as any).offer_sent_at as string).toISOString().slice(0, 10)
+      : todayIso;
+    const validityDays = Number((event as any).offer_validity_days) || 14;
+    const validUntilIso = (() => {
+      const d = new Date(offerSentIso + "T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + validityDays);
+      return d.toISOString().slice(0, 10);
+    })();
+    const offerNumberFromMaestro =
+      (event as any).number ||
+      (event as any).booking_number ||
+      option?.label ||
+      event.id.slice(0, 8);
     const confirmations: Record<string, boolean> = {
       admin_initiated: true,
     };
@@ -330,10 +344,10 @@ Deno.serve(async (req) => {
       invoice_due_days: (event as any).invoice_due_days,
     });
     const placeholders = {
-      offer_number: option?.label ?? event.id.slice(0, 8),
+      offer_number: String(offerNumberFromMaestro),
       customer_number: event.customer_id?.slice(0, 8) ?? "—",
-      offer_date: today,
-      valid_until: today,
+      offer_date: formatDeDate(offerSentIso),
+      valid_until: formatDeDate(validUntilIso),
       amount_gross: eur(amountCents),
       currency: "EUR",
       event_company: signerCompany || signerName,
@@ -350,7 +364,7 @@ Deno.serve(async (req) => {
       signer_email: signerEmail,
       signer_mobile: signerMobile,
       signer_company_name: signerCompany || "—",
-      signature_date: today,
+      signature_date: formatDeDate(todayIso),
       additional_terms: "- durch Storia versendet: ✓",
       payment_terms,
       deposit_terms,
