@@ -16,6 +16,8 @@ import {
   resolveMfaMethod,
   TEMPLATE_VERSION,
   buildPaymentTerms,
+  buildPaymentTermLabel,
+  BANK_DETAILS,
 } from "../_shared/cost-acceptance-template.ts";
 import {
   createEsignaturesContract,
@@ -326,6 +328,11 @@ Deno.serve(async (req) => {
       deposit_amount: (event as any).deposit_amount,
       deposit_due_days: (event as any).deposit_due_days,
     });
+    const payment_term_label = buildPaymentTermLabel({
+      balance_method: (event as any).balance_method,
+      balance_due_days_before_event: (event as any).balance_due_days_before_event,
+      invoice_due_days: (event as any).invoice_due_days,
+    });
     const placeholders = {
       offer_number: option?.label ?? event.id.slice(0, 8),
       customer_number: event.customer_id?.slice(0, 8) ?? "—",
@@ -336,6 +343,7 @@ Deno.serve(async (req) => {
       event_company: signerCompany || signerName,
       event_title: serverEventTitle,
       event_date: serverEventDateLabel,
+      event_time: serverEventTime,
       onsite_contact: signerName,
       guest_count: String(serverGuestCount),
       invoice_company: invoiceCompany,
@@ -350,6 +358,10 @@ Deno.serve(async (req) => {
       additional_terms: "- durch Storia versendet: ✓",
       payment_terms,
       deposit_terms,
+      payment_term_label,
+      bank_holder: BANK_DETAILS.bank_holder,
+      bank_name: BANK_DETAILS.bank_name,
+      bank_iban: BANK_DETAILS.bank_iban,
     };
     const markdownSnapshot = renderCostAcceptanceMarkdown(placeholders);
 
