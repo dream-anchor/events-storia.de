@@ -115,15 +115,16 @@ Deno.serve(async (req) => {
     const signerMobile = (customer.phone ?? "").toString().trim();
     const signerCompany = (customer.company ?? "").toString().trim();
     if (signerName.length < 2) {
-      return jsonResponse(409, { error: "Kundenname fehlt." });
+      return jsonResponse(409, { error: "Kundenname fehlt.", field: "signer_name" });
     }
     if (!EMAIL_RE.test(signerEmail)) {
-      return jsonResponse(409, { error: "Kunden-E-Mail fehlt oder ungültig." });
+      return jsonResponse(409, { error: "Kunden-E-Mail fehlt oder ungültig.", field: "signer_email" });
     }
     if (!isPlausibleMobile(signerMobile)) {
       return jsonResponse(409, {
         error:
           "Kunden-Mobilnummer fehlt oder ungültig — bitte im Kundenprofil pflegen.",
+        field: "signer_mobile",
       });
     }
 
@@ -215,6 +216,7 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(amountCents) || amountCents <= 0) {
       return jsonResponse(409, {
         error: "Kein Betrag am Angebot — Kostenübernahme nicht möglich.",
+        field: "amount",
       });
     }
 
@@ -227,11 +229,12 @@ Deno.serve(async (req) => {
     if (!serverEventDateIso) {
       return jsonResponse(409, {
         error: "Veranstaltungsdatum fehlt in Maestro.",
+        field: "event_date",
       });
     }
     const serverGuestCount = Number(event.guest_count);
     if (!Number.isFinite(serverGuestCount) || serverGuestCount <= 0) {
-      return jsonResponse(409, { error: "Gästezahl fehlt in Maestro." });
+      return jsonResponse(409, { error: "Gästezahl fehlt in Maestro.", field: "guest_count" });
     }
     const serverEventDateLabel = (() => {
       try {
@@ -276,6 +279,7 @@ Deno.serve(async (req) => {
       return jsonResponse(409, {
         error:
           "Rechnungsadresse (Straße + PLZ/Ort) fehlt — bitte Firmenadresse (oder abweichende Rechnungsadresse) an dieser Anfrage pflegen.",
+        field: "invoice_address",
       });
     }
     const invoiceZipCity = `${invoiceZip} ${invoiceCity}`.trim();

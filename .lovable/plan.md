@@ -1,46 +1,50 @@
-## Antwort auf die Frage
-**Nein — aktuell wird nichts davon übernommen.** Der Kostenübernahme-Vertragstext in `supabase/functions/_shared/cost-acceptance-template.ts` enthält den Zahlungsziel-Satz **fest verdrahtet**:
+## Beobachteter Fall (Speranza GmbH, Event `dfa42faf`)
 
-> „Der Rechnungsbetrag ist innerhalb von **5 Werktagen nach Rechnungserhalt** ohne Abzug auf folgendes Konto zu überweisen."
+Der Datensatz erfüllt zwei Vorbedingungen der Edge Function `admin-send-cost-acceptance` **nicht**:
 
-Die Function `admin-send-cost-acceptance` liest weder `invoice_due_days`, noch `balance_method`, `balance_due_days_before_event`, `payment_method` oder `deposit_*` aus `v2_events` — das Zahlungsziel im Vertrag ist also unabhängig von der Anfrage-Konfiguration und ändert sich nie, egal was im Admin unter „Zahlung" gewählt wurde.
+| Prüfung | Ist-Zustand | Erwartet |
+|---|---|---|
+| Kunden-Mobilnummer (`v2_customers.phone`) | `2466` (4 Ziffern) | 7–20 Ziffern (`isPlausibleMobile`) |
+| Rechnungsadresse (Event ODER Kunde) | Straße/PLZ/Ort überall `NULL` | Straße + PLZ/Ort gesetzt |
+| Betrag | Event `amount_total` `NULL`, aber Offer-Option A = 690,00 € ✓ | ok |
 
-## Was der Plan ändert
-Die im Anfrage-Editor konfigurierten Zahlungskonditionen in den generierten Kostenübernahme-Vertrag übernehmen — dynamisch, sprachlich sauber, revisionssicher.
+Die Function antwortet daher mit `409` und einer klaren deutschen Fehlermeldung. In der UI (`CostAcceptanceCard.onAdminSend`) wird dieser Fehler zwar per `toast.error` ausgegeben, aber der Button zeigt fast keinen Loading-State (Request ist sehr kurz) und der Text „passiert nichts" deutet darauf hin, dass die 409-Antwort im Toast entweder nicht sichtbar oder zu generisch (`"Edge Function returned a non-2xx status code"`) landet — dann bleibt für den Nutzer wirklich „nichts passiert".
 
-### Regeln (auf Basis der bestehenden Felder in `v2_events`)
-- **`balance_method = invoice_after`** → „Zahlungsziel: **X Tage nach Event**", mit `X = balance_due_days_before_event` (bzw. Fallback `invoice_due_days`, sonst 5).
-- **`balance_method = invoice_before`** → „Zahlungsziel: **X Tage vor Event**".
-- **`balance_method = on_site`** → „Zahlung **vor Ort am Veranstaltungstag**".
-- **`balance_method = stripe_prepay`** → „Zahlung **vor dem Event per Zahlungslink**".
-- **Anzahlung**: falls `deposit_method` gesetzt und `deposit_percent > 0` oder `deposit_amount > 0`, wird zusätzlich ein Satz ergänzt (z. B. „**Anzahlung: 30 % / 500 €** — fällig `deposit_due_days` Tage nach Angebotsannahme, per `deposit_method`").
+## Ziel
 
-### Technische Umsetzung
-1. **Template (`supabase/functions/_shared/cost-acceptance-template.ts`)**
-   - Fester Satz mit „5 Werktagen" ersetzt durch Platzhalter `{{payment_terms}}` (Zahlungsziel-Kernsatz) und `{{deposit_terms}}` (optionaler Anzahlungssatz).
-   - `TEMPLATE_VERSION` von `1.0.0` → `1.1.0` (revisionssicher, alte Verträge bleiben unangetastet).
-   - `CostAcceptancePlaceholders`-Typ um beide Felder erweitert.
+1. Den Versand für den aktuellen Test-Datensatz möglich machen, ohne Validierung aufzuweichen.
+2. Fehlerfälle sichtbar machen, damit „nichts passiert" nie wieder auftritt.
 
-2. **Neuer Helper `buildPaymentTerms(event)`** im selben Shared-Modul
-   - Nimmt Event-Row (`balance_method`, `balance_due_days_before_event`, `invoice_due_days`, `deposit_method`, `deposit_percent`, `deposit_amount`, `deposit_due_days`) und liefert `{ payment_terms, deposit_terms }` als fertige deutsche Textzeilen.
-   - Reine, testbare Funktion — kein Fetch, keine Seiteneffekte.
+## Änderungen
 
-3. **`supabase/functions/admin-send-cost-acceptance/index.ts`**
-   - Selektiert die neuen Felder mit aus `v2_events`.
-   - Ruft `buildPaymentTerms(...)` auf und übergibt die Ergebnisse an `renderCostAcceptanceMarkdown({ ..., payment_terms, deposit_terms })`.
-   - `additional_terms` bleibt erhalten (der aktuelle Storia-Marker wird nicht überschrieben).
+### 1) Fehler-Surfacing in `CostAcceptanceCard.tsx`
+- `onAdminSend`: bei Fehler nicht nur `toast.error(message)` (kann bei `supabase.functions.invoke`-Fehler generisch sein), sondern **immer** die `error`-Message aus dem 409-JSON verwenden (bereits vorhandener `call()`-Parser bevorzugen) — Fallback nur wenn wirklich leer.
+- Toast mit **längerer Anzeigedauer** (`duration: 8000`) und `description` mit Handlungshinweis (z. B. „Bitte Kundenprofil oder Firmenadresse an der Anfrage vervollständigen").
+- Button-Loading: `busy === "admin-send-cost-acceptance"` wird gesetzt, aber die Function kann in < 200 ms 409 zurückgeben. Zusätzliches optisches Feedback: bei Fehler kurz einen roten Inline-Hinweis unter dem Button rendern (State `lastSendClientError`), damit der Grund direkt neben dem Button steht — nicht nur als Toast.
 
-4. **Deploy** nur der beiden betroffenen Function-Artefakte:
-   - `_shared/cost-acceptance-template.ts` (kein eigenständiger Deploy — kommt mit)
-   - `admin-send-cost-acceptance`
+### 2) Präventive Client-Vorprüfung (kein Silent-Fail)
+Vor `call("admin-send-cost-acceptance", …)` das lokal bekannte Event/Customer-Objekt prüfen:
+- Kunde vorhanden, `email` gültig, `phone` mit ≥ 7 Ziffern
+- Rechnungsadresse: Event `company_street` + (`company_postal_code` ODER `company_city`) ODER (bei `billing_address_different`) Billing-Felder, sonst Kundenprofil-Adresse
 
-### Was bewusst NICHT geändert wird
-- Bereits versendete Kostenübernahmen: eSignatures-Verträge sind revisionssicher — die alte Version `1.0.0` bleibt so, wie sie beim Kunden liegt.
-- Kontoverbindung, Absender, MFA-Regeln, Signer-Felder.
-- Preis-/Maestro-Logik.
-- Frontend (`CostAcceptanceCard.tsx`): keine UI-Änderung nötig — die Konditionen kommen ausschließlich aus den bereits im Anfrage-Editor eingegebenen Zahlungsfeldern.
+Fehlt etwas → **kein** Request, sondern sofort ein sprechender Toast + Inline-Hinweis mit konkret fehlenden Feldern (z. B. „Mobilnummer im Kundenprofil zu kurz (2466). Bitte mit Ländervorwahl und mind. 7 Ziffern hinterlegen.").
 
-### Verifikation nach Umsetzung
-- Neue Anfrage: `balance_method=invoice_after`, `balance_due_days_before_event=5` → Kunde bekommt „Zahlungsziel: 5 Tage nach Event".
-- Neue Anfrage: `balance_method=on_site`, `deposit_percent=0` → Kunde bekommt „Zahlung vor Ort am Veranstaltungstag", kein Anzahlungssatz.
-- Alte bereits versendete Kostenübernahme bleibt unverändert (TEMPLATE_VERSION-Diff).
+### 3) Edge Function `admin-send-cost-acceptance` — nur robusteres Error-Payload
+Kein Verhalten ändern, nur zusätzliche Felder im 409-Response:
+```json
+{ "error": "…", "field": "signer_mobile" | "invoice_address" | "amount" | "event_date" | "guest_count" }
+```
+Damit die UI gezielt die betroffene Sektion (Kundenprofil / Firmenadresse) hervorheben kann.
+
+### 4) Keine Änderung an
+- eSignatures-Client, Template-Logik, Payment-Terms, Idempotenz.
+- RLS, DB-Schema, Cron.
+
+## Test / Verifikation (nach Implementierung)
+
+Mit dem Speranza-Testdatensatz (`dfa42faf`) manuell:
+1. Ohne Änderung am Kunden → Klick auf „Kostenübernahme an Kunden schicken" muss **sofort** einen sichtbaren Fehler „Kunden-Mobilnummer zu kurz" bringen (Toast + Inline).
+2. Mobilnummer im Kundenprofil auf `+49 170 1234567` setzen → erneut klicken → Fehler „Rechnungsadresse fehlt".
+3. Firmenadresse an der Anfrage pflegen → Versand geht durch, `cost_acceptances`-Row mit `status='sent'` und `esignatures_contract_id` entsteht.
+
+Kein Deploy ohne deine Freigabe — Änderungen laufen auf `fix/maestro-handoff-recovery-and-refund`.

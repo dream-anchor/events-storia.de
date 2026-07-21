@@ -40,6 +40,116 @@ import { CostAcceptanceAuditDrawer } from "./CostAcceptanceAuditDrawer";
 import { PrivacyBlur } from "@/components/admin/PrivacyBlur";
 import { evaluateCostAcceptanceRequirement } from "@/lib/costAcceptanceRequirement";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+async function runPreflightChecks(
+  inquiryId: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const { data: event } = await (supabase as any)
+      .from("v2_events")
+      .select(
+        "customer_id, company_street, company_postal_code, company_city, billing_address_different, billing_street, billing_postal_code, billing_city, amount_total, date, guest_count",
+      )
+      .eq("id", inquiryId)
+      .maybeSingle();
+    if (!event) return { ok: false, message: "Anfrage nicht gefunden." };
+    if (!event.customer_id)
+      return { ok: false, message: "Kein Kunde an dieser Anfrage." };
+    if (!event.date)
+      return { ok: false, message: "Veranstaltungsdatum fehlt in Maestro." };
+    const guests = Number(event.guest_count);
+    if (!Number.isFinite(guests) || guests <= 0)
+      return { ok: false, message: "Gästezahl fehlt in Maestro." };
+
+    const { data: customer } = await (supabase as any)
+      .from("v2_customers")
+      .select("name, email, phone, address_street, address_zip, address_city")
+      .eq("id", event.customer_id)
+      .maybeSingle();
+    if (!customer)
+      return { ok: false, message: "Kundenprofil nicht gefunden." };
+
+    const name = String(customer.name ?? "").trim();
+    const email = String(customer.email ?? "").trim();
+    const phone = String(customer.phone ?? "").trim();
+
+    if (name.length < 2)
+      return { ok: false, message: "Kundenname fehlt im Kundenprofil." };
+    if (!EMAIL_RE.test(email))
+      return {
+        ok: false,
+        message: "Kunden-E-Mail fehlt oder ist ungültig im Kundenprofil.",
+      };
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 7 || digits.length > 20)
+      return {
+        ok: false,
+        message: `Kunden-Mobilnummer ist zu kurz oder ungültig${
+          phone ? ` ("${phone}")` : ""
+        } — bitte mit Ländervorwahl und mind. 7 Ziffern im Kundenprofil pflegen.`,
+      };
+
+    const useBilling = Boolean(event.billing_address_different);
+    const street = (
+      (useBilling ? event.billing_street : null) ??
+      event.company_street ??
+      customer.address_street ??
+      ""
+    )
+      .toString()
+      .trim();
+    const zip = (
+      (useBilling ? event.billing_postal_code : null) ??
+      event.company_postal_code ??
+      customer.address_zip ??
+      ""
+    )
+      .toString()
+      .trim();
+    const city = (
+      (useBilling ? event.billing_city : null) ??
+      event.company_city ??
+      customer.address_city ??
+      ""
+    )
+      .toString()
+      .trim();
+    if (!street || !(zip || city))
+      return {
+        ok: false,
+        message:
+          "Rechnungsadresse fehlt — bitte Firmenadresse (oder abweichende Rechnungsadresse) an dieser Anfrage pflegen (Straße + PLZ/Ort).",
+      };
+
+    // Amount: fallback zu aktiver Offer-Option
+    const totalNum = Number(event.amount_total);
+    if (!Number.isFinite(totalNum) || totalNum <= 0) {
+      const { data: opt } = await (supabase as any)
+        .from("v2_offer_options")
+        .select("amount_total")
+        .eq("event_id", inquiryId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const optTotal = Number(opt?.amount_total);
+      if (!Number.isFinite(optTotal) || optTotal <= 0)
+        return {
+          ok: false,
+          message:
+            "Kein Betrag am Angebot — bitte im Angebot einen Gesamtbetrag hinterlegen.",
+        };
+    }
+    return { ok: true };
+  } catch (e: any) {
+    return {
+      ok: false,
+      message: e?.message ?? "Vorabprüfung fehlgeschlagen.",
+    };
+  }
+}
+
 type Status =
   | "draft"
   | "pending_signature"
@@ -108,6 +218,7 @@ export function CostAcceptanceCard({
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [requested, setRequested] = useState<boolean>(!!costAcceptanceRequested);
   const [savingRequested, setSavingRequested] = useState(false);
+  const [lastSendClientError, setLastSendClientError] = useState<string | null>(null);
   useEffect(() => {
     setRequested(!!costAcceptanceRequested);
   }, [costAcceptanceRequested]);
@@ -253,7 +364,19 @@ export function CostAcceptanceCard({
   }
 
   async function onAdminSend() {
+    setLastSendClientError(null);
     try {
+      // Client-side pre-check to prevent silent 409s and give a clear error
+      const precheck = await runPreflightChecks(inquiryId);
+      if (!precheck.ok) {
+        setLastSendClientError(precheck.message);
+        toast.error(precheck.message, {
+          duration: 8000,
+          description:
+            "Bitte fehlende Felder im Kundenprofil oder an der Firmenadresse dieser Anfrage ergänzen.",
+        });
+        return;
+      }
       const data = await call("admin-send-cost-acceptance", {
         inquiry_id: inquiryId,
       });
@@ -269,7 +392,13 @@ export function CostAcceptanceCard({
       setRequested(true);
       await loadAll();
     } catch (e: any) {
-      toast.error(e?.message ?? "Versand fehlgeschlagen");
+      const msg = e?.message ?? "Versand fehlgeschlagen";
+      setLastSendClientError(msg);
+      toast.error(msg, {
+        duration: 8000,
+        description:
+          "Kostenübernahme konnte nicht an eSignatures übergeben werden.",
+      });
     }
   }
 
@@ -481,6 +610,16 @@ export function CostAcceptanceCard({
                 <div>
                   <div className="font-medium">Letzter Versandfehler</div>
                   <div className="text-xs mt-0.5 break-words">{row.last_send_error}</div>
+                </div>
+              </div>
+            )}
+
+            {lastSendClientError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900 flex gap-2">
+                <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-medium">Kostenübernahme konnte nicht versendet werden</div>
+                  <div className="text-xs mt-0.5 break-words">{lastSendClientError}</div>
                 </div>
               </div>
             )}
