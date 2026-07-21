@@ -20,12 +20,20 @@ export type BalanceMethod =
   | "invoice_after";
 
 export interface CostAcceptanceRequirementInput {
+  /**
+   * Expliziter Admin-Schalter auf der Anfrage. Nur wenn true, ist die
+   * Kostenübernahme aktiv angefordert und dem Kunden im Public-Offer
+   * sichtbar. Zahlungswahl hat KEINEN Einfluss mehr auf diese Anforderung.
+   */
+  requested?: boolean | null;
+  /** Behalten für Rückwärtskompatibilität — wird nicht mehr für Ableitung genutzt. */
   depositMethod: DepositMethod | null | undefined;
+  /** Behalten für Rückwärtskompatibilität — wird nicht mehr für Ableitung genutzt. */
   balanceMethod: BalanceMethod | null | undefined;
 }
 
 export interface CostAcceptanceRequirement {
-  /** True wenn die Kostenübernahme rechtlich nötig ist, um einen Vertrag zu schließen. */
+  /** True wenn Admin die Kostenübernahme aktiv angefordert hat. */
   required: boolean;
   /** Kurzer DE-Grund für Admin-Hinweis und Banner. */
   reasonDe: string;
@@ -34,28 +42,19 @@ export interface CostAcceptanceRequirement {
 export function evaluateCostAcceptanceRequirement(
   input: CostAcceptanceRequirementInput,
 ): CostAcceptanceRequirement {
-  const dep = (input.depositMethod ?? "none") as DepositMethod;
-  if (dep === "stripe") {
-    return {
-      required: false,
-      reasonDe:
-        "Stripe-Anzahlung schließt den Vertrag automatisch — Kostenübernahme ist optional.",
-    };
-  }
-  const bal = (input.balanceMethod ?? "stripe_prepay") as BalanceMethod;
-  // Sonderfall: Anzahlung "none" + Restzahlung "stripe_prepay" (Link in Mail
-  // vor Event). Die Zahlung erfolgt erst kurz vor dem Event — bis dahin gibt
-  // es keinen verbindlichen Vertragsschluss. → Pflicht.
-  if (dep === "none" && bal === "stripe_prepay") {
+  // Kostenübernahme ist eine eigenständige Admin-Aktion, unabhängig
+  // von jeder Zahlungswahl. Sie ist genau dann aktiv, wenn der Admin sie
+  // explizit angefordert hat.
+  if (input.requested === true) {
     return {
       required: true,
       reasonDe:
-        "Zahlung erfolgt erst vor dem Event — Kostenübernahme ist verbindlich erforderlich.",
+        "Kostenübernahme wurde angefordert und ist für den Kunden im Angebot sichtbar.",
     };
   }
   return {
-    required: true,
+    required: false,
     reasonDe:
-      "Ohne sofortige Online-Zahlung ist die Kostenübernahme der verbindliche Vertragsschluss.",
+      "Kostenübernahme ist nicht angefordert. Zahlungsart bleibt davon unabhängig.",
   };
 }
