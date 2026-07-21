@@ -222,6 +222,83 @@ export async function createEsignaturesContract(
 }
 
 /**
+ * Lädt einen bestehenden Contract, damit wir den echten eSignatures-Signer
+ * identifizieren können. Nicht für Polling verwenden — nur für konkrete
+ * Admin-Aktionen wie "erneut senden".
+ */
+export async function queryEsignaturesContract(
+  contractId: string,
+  // deno-lint-ignore no-explicit-any
+): Promise<{ contract: any; raw: unknown }> {
+  if (!contractId || contractId.trim().length === 0) {
+    throw new Error("contractId fehlt");
+  }
+  const apiKey = getEsignaturesApiKey();
+
+  const res = await fetch(
+    `${ESIGNATURES_API_BASE}/contracts/${encodeURIComponent(contractId)}`,
+    { headers: { Authorization: basicAuthHeader(apiKey) } },
+  );
+
+  const { json, text } = await readJsonOrText(res);
+  if (!res.ok) {
+    const detail = extractErrorDetail(json, text);
+    throw new Error(
+      `eSignatures contract query failed: ${res.status}${
+        res.statusText ? ` ${res.statusText}` : ""
+      }${detail ? ` - ${detail}` : ""}`,
+    );
+  }
+
+  const contract = extractContract(json);
+  if (!contract) {
+    const detail = extractErrorDetail(json, text);
+    throw new Error(
+      `eSignatures API response missing contract${detail ? ` - ${detail}` : ""}`,
+    );
+  }
+
+  return { contract, raw: json };
+}
+
+/** Sendet die offizielle eSignatures-Signaturanfrage erneut an einen Signer. */
+export async function resendEsignaturesSignRequest(
+  contractId: string,
+  signerId: string,
+): Promise<{ status: string | null; raw: unknown }> {
+  if (!contractId || contractId.trim().length === 0) {
+    throw new Error("contractId fehlt");
+  }
+  if (!signerId || signerId.trim().length === 0) {
+    throw new Error("signerId fehlt");
+  }
+  const apiKey = getEsignaturesApiKey();
+
+  const res = await fetch(
+    `${ESIGNATURES_API_BASE}/contracts/${encodeURIComponent(contractId)}/signers/${encodeURIComponent(signerId)}/send_contract`,
+    {
+      method: "POST",
+      headers: { Authorization: basicAuthHeader(apiKey) },
+    },
+  );
+
+  const { json, text } = await readJsonOrText(res);
+  const apiError =
+    isRecord(json) && (json.status === "error" || json.status === "failed");
+  if (!res.ok || apiError) {
+    const detail = extractErrorDetail(json, text);
+    throw new Error(
+      `eSignatures resend sign request failed: ${res.status}${
+        res.statusText ? ` ${res.statusText}` : ""
+      }${detail ? ` - ${detail}` : ""}`,
+    );
+  }
+
+  const status = isRecord(json) && typeof json.status === "string" ? json.status : null;
+  return { status, raw: json ?? text };
+}
+
+/**
  * Zieht einen Contract zurück (best-effort).
  * Auth + Endpoint orientieren sich an der vorhandenen Function
  * `withdraw-cost-acceptance` (Token-Query, POST /contracts/:id/withdraw).
