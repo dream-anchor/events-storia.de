@@ -61,6 +61,9 @@ export function CostAcceptanceSection({ inquiry, options, required, deadlineIso 
   const requirement = useMemo(
     () =>
       evaluateCostAcceptanceRequirement({
+        requested:
+          (inquiry as unknown as { cost_acceptance_requested?: boolean | null })
+            .cost_acceptance_requested ?? null,
         depositMethod: (inquiry as unknown as { deposit_method?: DepositMethod | null }).deposit_method ?? null,
         balanceMethod: (inquiry as unknown as { balance_method?: BalanceMethod | null }).balance_method ?? null,
       }),
