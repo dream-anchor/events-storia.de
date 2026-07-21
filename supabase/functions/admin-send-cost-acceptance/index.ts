@@ -15,6 +15,7 @@ import {
   renderCostAcceptanceMarkdown,
   resolveMfaMethod,
   TEMPLATE_VERSION,
+  buildPaymentTerms,
 } from "../_shared/cost-acceptance-template.ts";
 import {
   createEsignaturesContract,
@@ -79,7 +80,7 @@ Deno.serve(async (req) => {
     const { data: event, error: evErr } = await supabase
       .from("v2_events")
       .select(
-        "id, amount_total, occasion, date, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug, company_name, company_street, company_postal_code, company_city, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city",
+        "id, amount_total, occasion, date, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug, company_name, company_street, company_postal_code, company_city, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, balance_method, balance_due_days_before_event, invoice_due_days, deposit_method, deposit_percent, deposit_amount, deposit_due_days",
       )
       .eq("id", inquiry_id)
       .maybeSingle();
@@ -301,6 +302,15 @@ Deno.serve(async (req) => {
     const confirmations: Record<string, boolean> = {
       admin_initiated: true,
     };
+    const { payment_terms, deposit_terms } = buildPaymentTerms({
+      balance_method: (event as any).balance_method,
+      balance_due_days_before_event: (event as any).balance_due_days_before_event,
+      invoice_due_days: (event as any).invoice_due_days,
+      deposit_method: (event as any).deposit_method,
+      deposit_percent: (event as any).deposit_percent,
+      deposit_amount: (event as any).deposit_amount,
+      deposit_due_days: (event as any).deposit_due_days,
+    });
     const placeholders = {
       offer_number: option?.label ?? event.id.slice(0, 8),
       customer_number: event.customer_id?.slice(0, 8) ?? "—",
@@ -323,6 +333,8 @@ Deno.serve(async (req) => {
       signer_company_name: signerCompany || "—",
       signature_date: today,
       additional_terms: "- durch Storia versendet: ✓",
+      payment_terms,
+      deposit_terms,
     };
     const markdownSnapshot = renderCostAcceptanceMarkdown(placeholders);
 
