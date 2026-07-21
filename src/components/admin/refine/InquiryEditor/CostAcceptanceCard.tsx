@@ -353,6 +353,25 @@ export function CostAcceptanceCard({
     }
   }
 
+  async function onSyncStatus() {
+    if (!row?.id) return;
+    try {
+      const data = await call("sync-cost-acceptance-status", {
+        cost_acceptance_id: row.id,
+      });
+      if (data?.applied_status === "signed") {
+        toast.success("Kostenübernahme ist unterschrieben — Status & PDF aktualisiert.");
+      } else if (data?.applied_status === "signed_pending_pdf") {
+        toast.info("Unterschrieben — signiertes PDF wird nachgeladen.");
+      } else {
+        toast.success(`Status aktualisiert (${data?.applied_status ?? "unverändert"}).`);
+      }
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Statusabgleich fehlgeschlagen");
+    }
+  }
+
   async function onReopenSignature() {
     if (!row?.sign_page_url) {
       toast.info(
@@ -681,6 +700,21 @@ export function CostAcceptanceCard({
                   disabled={busy !== null}
                 >
                   <Download className="h-4 w-4 mr-1" /> Signiertes PDF
+                </Button>
+              )}
+              {row?.esignatures_contract_id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onSyncStatus}
+                  disabled={busy !== null}
+                >
+                  {busy === "sync-cost-acceptance-status" ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  Status prüfen
                 </Button>
               )}
               {row && (
