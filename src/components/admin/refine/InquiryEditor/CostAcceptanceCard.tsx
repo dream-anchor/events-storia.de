@@ -108,6 +108,7 @@ export function CostAcceptanceCard({
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [requested, setRequested] = useState<boolean>(!!costAcceptanceRequested);
   const [savingRequested, setSavingRequested] = useState(false);
+  const [lastSendClientError, setLastSendClientError] = useState<string | null>(null);
   useEffect(() => {
     setRequested(!!costAcceptanceRequested);
   }, [costAcceptanceRequested]);
@@ -253,7 +254,19 @@ export function CostAcceptanceCard({
   }
 
   async function onAdminSend() {
+    setLastSendClientError(null);
     try {
+      // Client-side pre-check to prevent silent 409s and give a clear error
+      const precheck = await runPreflightChecks(inquiryId);
+      if (!precheck.ok) {
+        setLastSendClientError(precheck.message);
+        toast.error(precheck.message, {
+          duration: 8000,
+          description:
+            "Bitte fehlende Felder im Kundenprofil oder an der Firmenadresse dieser Anfrage ergänzen.",
+        });
+        return;
+      }
       const data = await call("admin-send-cost-acceptance", {
         inquiry_id: inquiryId,
       });
@@ -269,7 +282,13 @@ export function CostAcceptanceCard({
       setRequested(true);
       await loadAll();
     } catch (e: any) {
-      toast.error(e?.message ?? "Versand fehlgeschlagen");
+      const msg = e?.message ?? "Versand fehlgeschlagen";
+      setLastSendClientError(msg);
+      toast.error(msg, {
+        duration: 8000,
+        description:
+          "Kostenübernahme konnte nicht an eSignatures übergeben werden.",
+      });
     }
   }
 
