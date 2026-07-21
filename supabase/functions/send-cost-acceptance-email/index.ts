@@ -2,8 +2,11 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireAuth, AuthError } from "../_shared/auth.ts";
-import { sendEmailWithFallback } from "../_shared/email-sender.ts";
 import { getTenantConfig, tenantSender, resolveTenantFromEntity } from "../_shared/tenant.ts";
+import {
+  queryEsignaturesContract,
+  resendEsignaturesSignRequest,
+} from "../_shared/esignatures-client.ts";
 import {
   bilingualSubject,
   BILINGUAL_SEPARATOR_HTML,
@@ -220,7 +223,7 @@ serve(async (req) => {
     const { data: row, error: loadErr } = await supabase
       .from("cost_acceptances")
       .select(
-        "id, inquiry_id, status, signer_email, signer_name, sign_page_url, sign_page_url_embedded, amount_gross_cents, currency, event_title, event_date, offer_number, sent_at, sent_to, sent_message_id, send_count, last_send_error, webhook_events",
+        "id, inquiry_id, status, signer_email, signer_name, sign_page_url, sign_page_url_embedded, esignatures_contract_id, amount_gross_cents, currency, event_title, event_date, offer_number, sent_at, sent_to, sent_message_id, send_count, last_send_error, webhook_events",
       )
       .eq("id", costAcceptanceId)
       .maybeSingle();
@@ -245,6 +248,13 @@ serve(async (req) => {
       });
     }
 
+    const contractId = (row.esignatures_contract_id ?? "").trim();
+    if (!contractId) {
+      return json(400, {
+        error: "eSignatures-Vertrags-ID fehlt. Bitte Kostenübernahme neu erstellen.",
+      });
+    }
+
     const signerEmail = (row.signer_email ?? "").trim().toLowerCase();
     if (!signerEmail || !EMAIL_RE.test(signerEmail)) {
       return json(400, { error: "Signer E-Mail-Adresse fehlt oder ist ungültig." });
@@ -258,40 +268,25 @@ serve(async (req) => {
     const tenantCfg = await getTenantConfig(supabase, eventTenantId);
     const sender = tenantSender(tenantCfg);
 
-    const customerLang = await resolveCustomerLanguage(supabase, row.inquiry_id);
-    const subject = bilingualSubject(customerLang, {
-      de: "Kostenübernahme digital unterschreiben – STORIA Catering & Events",
-      en: "Sign your cost acceptance online – STORIA Catering & Events",
-      it: "Firma online la dichiarazione di assunzione costi – STORIA Catering & Events",
-      fr: "Signer la prise en charge en ligne – STORIA Catering & Events",
-    });
-    const html = buildBilingualHtml({
-      lang: customerLang,
-      signerName: row.signer_name ?? null,
-      signUrl,
-      offerNumber: row.offer_number ?? null,
-      eventTitle: row.event_title ?? null,
-      eventDateRaw: (row.event_date as string | null) ?? null,
-      amountFormatted: formatAmount(row.amount_gross_cents as any, row.currency as any),
-      contactEmail: tenantCfg.fromEmail,
-    });
-
-    const result = await sendEmailWithFallback({
-      from: sender.from,
-      to: signerEmail,
-      subject,
-      html,
-      replyTo: sender.replyTo,
-    });
-
     const nowIso = new Date().toISOString();
     const events = Array.isArray(row.webhook_events) ? [...(row.webhook_events as any[])] : [];
 
-    if (!result.success) {
-      const errMsg =
-        (result.smtpError || result.resendError || "Versand fehlgeschlagen").slice(0, 500);
+    let signerId = "";
+    try {
+      const { contract } = await queryEsignaturesContract(contractId);
+      const signers = Array.isArray(contract?.signers) ? contract.signers : [];
+      const signer = signers.find((s: any) =>
+        String(s?.email ?? "").trim().toLowerCase() === signerEmail ||
+        String(s?.sign_page_url ?? "").trim() === signUrl
+      ) ?? signers[0];
+      signerId = String(signer?.id ?? "").trim();
+      if (!signerId) {
+        throw new Error("Signer-ID fehlt in der eSignatures-Antwort.");
+      }
+    } catch (err) {
+      const errMsg = ((err as Error).message || "eSignatures-Vertrag konnte nicht gelesen werden.").slice(0, 500);
       events.push({
-        event: "cost_acceptance_email_failed",
+        event: "cost_acceptance_esignatures_resend_failed",
         at: nowIso,
         mode,
         error: errMsg,
@@ -305,19 +300,42 @@ serve(async (req) => {
           webhook_events: events,
         })
         .eq("id", row.id);
-      return json(502, { error: `E-Mail-Versand fehlgeschlagen: ${errMsg}` });
+      return json(502, { error: `eSignatures-Versand fehlgeschlagen: ${errMsg}` });
+    }
+
+    try {
+      await resendEsignaturesSignRequest(contractId, signerId);
+    } catch (err) {
+      const errMsg = ((err as Error).message || "eSignatures-Versand fehlgeschlagen.").slice(0, 500);
+      events.push({
+        event: "cost_acceptance_esignatures_resend_failed",
+        at: nowIso,
+        mode,
+        error: errMsg,
+        actor: auth.email,
+      });
+      await supabase
+        .from("cost_acceptances")
+        .update({
+          last_send_error: errMsg,
+          last_send_error_at: nowIso,
+          webhook_events: events,
+        })
+        .eq("id", row.id);
+      return json(502, { error: `eSignatures-Versand fehlgeschlagen: ${errMsg}` });
     }
 
     const keepStatuses = new Set(["sent", "viewed", "signature_started", "signer_signed"]);
     const nextStatus = keepStatuses.has(row.status as string) ? row.status : "sent";
 
     events.push({
-      event: "cost_acceptance_email_sent",
+      event: "cost_acceptance_esignatures_email_resent",
       at: nowIso,
       to: signerEmail,
       mode,
-      provider: result.provider,
-      message_id: result.messageId,
+      provider: "esignatures",
+      contract_id: contractId,
+      signer_id: signerId,
       actor: auth.email,
     });
 
@@ -326,7 +344,7 @@ serve(async (req) => {
       .update({
         sent_at: nowIso,
         sent_to: signerEmail,
-        sent_message_id: result.messageId,
+        sent_message_id: null,
         send_count: (Number(row.send_count) || 0) + 1,
         last_send_error: null,
         last_send_error_at: null,
@@ -350,8 +368,9 @@ serve(async (req) => {
           metadata: {
             cost_acceptance_id: row.id,
             mode,
-            provider: result.provider,
-            message_id: result.messageId,
+            provider: "esignatures",
+            contract_id: contractId,
+            signer_id: signerId,
             tenant_id: eventTenantId,
           },
         });
@@ -362,8 +381,9 @@ serve(async (req) => {
 
     return json(200, {
       success: true,
-      provider: result.provider,
-      message_id: result.messageId,
+      provider: "esignatures",
+      contract_id: contractId,
+      signer_id: signerId,
       mode,
     });
   } catch (e) {
