@@ -1,52 +1,58 @@
 ## Ziel
 
-Die Kostenübernahme ist heute logisch an die Zahlungswahl gekoppelt: `evaluateCostAcceptanceRequirement` leitet aus `deposit_method` / `balance_method` ab, ob die Kostenübernahme "Pflicht" oder "Optional" ist. Public-Offer und Admin zeigen dadurch die Kostenübernahme als von der Zahlung abhängigen Block.
+1. Im Anfrage-Editor nur noch **einen primären Button** „Kostenübernahme an Kunden schicken" statt der großen Integration-Check-Karte.
+2. Alle Integrations-/Template-Einstellungen wandern in **Einstellungen → eSignatures**, inkl. editierbarem Template-ID-Feld (vorbelegt mit `0f9f9ad4-02a8-4678-889a-52d3b4bd459e`).
+3. eSign-Anbindung: laut Integration-Check (Screenshot) sind API-Key, Webhook-Secret, Template und Webhook-URL bereits gesetzt — es fehlt nur der Admin-Send-Weg und die UI-Vereinfachung.
 
-Neu: Die Kostenübernahme ist eine **eigenständige Option**, die Admin **unabhängig von jeder Zahlungswahl** an den Kunden schicken kann (auch bei Anzahlung 0 % + Restzahlung 100 % vor Ort). Der Admin entscheidet pro Anfrage, ob und wann sie angefordert wird.
+## Antwort auf deine Frage
+Ich brauche von dir **nichts mehr** — Template-ID hast du geliefert, alle Secrets sind gesetzt. Eine Entscheidung möchte ich aber im Plan festhalten (unten, "Offen").
+
+---
 
 ## Änderungen
 
-### 1. Datenmodell — neuer expliziter Admin-Schalter
-Neues Feld auf der Inquiry: `cost_acceptance_requested` (boolean, default `false`) plus optional `cost_acceptance_requested_at` (timestamptz). Damit ist "Kostenübernahme senden" ein bewusster Admin-Akt, keine Ableitung aus Zahlungsdaten.
+### A. Neue Edge-Function `admin-send-cost-acceptance`
+Startet den Signatur-Flow vom Admin aus (nicht mehr erst durch Kunden-Klick im Public Offer).
 
-### 2. `src/lib/costAcceptanceRequirement.ts`
-Entkoppeln. Rückgabe wird zu:
-- `required: boolean` — nur `true`, wenn Admin `cost_acceptance_requested = true` gesetzt hat.
-- `reasonDe`: kurzer Text, warum sie aktiv/inaktiv ist.
-- Zahlungs-Parameter bleiben zulässig, werden aber **nicht mehr** verwendet, um Pflicht abzuleiten (Signatur der Funktion bleibt kompatibel, damit Aufrufer nicht brechen).
+- Auth: `requireAuth` (admin/staff).
+- Input: `{ inquiry_id }`.
+- Zieht aus `v2_events` + aktiver `v2_offer_options`-Zeile: Signer (Kunde), Event, Rechnungsadresse, Betrag (Maestro-Total, unverändert).
+- Ruft `createEsignaturesContract` mit aktuellem Template aus `crm_settings.esignatures_cost_acceptance_template`.
+- Legt/aktualisiert `cost_acceptances`-Row (Idempotenz analog Public-Offer-Function: aktive/signed Row → 409-artig; defekte Pending-Row wird bereinigt).
+- Setzt `cost_acceptance_requested=true` + Zeitstempel auf `v2_events`.
+- Response: `{ id, status, sign_page_url }`.
+- eSignatures verschickt die Signatur-E-Mail selbst (`emails: "signer"`); der bestehende `send-cost-acceptance-email` bleibt für „Erneut senden" nutzbar.
 
-### 3. Admin — `CostAcceptanceCard.tsx`
-- Badge "Pflicht / Optional" (aus Zahlungswahl abgeleitet) entfällt.
-- Neuer, eigenständiger Umschalter am Kopf der Card: **"Kostenübernahme anfordern"** (Toggle, schreibt `cost_acceptance_requested`). Nur wenn aktiv erscheint der Kunde-sichtbare Block auf der Public-Offer.
-- Die Aktion **"Per E-Mail senden"** ist immer möglich, sobald Angebot final ist — unabhängig von `deposit_method` / `balance_method`.
-- Hinweis-Banner "Pflicht für Vertragsschluss" fällt weg; ersetzt durch neutralen Statuszeile ("Angefordert am …", "Signiert am …", "Nicht angefordert").
+### B. `CostAcceptanceCard.tsx` radikal verschlanken
+Neuer Aufbau (eine Karte, keine Integration-Check-Sektion, kein „Template initialisieren/synchronisieren"-Panel mehr):
 
-### 4. Public-Offer — `PublicOffer.tsx` + `CostAcceptanceSection.tsx`
-- Sichtbarkeit der Kostenübernahme-Section: **nur** wenn `inquiry.cost_acceptance_requested === true` (statt Ableitung aus Zahlungswahl). Phasen-Gate (`proposal_sent` … `order_confirmed`) und E-Mail-Only-Ausschluss bleiben.
-- `required`-Prop wird immer `true` gesetzt, sobald der Block gezeigt wird (Admin hat ihn bewusst angefordert). Badge "Optional/Pflicht" entfällt visuell — es ist immer der aktive, angeforderte Vorgang.
-- Section funktioniert weiterhin ohne Kopplung an Zahlungsflow: 0 % Anzahlung + 100 % vor Ort + Kostenübernahme jetzt ist ein regulär unterstützter Zustand.
+- Header: Titel + Status-Badge.
+- **Vor Versand**: großer Primary-Button „Kostenübernahme an Kunden schicken" → ruft `admin-send-cost-acceptance`.
+- **Nach Versand**: kompakte Info-Zeile (Signer, versendet am, Status) + Sekundär-Buttons „Erneut senden", „Signatur-Seite öffnen", „Zurückziehen", „Signiertes PDF" (nur wenn vorhanden), „Audit".
+- Der bestehende „Kostenübernahme anfordern"-Switch entfällt — Klick auf den Send-Button setzt das Flag automatisch.
+- Kein Integration-Health-Check mehr in dieser Karte (wandert komplett in Settings).
 
-### 5. Aufrufer bereinigen
-`SmartInquiryEditor.tsx` und `OfferBuilder.tsx` reichen `depositMethod` / `balanceMethod` weiterhin nur informativ durch; die Anzeigelogik in der Card nutzt sie nicht mehr für Pflicht-Ableitung. Kein weiterer Funktionsumbau in Editor/Builder.
+### C. Settings → neuer Tab „eSignatures"
+In `src/components/admin/refine/Settings.tsx` neue Section:
 
-### 6. Kein Umbau der Edge Functions
-Sende- und Signatur-Flows (`send-cost-acceptance-email`, `create-cost-acceptance-from-public-offer`, eSignatures-Client) bleiben unverändert — sie sind bereits payment-agnostic.
+- **Integration-Status** (read-only): API-Key ✓/✗, Webhook-Secret ✓/✗, Webhook-URL (kopierbar), aktive Template-Version.
+- **Template-ID** (editierbar): Textfeld, vorbefüllt aus `crm_settings.esignatures_cost_acceptance_template.template_id`. Falls leer → Default `0f9f9ad4-02a8-4678-889a-52d3b4bd459e` als Placeholder + „Übernehmen"-Button.
+  - Speichern via neuer Edge-Function `set-esignatures-template-id` (admin-only, schreibt in `crm_settings`, ergänzt `history`-Eintrag).
+- Buttons: „Template initialisieren" (bestehende `create-esignatures-cost-acceptance-template`), „Template synchronisieren" (bestehende `sync-esignatures-template`).
+- Kein Verhalten für bereits signierte Verträge — die behalten ihre alte `template_id` (revisionssicher, unverändert).
 
-## Red-Team-Checks
+### D. Public-Offer bleibt Fallback
+Die vorhandene `create-cost-acceptance-from-public-offer` bleibt bestehen, damit Kunden bei Bedarf auch selbst starten können. Standardpfad ist ab jetzt aber Admin-Send.
 
-- **Kein verbindlicher Vertrag mehr durch Zahlungsweg?** Der Vertragsschluss läuft weiterhin über die signierte Kostenübernahme; er ist jetzt aber explizit ein Admin-getriebener Akt, nicht implizit an Zahlungsdaten gebunden. Bereits signierte Dokumente bleiben immutable.
-- **Alt-Anfragen ohne Flag:** `cost_acceptance_requested` defaultet auf `false`. Public-Offer-Block wird für Alt-Anfragen erst sichtbar, wenn Admin ihn aktiv anschaltet. Bereits gestartete/gesignete Kostenübernahmen bleiben über den Status sichtbar (Card zeigt sie weiter, auch ohne aktives Flag — Statusquelle ist `cost_acceptances`-Zeile).
-- **Rückzug/Neuversion:** Bestehende Sperr- und Versionslogik (`lockedAfterSignature`, immutability) bleibt unberührt.
-- **Race-Condition Kunde signiert nach Admin-Deaktivierung:** Solange eine aktive Signatur-URL existiert, wird der Section-Status aus der Row angezeigt, nicht aus dem Flag → keine tote Signatur-Session.
+---
 
-## Nicht Teil dieser Änderung
+## Betroffene Dateien
 
-- Kein Umbau der Zahlungslogik (`deposit_method`, `balance_method`, Stripe-Flows).
-- Kein Umbau des eSignatures-Contract-Layouts.
-- Keine Änderung an bereits signierten oder laufenden Kostenübernahmen.
+- **Neu**: `supabase/functions/admin-send-cost-acceptance/index.ts`
+- **Neu**: `supabase/functions/set-esignatures-template-id/index.ts`
+- **Ändern**: `src/components/admin/refine/InquiryEditor/CostAcceptanceCard.tsx` (großer Rewrite, ~60 % Code weg)
+- **Ändern**: `src/components/admin/refine/Settings.tsx` (neue eSignatures-Sektion)
+- optional: `esignatures-integration-status` bleibt unverändert und wird nur noch von Settings genutzt
 
-## Technische Notizen
-
-- Migration: `ALTER TABLE public.v2_events ADD COLUMN cost_acceptance_requested boolean NOT NULL DEFAULT false, ADD COLUMN cost_acceptance_requested_at timestamptz;` (Tabelle prüfen — Feld gehört auf die Inquiry-Tabelle, die auch heute `deposit_method`/`balance_method` trägt; vor Umsetzung bestätigen).
-- Frontend-Schreiben des Flags über bestehenden Refine-Update-Pfad, keine neue Edge Function.
-- Types werden nach Migration regeneriert; TS-Casts `as any` in Editor entfallen für das neue Feld.
+## Offene Entscheidung (bitte kurz bestätigen im Build)
+Bei Admin-Send werden die 4 Kunden-Bestätigungs-Checkboxen (AGB, Widerruf, Auftragsverarbeitung, Datenschutz) **nicht** vorab vom Kunden gesetzt — der Kunde bestätigt sie stattdessen direkt im eSignatures-Signaturprozess (Template enthält sie bereits als Markdown-Klauseln). Falls du willst, dass sie zusätzlich als separate Checkboxen im Public Offer erscheinen müssen, bevor Admin senden darf: sag Bescheid, dann drehe ich das um. Default im Plan: **direkt versendbar, ohne Kunden-Vorab-Klick**.
