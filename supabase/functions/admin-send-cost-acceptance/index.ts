@@ -16,6 +16,8 @@ import {
   resolveMfaMethod,
   TEMPLATE_VERSION,
   buildPaymentTerms,
+  buildPaymentTermLabel,
+  BANK_DETAILS,
 } from "../_shared/cost-acceptance-template.ts";
 import {
   createEsignaturesContract,
@@ -80,7 +82,7 @@ Deno.serve(async (req) => {
     const { data: event, error: evErr } = await supabase
       .from("v2_events")
       .select(
-        "id, amount_total, occasion, date, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug, company_name, company_street, company_postal_code, company_city, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, balance_method, balance_due_days_before_event, invoice_due_days, deposit_method, deposit_percent, deposit_amount, deposit_due_days",
+        "id, amount_total, occasion, date, event_time, time_from, time_to, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug, company_name, company_street, company_postal_code, company_city, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, balance_method, balance_due_days_before_event, invoice_due_days, deposit_method, deposit_percent, deposit_amount, deposit_due_days",
       )
       .eq("id", inquiry_id)
       .maybeSingle();
@@ -247,6 +249,17 @@ Deno.serve(async (req) => {
         return serverEventDateIso;
       }
     })();
+    const serverEventTime = (() => {
+      const t = (event as any).event_time as string | null | undefined;
+      const from = (event as any).time_from as string | null | undefined;
+      const to = (event as any).time_to as string | null | undefined;
+      const norm = (v?: string | null) =>
+        v ? String(v).slice(0, 5) : "";
+      if (from && to) return `${norm(from)}–${norm(to)} Uhr`;
+      if (t) return `${norm(t)} Uhr`;
+      if (from) return `${norm(from)} Uhr`;
+      return "—";
+    })();
 
     // 5. Rechnungsadresse aus Kundenprofil
     // Rechnungsadresse: bevorzugt separate Billing-Adresse am Event, sonst Firmenadresse am Event,
@@ -315,6 +328,11 @@ Deno.serve(async (req) => {
       deposit_amount: (event as any).deposit_amount,
       deposit_due_days: (event as any).deposit_due_days,
     });
+    const payment_term_label = buildPaymentTermLabel({
+      balance_method: (event as any).balance_method,
+      balance_due_days_before_event: (event as any).balance_due_days_before_event,
+      invoice_due_days: (event as any).invoice_due_days,
+    });
     const placeholders = {
       offer_number: option?.label ?? event.id.slice(0, 8),
       customer_number: event.customer_id?.slice(0, 8) ?? "—",
@@ -325,6 +343,7 @@ Deno.serve(async (req) => {
       event_company: signerCompany || signerName,
       event_title: serverEventTitle,
       event_date: serverEventDateLabel,
+      event_time: serverEventTime,
       onsite_contact: signerName,
       guest_count: String(serverGuestCount),
       invoice_company: invoiceCompany,
@@ -339,6 +358,10 @@ Deno.serve(async (req) => {
       additional_terms: "- durch Storia versendet: ✓",
       payment_terms,
       deposit_terms,
+      payment_term_label,
+      bank_holder: BANK_DETAILS.bank_holder,
+      bank_name: BANK_DETAILS.bank_name,
+      bank_iban: BANK_DETAILS.bank_iban,
     };
     const markdownSnapshot = renderCostAcceptanceMarkdown(placeholders);
 
