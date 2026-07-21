@@ -1287,6 +1287,7 @@ export const SmartInquiryEditor = () => {
               lockedAfterSignature={(mergedInquiry as any)?.locked_after_signature}
               depositMethod={(mergedInquiry as any)?.deposit_method}
               balanceMethod={(mergedInquiry as any)?.balance_method}
+              costAcceptanceRequested={(mergedInquiry as any)?.cost_acceptance_requested}
             />
           )}
 
