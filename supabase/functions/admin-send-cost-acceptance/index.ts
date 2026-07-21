@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
     const { data: event, error: evErr } = await supabase
       .from("v2_events")
       .select(
-        "id, amount_total, occasion, date, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug",
+        "id, amount_total, occasion, date, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug, company_name, company_street, company_postal_code, company_city, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city",
       )
       .eq("id", inquiry_id)
       .maybeSingle();
@@ -245,14 +245,36 @@ Deno.serve(async (req) => {
     })();
 
     // 5. Rechnungsadresse aus Kundenprofil
-    const invoiceCompany = signerCompany || signerName;
-    const invoiceStreet = (customer.address_street ?? "").toString().trim();
-    const invoiceZip = (customer.address_zip ?? "").toString().trim();
-    const invoiceCity = (customer.address_city ?? "").toString().trim();
+    // Rechnungsadresse: bevorzugt separate Billing-Adresse am Event, sonst Firmenadresse am Event,
+    // sonst Fallback auf Kundenprofil.
+    const useSeparateBilling = Boolean((event as any).billing_address_different);
+    const invoiceCompany =
+      (useSeparateBilling ? (event as any).billing_company_name : null) ||
+      (event as any).company_name ||
+      signerCompany ||
+      signerName;
+    const invoiceStreet = (
+      (useSeparateBilling ? (event as any).billing_street : null) ??
+      (event as any).company_street ??
+      (customer as any).address_street ??
+      ""
+    ).toString().trim();
+    const invoiceZip = (
+      (useSeparateBilling ? (event as any).billing_postal_code : null) ??
+      (event as any).company_postal_code ??
+      (customer as any).address_zip ??
+      ""
+    ).toString().trim();
+    const invoiceCity = (
+      (useSeparateBilling ? (event as any).billing_city : null) ??
+      (event as any).company_city ??
+      (customer as any).address_city ??
+      ""
+    ).toString().trim();
     if (!invoiceStreet || !(invoiceZip || invoiceCity)) {
       return jsonResponse(409, {
         error:
-          "Rechnungsadresse (Straße + PLZ/Ort) fehlt im Kundenprofil — bitte zuerst pflegen.",
+          "Rechnungsadresse (Straße + PLZ/Ort) fehlt — bitte Firmenadresse (oder abweichende Rechnungsadresse) an dieser Anfrage pflegen.",
       });
     }
     const invoiceZipCity = `${invoiceZip} ${invoiceCity}`.trim();
