@@ -39,7 +39,7 @@ const step2Schema = z.object({
   company: z.string().trim().max(100).optional().or(z.literal("")),
   name: z.string().min(2, "Name erforderlich").max(100),
   email: z.string().email("Ungültige E-Mail").max(255),
-  phone: z.string().max(30).optional().or(z.literal("")),
+  phone: z.string().trim().min(5, "Bitte Telefonnummer angeben").max(30, "Telefonnummer zu lang"),
   message: z.string().max(2000).optional().or(z.literal("")),
 });
 
