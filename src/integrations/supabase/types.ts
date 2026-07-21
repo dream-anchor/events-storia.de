@@ -6081,6 +6081,8 @@ export type Database = {
           contact_name: string | null
           converted_to_booking_id: string | null
           cost_acceptance_id: string | null
+          cost_acceptance_requested: boolean | null
+          cost_acceptance_requested_at: string | null
           created_at: string | null
           current_offer_version: number | null
           customer_language: string | null
