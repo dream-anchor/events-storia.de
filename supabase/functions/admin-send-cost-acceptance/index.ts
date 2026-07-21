@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     const { data: event, error: evErr } = await supabase
       .from("v2_events")
       .select(
-        "id, amount_total, occasion, date, event_time, time_from, time_to, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug, company_name, company_street, company_postal_code, company_city, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, balance_method, balance_due_days_before_event, invoice_due_days, deposit_method, deposit_percent, deposit_amount, deposit_due_days",
+        "id, number, booking_number, amount_total, occasion, date, event_time, time_from, time_to, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug, offer_sent_at, offer_validity_days, company_name, company_street, company_postal_code, company_city, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, balance_method, balance_due_days_before_event, invoice_due_days, deposit_method, deposit_percent, deposit_amount, deposit_due_days",
       )
       .eq("id", inquiry_id)
       .maybeSingle();
@@ -238,17 +238,13 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(serverGuestCount) || serverGuestCount <= 0) {
       return jsonResponse(409, { error: "Gästezahl fehlt in Maestro.", field: "guest_count" });
     }
-    const serverEventDateLabel = (() => {
-      try {
-        return new Date(serverEventDateIso).toLocaleDateString("de-DE", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        });
-      } catch {
-        return serverEventDateIso;
-      }
-    })();
+    const formatDeDate = (iso: string | null | undefined): string => {
+      if (!iso) return "—";
+      const s = String(iso).slice(0, 10);
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+      return m ? `${m[3]}.${m[2]}.${m[1]}` : s;
+    };
+    const serverEventDateLabel = formatDeDate(serverEventDateIso);
     const serverEventTime = (() => {
       const t = (event as any).event_time as string | null | undefined;
       const from = (event as any).time_from as string | null | undefined;
@@ -315,7 +311,21 @@ Deno.serve(async (req) => {
     }
 
     // 7. Markdown-Snapshot
-    const today = new Date().toISOString().slice(0, 10);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const offerSentIso = (event as any).offer_sent_at
+      ? new Date((event as any).offer_sent_at as string).toISOString().slice(0, 10)
+      : todayIso;
+    const validityDays = Number((event as any).offer_validity_days) || 14;
+    const validUntilIso = (() => {
+      const d = new Date(offerSentIso + "T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + validityDays);
+      return d.toISOString().slice(0, 10);
+    })();
+    const offerNumberFromMaestro =
+      (event as any).number ||
+      (event as any).booking_number ||
+      option?.label ||
+      event.id.slice(0, 8);
     const confirmations: Record<string, boolean> = {
       admin_initiated: true,
     };
@@ -334,10 +344,10 @@ Deno.serve(async (req) => {
       invoice_due_days: (event as any).invoice_due_days,
     });
     const placeholders = {
-      offer_number: option?.label ?? event.id.slice(0, 8),
+      offer_number: String(offerNumberFromMaestro),
       customer_number: event.customer_id?.slice(0, 8) ?? "—",
-      offer_date: today,
-      valid_until: today,
+      offer_date: formatDeDate(offerSentIso),
+      valid_until: formatDeDate(validUntilIso),
       amount_gross: eur(amountCents),
       currency: "EUR",
       event_company: signerCompany || signerName,
@@ -354,7 +364,7 @@ Deno.serve(async (req) => {
       signer_email: signerEmail,
       signer_mobile: signerMobile,
       signer_company_name: signerCompany || "—",
-      signature_date: today,
+      signature_date: formatDeDate(todayIso),
       additional_terms: "- durch Storia versendet: ✓",
       payment_terms,
       deposit_terms,
@@ -392,8 +402,8 @@ Deno.serve(async (req) => {
         currency: "EUR",
         offer_number: placeholders.offer_number,
         customer_number: placeholders.customer_number,
-        offer_date: placeholders.offer_date,
-        valid_until: placeholders.valid_until,
+        offer_date: offerSentIso,
+        valid_until: validUntilIso,
         esignatures_template_id: templateConfig.template_id,
         template_version: templateConfig.template_version ?? TEMPLATE_VERSION,
         document_markdown_snapshot: markdownSnapshot,
