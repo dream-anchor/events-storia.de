@@ -31,6 +31,7 @@ import {
   Loader2,
   Mail,
   RefreshCw,
+  Send,
   ShieldAlert,
   ShieldCheck,
   XCircle,
@@ -251,6 +252,27 @@ export function CostAcceptanceCard({
     window.open(row.sign_page_url, "_blank");
   }
 
+  async function onAdminSend() {
+    try {
+      const data = await call("admin-send-cost-acceptance", {
+        inquiry_id: inquiryId,
+      });
+      if (data?.reused) {
+        toast.info(
+          data.status === "signed"
+            ? "Kostenübernahme wurde bereits unterschrieben."
+            : "Es läuft bereits eine Kostenübernahme — wird angezeigt.",
+        );
+      } else {
+        toast.success("Kostenübernahme an Kunden verschickt.");
+      }
+      setRequested(true);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Versand fehlgeschlagen");
+    }
+  }
+
   const status = (row?.status ?? "draft") as Status;
   const statusInfo = STATUS_VARIANT[status] ?? STATUS_VARIANT.draft;
   const isOlderTemplate =
@@ -263,6 +285,12 @@ export function CostAcceptanceCard({
   const blocksSend = ["signed", "signed_pending_pdf", "withdrawn", "cancelled", "expired"].includes(status);
   const canSendEmail = !!row && !!row.sign_page_url && !blocksSend;
   const sendCount = Number(row?.send_count ?? 0);
+  const canAdminSend =
+    !lockedAfterSignature &&
+    (!row ||
+      ["draft", "error", "withdrawn", "cancelled", "expired", "declined"].includes(
+        status,
+      ));
 
   async function onSendEmail() {
     if (!row?.id) return;
@@ -458,6 +486,20 @@ export function CostAcceptanceCard({
             )}
 
             <div className="flex flex-wrap gap-2 pt-2">
+              {canAdminSend && (
+                <Button
+                  size="sm"
+                  onClick={onAdminSend}
+                  disabled={busy !== null}
+                >
+                  {busy === "admin-send-cost-acceptance" ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-1" />
+                  )}
+                  Kostenübernahme an Kunden schicken
+                </Button>
+              )}
               {publicOfferUrl && (
                 <Button
                   variant="outline"
