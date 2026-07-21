@@ -116,6 +116,7 @@ export interface CostAcceptancePlaceholders {
   event_company: string;
   event_title: string;
   event_date: string;
+  event_time: string;
   onsite_contact: string;
   guest_count: string;
   invoice_company: string;
@@ -130,6 +131,10 @@ export interface CostAcceptancePlaceholders {
   additional_terms: string;
   payment_terms: string;
   deposit_terms: string;
+  payment_term_label: string;
+  bank_holder: string;
+  bank_name: string;
+  bank_iban: string;
 }
 
 export function renderCostAcceptanceMarkdown(
@@ -230,6 +235,37 @@ export function buildPaymentTerms(
 
   return { payment_terms, deposit_terms };
 }
+
+/**
+ * Kompaktes Label für {{payment_term_label}} in Kunden-Templates
+ * (z. B. "5 Tage nach der Veranstaltung").
+ */
+export function buildPaymentTermLabel(input: PaymentTermsInput): string {
+  const method = (input.balance_method ?? "").toString();
+  const days =
+    Number(input.balance_due_days_before_event) ||
+    Number(input.invoice_due_days) ||
+    5;
+  switch (method) {
+    case "invoice_after":
+      return `${days} Tage nach der Veranstaltung`;
+    case "invoice_before":
+      return `${days} Tage vor der Veranstaltung`;
+    case "on_site":
+      return "Zahlung vor Ort am Veranstaltungstag";
+    case "stripe_prepay":
+      return "Vollzahlung vor dem Veranstaltungstag per Zahlungslink";
+    default:
+      return `${days} Werktage nach Rechnungserhalt`;
+  }
+}
+
+/** Konstante Kontoverbindung Speranza GmbH */
+export const BANK_DETAILS = {
+  bank_holder: "Speranza GmbH",
+  bank_name: "Deutsche Bank",
+  bank_iban: "DE47 7007 0024 0095 6946 00",
+} as const;
 
 /** Stable hash for template-version diffing. */
 export async function templateContentHash(): Promise<string> {
