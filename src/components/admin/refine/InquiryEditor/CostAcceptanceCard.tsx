@@ -702,6 +702,21 @@ export function CostAcceptanceCard({
                   <Download className="h-4 w-4 mr-1" /> Signiertes PDF
                 </Button>
               )}
+              {row?.esignatures_contract_id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onSyncStatus}
+                  disabled={busy !== null}
+                >
+                  {busy === "sync-cost-acceptance-status" ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  Status prüfen
+                </Button>
+              )}
               {row && (
                 <Button
                   variant="ghost"
