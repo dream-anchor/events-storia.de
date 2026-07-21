@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     const { data: event, error: evErr } = await supabase
       .from("v2_events")
       .select(
-        "id, amount_total, occasion, date, event_time, time_from, time_to, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug, company_name, company_street, company_postal_code, company_city, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, balance_method, balance_due_days_before_event, invoice_due_days, deposit_method, deposit_percent, deposit_amount, deposit_due_days",
+        "id, number, booking_number, amount_total, occasion, date, event_time, time_from, time_to, guest_count, customer_id, locked_after_signature, offer_phase, offer_slug, offer_sent_at, offer_validity_days, company_name, company_street, company_postal_code, company_city, billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, balance_method, balance_due_days_before_event, invoice_due_days, deposit_method, deposit_percent, deposit_amount, deposit_due_days",
       )
       .eq("id", inquiry_id)
       .maybeSingle();
@@ -238,17 +238,13 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(serverGuestCount) || serverGuestCount <= 0) {
       return jsonResponse(409, { error: "Gästezahl fehlt in Maestro.", field: "guest_count" });
     }
-    const serverEventDateLabel = (() => {
-      try {
-        return new Date(serverEventDateIso).toLocaleDateString("de-DE", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        });
-      } catch {
-        return serverEventDateIso;
-      }
-    })();
+    const formatDeDate = (iso: string | null | undefined): string => {
+      if (!iso) return "—";
+      const s = String(iso).slice(0, 10);
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+      return m ? `${m[3]}.${m[2]}.${m[1]}` : s;
+    };
+    const serverEventDateLabel = formatDeDate(serverEventDateIso);
     const serverEventTime = (() => {
       const t = (event as any).event_time as string | null | undefined;
       const from = (event as any).time_from as string | null | undefined;
