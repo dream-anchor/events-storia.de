@@ -35,7 +35,11 @@ const formSchema = z.object({
   company: z.string().trim().max(120).optional(),
   name: z.string().min(2, "Name erforderlich"),
   email: z.string().email("Ungültige E-Mail-Adresse"),
-  phone: z.string().optional(),
+  phone: z
+    .string()
+    .trim()
+    .min(5, "Bitte Telefonnummer angeben")
+    .max(30, "Telefonnummer zu lang"),
   guests: z.string().min(1, "Bitte Gästezahl angeben"),
   eventType: z.string().min(1, "Bitte Event-Art wählen"),
   eventTypeOther: z.string().optional(),
