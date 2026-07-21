@@ -247,6 +247,17 @@ Deno.serve(async (req) => {
         return serverEventDateIso;
       }
     })();
+    const serverEventTime = (() => {
+      const t = (event as any).event_time as string | null | undefined;
+      const from = (event as any).time_from as string | null | undefined;
+      const to = (event as any).time_to as string | null | undefined;
+      const norm = (v?: string | null) =>
+        v ? String(v).slice(0, 5) : "";
+      if (from && to) return `${norm(from)}–${norm(to)} Uhr`;
+      if (t) return `${norm(t)} Uhr`;
+      if (from) return `${norm(from)} Uhr`;
+      return "—";
+    })();
 
     // 5. Rechnungsadresse aus Kundenprofil
     // Rechnungsadresse: bevorzugt separate Billing-Adresse am Event, sonst Firmenadresse am Event,
