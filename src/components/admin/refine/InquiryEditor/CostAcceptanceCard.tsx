@@ -614,6 +614,16 @@ export function CostAcceptanceCard({
               </div>
             )}
 
+            {lastSendClientError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900 flex gap-2">
+                <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-medium">Kostenübernahme konnte nicht versendet werden</div>
+                  <div className="text-xs mt-0.5 break-words">{lastSendClientError}</div>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2 pt-2">
               {canAdminSend && (
                 <Button
