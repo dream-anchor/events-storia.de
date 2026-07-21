@@ -1,90 +1,52 @@
-# STORIA Shop → MAESTRO 2.0 Handoff — V1-Patch (Preview only)
+## Ziel
 
-Status: **umgesetzt**, kein Produktionsdeploy. Alle 10 verbindlichen Korrekturen aus dem Approval eingebaut.
+Die Kostenübernahme ist heute logisch an die Zahlungswahl gekoppelt: `evaluateCostAcceptanceRequirement` leitet aus `deposit_method` / `balance_method` ab, ob die Kostenübernahme "Pflicht" oder "Optional" ist. Public-Offer und Admin zeigen dadurch die Kostenübernahme als von der Zahlung abhängigen Block.
 
-## Geänderte / neue Dateien
+Neu: Die Kostenübernahme ist eine **eigenständige Option**, die Admin **unabhängig von jeder Zahlungswahl** an den Kunden schicken kann (auch bei Anzahlung 0 % + Restzahlung 100 % vor Ort). Der Admin entscheidet pro Anfrage, ob und wann sie angefordert wird.
 
-| Datei | Art | Zweck |
-|---|---|---|
-| `supabase/migrations/*_maestro_handoff_outbox.sql` | neu | Tabelle `maestro_handoff_outbox` + RPC `claim_maestro_handoffs` (SECURITY DEFINER, FOR UPDATE SKIP LOCKED) |
-| `supabase/functions/_shared/maestroHandoff.ts` | neu | Signatur, deterministische Serialisierung, `enqueueMaestroHandoff`, `postToMaestro`, `handoffEnabled` (fail-closed), Backoff |
-| `supabase/functions/deliver-maestro-handoff/index.ts` | neu | Cron-Zusteller, `x-cron-secret` in konstanter Zeit, atomarer RPC-Claim |
-| `supabase/functions/retry-maestro-handoff/index.ts` | neu | Admin-JWT-geschützter manueller Retry, `delivery_event_id` bleibt |
-| `supabase/functions/handle-stripe-webhook/index.ts` | ergänzt | 4 additive `await maestro*`-Aufrufe (order, payment, refund, dispute) |
+## Änderungen
 
-## Umsetzung der 10 Korrekturen
+### 1. Datenmodell — neuer expliziter Admin-Schalter
+Neues Feld auf der Inquiry: `cost_acceptance_requested` (boolean, default `false`) plus optional `cost_acceptance_requested_at` (timestamptz). Damit ist "Kostenübernahme senden" ein bewusster Admin-Akt, keine Ableitung aus Zahlungsdaten.
 
-1. **Kein Fire-and-forget** — jeder Enqueue-Aufruf wird `await`et; DB-Insert-Fehler wird via `throw` weitergereicht → Stripe erhält 500 → Redelivery.
-2. **Verlustfreies Recovery** — Stripe-Redelivery ist der belastbare Reparaturpfad: bei Outbox-Insert-Fehler kommt vom v1-Webhook 500 zurück, Stripe redelivert dasselbe Event, `deliveryEventId` bleibt stabil, Enqueue ist idempotent (Unique + Hash-Vergleich). v1-Handler sind bereits idempotent → keine Doppelverarbeitung.
-3. **Atomarer Claim** — RPC `claim_maestro_handoffs(batch_size)` als `SECURITY DEFINER`; `FOR UPDATE SKIP LOCKED` + `UPDATE SET status='processing', attempt_count+1` in einer Transaktion.
-4. **Exakter Byte-Body** — `stableStringify` (Keys sortiert) erzeugt den signierten String einmal, wird als `raw_body TEXT NOT NULL` gespeichert und beim Retry byteweise wiederverwendet. `payload jsonb` bleibt additiv für Diagnose.
-5. **Kollisionen sichtbar** — gleiche `delivery_event_id`: identischer Hash = idempotenter No-Op, anderer Hash = `status='conflict'` + `last_error='payload_hash_mismatch_on_reenqueue'`. Kein stilles `ignoreDuplicates`.
-6. **Fail-closed Flag** — `MAESTRO_HANDOFF_ENABLED === "true"` (Stringvergleich); alles andere → deaktiviert.
-7. **Order und Payment getrennt** — `checkout.session.completed` enqueue-t immer die Order (`order_<sourceOrderId>`); bei echtem Zahlungserfolg folgt ein separater Transaction-Handoff (`pay_<stripeEventId>`).
-8. **Kein Float-Cents** — Beträge stammen 1:1 aus Stripe-Integer-Feldern (`session.amount_total`, `charge.amount_refunded`, `dispute.amount`); nur `Math.trunc` als defensiver Cast.
-9. **Cron-/Retry-Auth** — `deliver-maestro-handoff` verlangt `x-cron-secret` in konstanter Zeit; falsch → 401. `retry-maestro-handoff` nutzt `requireAuth` (admin/staff JWT). Kein Secret in Migrations-SQL, kein Secret in Logs.
-10. **Keine PII an externe Testdienste** — Testmatrix läuft gegen privaten Mock mit synthetischen Daten.
+### 2. `src/lib/costAcceptanceRequirement.ts`
+Entkoppeln. Rückgabe wird zu:
+- `required: boolean` — nur `true`, wenn Admin `cost_acceptance_requested = true` gesetzt hat.
+- `reasonDe`: kurzer Text, warum sie aktiv/inaktiv ist.
+- Zahlungs-Parameter bleiben zulässig, werden aber **nicht mehr** verwendet, um Pflicht abzuleiten (Signatur der Funktion bleibt kompatibel, damit Aufrufer nicht brechen).
 
-## Payload-Signatur
+### 3. Admin — `CostAcceptanceCard.tsx`
+- Badge "Pflicht / Optional" (aus Zahlungswahl abgeleitet) entfällt.
+- Neuer, eigenständiger Umschalter am Kopf der Card: **"Kostenübernahme anfordern"** (Toggle, schreibt `cost_acceptance_requested`). Nur wenn aktiv erscheint der Kunde-sichtbare Block auf der Public-Offer.
+- Die Aktion **"Per E-Mail senden"** ist immer möglich, sobald Angebot final ist — unabhängig von `deposit_method` / `balance_method`.
+- Hinweis-Banner "Pflicht für Vertragsschluss" fällt weg; ersetzt durch neutralen Statuszeile ("Angefordert am …", "Signiert am …", "Nicht angefordert").
 
-```
-rawBody   = stableStringify(payload)            // Keys deterministisch sortiert
-timestamp = floor(Date.now() / 1000)
-sig       = HMAC-SHA256(SHOP_ORDER_WEBHOOK_SECRET, `${timestamp}.${rawBody}`)  // hex, lowercase
-header    = X-Maestro-Signature: t=<timestamp>,v1=<sig>
-```
+### 4. Public-Offer — `PublicOffer.tsx` + `CostAcceptanceSection.tsx`
+- Sichtbarkeit der Kostenübernahme-Section: **nur** wenn `inquiry.cost_acceptance_requested === true` (statt Ableitung aus Zahlungswahl). Phasen-Gate (`proposal_sent` … `order_confirmed`) und E-Mail-Only-Ausschluss bleiben.
+- `required`-Prop wird immer `true` gesetzt, sobald der Block gezeigt wird (Admin hat ihn bewusst angefordert). Badge "Optional/Pflicht" entfällt visuell — es ist immer der aktive, angeforderte Vorgang.
+- Section funktioniert weiterhin ohne Kopplung an Zahlungsflow: 0 % Anzahlung + 100 % vor Ort + Kostenübernahme jetzt ist ein regulär unterstützter Zustand.
 
-## Delivery-Event-IDs
+### 5. Aufrufer bereinigen
+`SmartInquiryEditor.tsx` und `OfferBuilder.tsx` reichen `depositMethod` / `balanceMethod` weiterhin nur informativ durch; die Anzeigelogik in der Card nutzt sie nicht mehr für Pflicht-Ableitung. Kein weiterer Funktionsumbau in Editor/Builder.
 
-| Ereignis | Format | Idempotenz |
-|---|---|---|
-| Bestellung angelegt | `order_<sourceOrderId>` | 1× pro Bestellung |
-| Zahlung erfolgreich | `pay_<stripeEventId>` | 1× pro Stripe-Zahlungsereignis |
-| Refund | `refund_<stripeEventId>` | 1× pro Stripe-Refund-Event |
-| Chargeback | `dispute_<stripeEventId>` | 1× pro Stripe-Dispute-Event |
+### 6. Kein Umbau der Edge Functions
+Sende- und Signatur-Flows (`send-cost-acceptance-email`, `create-cost-acceptance-from-public-offer`, eSignatures-Client) bleiben unverändert — sie sind bereits payment-agnostic.
 
-## Benötigte Secrets (nicht im Repo)
+## Red-Team-Checks
 
-| Name | Zweck |
-|---|---|
-| `SHOP_ORDER_WEBHOOK_SECRET` | HMAC-Shared-Secret mit MAESTRO |
-| `MAESTRO_SHOP_ORDER_URL` | Ziel-URL (Preview) |
-| `MAESTRO_HANDOFF_CRON_SECRET` | schützt den Cron-Endpoint |
-| `MAESTRO_HANDOFF_ENABLED` | genau `"true"` schaltet frei |
+- **Kein verbindlicher Vertrag mehr durch Zahlungsweg?** Der Vertragsschluss läuft weiterhin über die signierte Kostenübernahme; er ist jetzt aber explizit ein Admin-getriebener Akt, nicht implizit an Zahlungsdaten gebunden. Bereits signierte Dokumente bleiben immutable.
+- **Alt-Anfragen ohne Flag:** `cost_acceptance_requested` defaultet auf `false`. Public-Offer-Block wird für Alt-Anfragen erst sichtbar, wenn Admin ihn aktiv anschaltet. Bereits gestartete/gesignete Kostenübernahmen bleiben über den Status sichtbar (Card zeigt sie weiter, auch ohne aktives Flag — Statusquelle ist `cost_acceptances`-Zeile).
+- **Rückzug/Neuversion:** Bestehende Sperr- und Versionslogik (`lockedAfterSignature`, immutability) bleibt unberührt.
+- **Race-Condition Kunde signiert nach Admin-Deaktivierung:** Solange eine aktive Signatur-URL existiert, wird der Section-Status aus der Row angezeigt, nicht aus dem Flag → keine tote Signatur-Session.
 
-## Aktivierung (später, ein Schritt)
+## Nicht Teil dieser Änderung
 
-1. Secrets setzen.
-2. Cron via `insert`-Tool, Secret aus Vault:
-   ```sql
-   select cron.schedule(
-     'maestro-handoff', '* * * * *',
-     $$ select net.http_post(
-          url := 'https://<project>.functions.supabase.co/deliver-maestro-handoff',
-          headers := jsonb_build_object('x-cron-secret', <vault-lookup>),
-          body := '{}'::jsonb) $$);
-   ```
-3. `MAESTRO_HANDOFF_ENABLED=true`.
+- Kein Umbau der Zahlungslogik (`deposit_method`, `balance_method`, Stripe-Flows).
+- Kein Umbau des eSignatures-Contract-Layouts.
+- Keine Änderung an bereits signierten oder laufenden Kostenübernahmen.
 
-## Rollback
+## Technische Notizen
 
-- `MAESTRO_HANDOFF_ENABLED` löschen → Enqueue und Cron sofort stumm.
-- Optional: `select cron.unschedule('maestro-handoff');`.
-- Migration bleibt (nur neue Tabelle + RPC, keine bestehenden Objekte geändert).
-
-## Bekannte Grenzen
-
-- **Billie**: kein separater Billie-Webhook. Billie-Zahlungen laufen über den Stripe-Checkout-Success-Pfad; ein reiner Billie-Genehmigt-aber-nicht-bezahlt-Zustand wird v1-seitig nicht erfasst.
-- **Order-only vor Stripe**: v1 legt Order-Records bereits im Checkout-Endpoint (vor Stripe) an. Der Order-Handoff wird bei `checkout.session.completed` ausgelöst — nicht bei der DB-Anlage.
-- Reconciliation-Sweep nicht als eigene Function; Stripe-Redelivery + Idempotenz decken den Recovery-Pfad ab.
-
-## Testmatrix (Preview, synthetische Daten, privater Mock)
-
-- Duplicate Stripe-Event → 1 Outbox-Zeile.
-- Teil- / Voll-Refund, Dispute → getrennte `delivery_event_id`.
-- Mock 500 / Timeout → Backoff (1m → 24h, 6 Versuche).
-- Mock 401 → `status='failed'`, kein Retry.
-- Mock 409 → `status='failed'`, Operator-Review.
-- Zwei parallele Cron-Aufrufe → `FOR UPDATE SKIP LOCKED` verteilt Zeilen.
-- Manueller Retry → gleicher `raw_body`, gleiche Signatur (byte-genau).
-- `MAESTRO_HANDOFF_ENABLED` fehlt → keinerlei Enqueue oder Zustellversuche.
+- Migration: `ALTER TABLE public.v2_events ADD COLUMN cost_acceptance_requested boolean NOT NULL DEFAULT false, ADD COLUMN cost_acceptance_requested_at timestamptz;` (Tabelle prüfen — Feld gehört auf die Inquiry-Tabelle, die auch heute `deposit_method`/`balance_method` trägt; vor Umsetzung bestätigen).
+- Frontend-Schreiben des Flags über bestehenden Refine-Update-Pfad, keine neue Edge Function.
+- Types werden nach Migration regeneriert; TS-Casts `as any` in Editor entfallen für das neue Feld.
