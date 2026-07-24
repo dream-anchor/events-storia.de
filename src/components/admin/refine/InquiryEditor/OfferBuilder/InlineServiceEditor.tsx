@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Plus, Trash2, Wrench, Users, BookOpen, Download } from "lucide-react";
+import { Plus, Trash2, Wrench, Users, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,7 +12,6 @@ interface InlineServiceEditorProps {
   sectionType: 'equipment' | 'staff';
   onUpdate: (items: EquipmentItem[]) => void;
   disabled?: boolean;
-  exportFileName?: string;
 }
 
 const SECTION_CONFIG = {
@@ -33,7 +32,6 @@ export function InlineServiceEditor({
   sectionType,
   onUpdate,
   disabled = false,
-  exportFileName,
 }: InlineServiceEditorProps) {
   const config = SECTION_CONFIG[sectionType];
   const Icon = config.icon;
@@ -94,39 +92,6 @@ export function InlineServiceEditor({
     onUpdate(updated);
   }, [items, onUpdate]);
 
-  const handleExportCsv = useCallback(() => {
-    const escape = (val: string | number) => {
-      const s = String(val ?? '');
-      return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const header = ['Bezeichnung', 'Menge', 'Einzelpreis (EUR)', 'Gesamt (EUR)'];
-    const rows = items
-      .filter((it) => it.name || it.pricePerUnit > 0 || it.quantity > 0)
-      .map((it) => {
-        const total = (it.pricePerUnit || 0) * (it.quantity || 0);
-        return [
-          escape(it.name),
-          escape(it.quantity ?? 0),
-          escape((it.pricePerUnit ?? 0).toFixed(2).replace('.', ',')),
-          escape(total.toFixed(2).replace('.', ',')),
-        ].join(';');
-      });
-    const totalSum = items.reduce((sum, it) => sum + (it.pricePerUnit || 0) * (it.quantity || 0), 0);
-    rows.push(['Summe', '', '', escape(totalSum.toFixed(2).replace('.', ','))].join(';'));
-    const csv = '\uFEFF' + [header.join(';'), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const base = exportFileName || `maestro-${sectionType}`;
-    const dateStr = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `${base}-${dateStr}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [items, sectionType, exportFileName]);
-
   return (
     <div className="space-y-2">
       {/* Header */}
@@ -138,18 +103,6 @@ export function InlineServiceEditor({
           </h4>
         </div>
         <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleExportCsv}
-            disabled={items.length === 0}
-            title={`${config.label} als CSV exportieren`}
-            className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
-          >
-            <Download className="h-3 w-3" />
-            Export CSV
-          </Button>
           <Popover open={catalogOpen} onOpenChange={setCatalogOpen}>
               <PopoverTrigger asChild>
                 <Button
