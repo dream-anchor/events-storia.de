@@ -1,50 +1,56 @@
-## Beobachteter Fall (Speranza GmbH, Event `dfa42faf`)
-
-Der Datensatz erfüllt zwei Vorbedingungen der Edge Function `admin-send-cost-acceptance` **nicht**:
-
-| Prüfung | Ist-Zustand | Erwartet |
-|---|---|---|
-| Kunden-Mobilnummer (`v2_customers.phone`) | `2466` (4 Ziffern) | 7–20 Ziffern (`isPlausibleMobile`) |
-| Rechnungsadresse (Event ODER Kunde) | Straße/PLZ/Ort überall `NULL` | Straße + PLZ/Ort gesetzt |
-| Betrag | Event `amount_total` `NULL`, aber Offer-Option A = 690,00 € ✓ | ok |
-
-Die Function antwortet daher mit `409` und einer klaren deutschen Fehlermeldung. In der UI (`CostAcceptanceCard.onAdminSend`) wird dieser Fehler zwar per `toast.error` ausgegeben, aber der Button zeigt fast keinen Loading-State (Request ist sehr kurz) und der Text „passiert nichts" deutet darauf hin, dass die 409-Antwort im Toast entweder nicht sichtbar oder zu generisch (`"Edge Function returned a non-2xx status code"`) landet — dann bleibt für den Nutzer wirklich „nichts passiert".
-
 ## Ziel
 
-1. Den Versand für den aktuellen Test-Datensatz möglich machen, ohne Validierung aufzuweichen.
-2. Fehlerfälle sichtbar machen, damit „nichts passiert" nie wieder auftritt.
+Aus allen jemals erstellten Angeboten die **Personal-** und **Equipment-Einträge** extrahieren, pro **Paket** gruppieren, mit den Katalogen abgleichen und als **herunterladbare Datei** bereitstellen.
 
-## Änderungen
+## Datenquellen (verifiziert)
 
-### 1) Fehler-Surfacing in `CostAcceptanceCard.tsx`
-- `onAdminSend`: bei Fehler nicht nur `toast.error(message)` (kann bei `supabase.functions.invoke`-Fehler generisch sein), sondern **immer** die `error`-Message aus dem 409-JSON verwenden (bereits vorhandener `call()`-Parser bevorzugen) — Fallback nur wenn wirklich leer.
-- Toast mit **längerer Anzeigedauer** (`duration: 8000`) und `description` mit Handlungshinweis (z. B. „Bitte Kundenprofil oder Firmenadresse an der Anfrage vervollständigen").
-- Button-Loading: `busy === "admin-send-cost-acceptance"` wird gesetzt, aber die Function kann in < 200 ms 409 zurückgeben. Zusätzliches optisches Feedback: bei Fehler kurz einen roten Inline-Hinweis unter dem Button rendern (State `lastSendClientError`), damit der Grund direkt neben dem Button steht — nicht nur als Toast.
+- `public.v2_offer_options.menu_selection` (JSONB) — Felder `equipment[]` und `staff[]` mit `{ id, name, quantity, pricePerUnit }`.
+  - 4 Optionen mit Equipment, 2 mit Personal, 58 mit `package_id`.
+- `public._legacy_inquiry_offer_options.menu_selection` — aktuell **0** Treffer für Equipment/Staff, wird trotzdem mitgelesen (Vollständigkeit).
+- `public.packages` (`id`, `name`) — Paket-Referenz + Snapshot-Name aus `package_name_snapshot`.
+- `public.equipment_catalog` (2 Einträge) und `public.staff_catalog` (5 Einträge) — für Katalog-Abgleich.
+- `public.v2_events` — für Angebotsnummer/Kunde/Datum in der Rohliste.
 
-### 2) Präventive Client-Vorprüfung (kein Silent-Fail)
-Vor `call("admin-send-cost-acceptance", …)` das lokal bekannte Event/Customer-Objekt prüfen:
-- Kunde vorhanden, `email` gültig, `phone` mit ≥ 7 Ziffern
-- Rechnungsadresse: Event `company_street` + (`company_postal_code` ODER `company_city`) ODER (bei `billing_address_different`) Billing-Felder, sonst Kundenprofil-Adresse
+## Umfang
 
-Fehlt etwas → **kein** Request, sondern sofort ein sprechender Toast + Inline-Hinweis mit konkret fehlenden Feldern (z. B. „Mobilnummer im Kundenprofil zu kurz (2466). Bitte mit Ländervorwahl und mind. 7 Ziffern hinterlegen.").
+Umfassend, wie gewünscht:
 
-### 3) Edge Function `admin-send-cost-acceptance` — nur robusteres Error-Payload
-Kein Verhalten ändern, nur zusätzliche Felder im 409-Response:
-```json
-{ "error": "…", "field": "signer_mobile" | "invoice_address" | "amount" | "event_date" | "guest_count" }
-```
-Damit die UI gezielt die betroffene Sektion (Kundenprofil / Firmenadresse) hervorheben kann.
+1. **Angebote**: Alle Zeilen aus `v2_offer_options` + `_legacy_inquiry_offer_options`, unabhängig von `is_active`, versioniert.
+2. **Katalog-Abgleich**: Marker pro Zeile — `in_katalog = ja/nein` (Name-Match, case-insensitive, getrimmt).
+3. **Paket-Gruppierung**: über `package_id` (Fallback: „Ohne Paket").
 
-### 4) Keine Änderung an
-- eSignatures-Client, Template-Logik, Payment-Terms, Idempotenz.
-- RLS, DB-Schema, Cron.
+## Aufbau der Excel-Datei
 
-## Test / Verifikation (nach Implementierung)
+Eine `.xlsx` mit fünf Sheets, Font Arial, Zahlen in `#.##0,00 €`:
 
-Mit dem Speranza-Testdatensatz (`dfa42faf`) manuell:
-1. Ohne Änderung am Kunden → Klick auf „Kostenübernahme an Kunden schicken" muss **sofort** einen sichtbaren Fehler „Kunden-Mobilnummer zu kurz" bringen (Toast + Inline).
-2. Mobilnummer im Kundenprofil auf `+49 170 1234567` setzen → erneut klicken → Fehler „Rechnungsadresse fehlt".
-3. Firmenadresse an der Anfrage pflegen → Versand geht durch, `cost_acceptances`-Row mit `status='sent'` und `esignatures_contract_id` entsteht.
+1. **Übersicht** — Erzeugungszeitpunkt, Zeilen-/Angebotszähler, Sheet-Legende.
+2. **Personal – Aggregiert** — je (Paket, Name): Anzahl Verwendungen, Ø/Min/Max Einzelpreis, Summe Menge, letzte Verwendung (Datum), `in_katalog`.
+3. **Personal – Rohdaten** — je Einzelverwendung: Paket, Name, Menge, Einzelpreis, Zeilen-Summe, Angebot-ID, Version, Angebotsnummer, Kunde, Event-Datum, Quelle (v2/legacy), `in_katalog`.
+4. **Equipment – Aggregiert** — analog zu Personal.
+5. **Equipment – Rohdaten** — analog zu Personal.
 
-Kein Deploy ohne deine Freigabe — Änderungen laufen auf `fix/maestro-handoff-recovery-and-refund`.
+Summen in Aggregat-Sheets als Excel-Formeln (`SUMPRODUCT`, `AVERAGEIFS` etc.), nicht als hartkodierte Werte.
+
+## Umsetzung
+
+1. **Extraktion via SQL** (`supabase--read_query`) — zwei JSONB-Unwrap-Queries (equipment/staff) über `v2_offer_options` + `_legacy_inquiry_offer_options`, jeweils mit Join auf `packages`, `v2_events` und einem `LEFT JOIN` auf `equipment_catalog` / `staff_catalog` per `lower(trim(name))` für den Katalog-Marker.
+2. **Excel-Bau** mit dem xlsx-Skill (openpyxl), Aggregation via `pandas.groupby`, danach `recalculate_formulas.py`.
+3. **Ablage** in `/mnt/documents/angebote-personal-equipment-<YYYY-MM-DD>.xlsx`, Link im Chat.
+
+Keine Code-Änderungen am Admin-UI, keine neuen Buttons — reiner Export-Job. Falls dauerhaft im Admin benötigt, kann das in einem separaten Plan ergänzt werden.
+
+## Technische Details
+
+- JSONB-Unwrap:
+  ```sql
+  SELECT o.id, o.version, o.package_id, p.name AS package_name,
+         e.value->>'name' AS item_name,
+         (e.value->>'quantity')::numeric AS quantity,
+         (e.value->>'pricePerUnit')::numeric AS price
+  FROM public.v2_offer_options o
+  LEFT JOIN public.packages p ON p.id = o.package_id
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(o.menu_selection->'staff','[]'::jsonb)) e
+  WHERE jsonb_typeof(o.menu_selection->'staff') = 'array';
+  ```
+- Katalog-Marker: `LEFT JOIN staff_catalog sc ON lower(trim(sc.name)) = lower(trim(e.value->>'name'))`.
+- Rohdaten enthalten `created_at` als sortierbares ISO-Datum.
