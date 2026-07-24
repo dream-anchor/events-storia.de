@@ -16,7 +16,8 @@ import {
   Percent,
   MapPin,
   Check,
-  ArrowLeft
+  ArrowLeft,
+  Download
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -32,6 +33,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SortableList, SortableItem, persistSortOrder } from "@/components/admin/shared/SortableList";
+import { exportPackageAsCsv } from "@/lib/exportPackageCsv";
 
 // Determine dietary info for a single include item
 const getDietaryInfo = (item: string): { hasMultiple: boolean; options: string[]; label: string | null } => {
@@ -417,6 +419,21 @@ export const PackagesList = () => {
                         >
                           <Edit className="h-4 w-4 mr-2" />
                           Bearbeiten
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="lg"
+                          title="Als CSV exportieren"
+                          onClick={async () => {
+                            try {
+                              await exportPackageAsCsv(pkg as any);
+                              toast.success("CSV-Export gestartet");
+                            } catch (e: any) {
+                              toast.error(`Export fehlgeschlagen: ${e?.message || e}`);
+                            }
+                          }}
+                        >
+                          <Download className="h-5 w-5" />
                         </Button>
                         <Button 
                           variant="ghost" 
