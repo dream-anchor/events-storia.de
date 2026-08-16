@@ -230,7 +230,7 @@ export const EventsList = () => {
       if (!showTestData) query = query.neq("is_test", true);
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []) as EventInquiry[];
+      return (data ?? []) as unknown as EventInquiry[];
     },
   });
 
