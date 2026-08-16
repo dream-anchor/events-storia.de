@@ -94,7 +94,13 @@ export const supabaseDataProvider: DataProvider = {
     // Apply filters
     if (filters) {
       for (const filter of filters) {
-        if ('field' in filter && 'value' in filter) {
+        const f = filter as any;
+        if ((f.operator === 'or' || f.operator === 'and') && Array.isArray(f.value)) {
+          const expr = buildLogicalExpression(f.value);
+          if (expr) {
+            query = f.operator === 'or' ? query.or(expr) : query.or(`and(${expr})`);
+          }
+        } else if ('field' in filter && 'value' in filter) {
           query = applyFilter(query, filter as CrudFilter);
         }
       }
