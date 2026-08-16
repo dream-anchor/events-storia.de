@@ -64,6 +64,8 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   searchPlaceholder?: string;
   searchColumn?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
   filterPills?: FilterPill[];
   onFilterChange?: (filterId: string, value: string) => void;
   onRefresh?: () => void;
@@ -87,6 +89,8 @@ export function DataTable<TData, TValue>({
   data,
   searchPlaceholder = "Suchen...",
   searchColumn,
+  searchValue,
+  onSearchChange,
   filterPills = [],
   onFilterChange,
   onRefresh,
@@ -195,6 +199,12 @@ export function DataTable<TData, TValue>({
     },
   });
 
+  const effectiveSearchValue = searchValue ?? globalFilter;
+
+  useEffect(() => {
+    table.setPageIndex(0);
+  }, [effectiveSearchValue, data.length, table]);
+
   const activeFilters = useMemo(() => 
     filterPills.filter(f => f.active), 
     [filterPills]
@@ -244,8 +254,12 @@ export function DataTable<TData, TValue>({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder={searchPlaceholder}
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
+                value={effectiveSearchValue}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (onSearchChange) onSearchChange(value);
+                  else setGlobalFilter(value);
+                }}
                 className="pl-10 h-10 bg-white dark:bg-gray-900 border-border/60 rounded-lg focus-visible:ring-primary/20"
               />
             </div>
@@ -406,7 +420,7 @@ export function DataTable<TData, TValue>({
           {Math.min((table.getState().pagination.pageIndex + 1) * pageSize, data.length)} von{" "}
           {data.length} Einträgen
         </p>
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+        <div className="flex items-center gap-2 self-end sm:self-auto" aria-label="Seitennavigation">
           <Button
             variant="outline"
             size="sm"
@@ -415,9 +429,10 @@ export function DataTable<TData, TValue>({
             className="h-8 border-border/60"
           >
             <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Zurück</span>
           </Button>
           <span className="text-sm font-medium px-2">
-            {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+            Seite {table.getPageCount() === 0 ? 0 : table.getState().pagination.pageIndex + 1} von {table.getPageCount()}
           </span>
           <Button
             variant="outline"
@@ -426,6 +441,7 @@ export function DataTable<TData, TValue>({
             disabled={!table.getCanNextPage()}
             className="h-8 border-border/60"
           >
+            <span className="hidden sm:inline">Weiter</span>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

@@ -169,6 +169,16 @@ export const EventsList = () => {
   const [printOpen, setPrintOpen] = useState(false);
   const { showTestData } = useTestMode();
   const [pageSize, setPageSize] = useState(100);
+  const [listSearch, setListSearch] = useState("");
+  const [debouncedListSearch, setDebouncedListSearch] = useState("");
+
+  useEffect(() => {
+    const timer: ReturnType<typeof setTimeout> = setTimeout(
+      () => setDebouncedListSearch(listSearch.trim()),
+      200,
+    );
+    return () => clearTimeout(timer);
+  }, [listSearch]);
 
   // Save view preference
   useEffect(() => {
@@ -197,7 +207,35 @@ export const EventsList = () => {
   const allEvents = eventsQuery.result?.data || [];
   const totalEvents = eventsQuery.result?.total ?? 0;
   const hasMore = allEvents.length < totalEvents;
-  const isLoading = eventsQuery.query.isLoading;
+  const safeListSearch = debouncedListSearch.replace(/[,()*"\\]/g, " ").trim();
+  const isServerSearching = safeListSearch.length >= 2;
+
+  const listSearchQuery = useQuery({
+    queryKey: ["events-list-search", safeListSearch, showTestData],
+    enabled: isServerSearching,
+    queryFn: async () => {
+      const like = `*${safeListSearch}*`;
+      let query = supabase
+        .from("event_inquiries")
+        .select("*")
+        .or([
+          `contact_name.ilike.${like}`,
+          `company_name.ilike.${like}`,
+          `email.ilike.${like}`,
+          `phone.ilike.${like}`,
+          `order_number.ilike.${like}`,
+        ].join(","))
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (!showTestData) query = query.neq("is_test", true);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as EventInquiry[];
+    },
+  });
+
+  const visibleEvents = isServerSearching ? (listSearchQuery.data ?? []) : allEvents;
+  const isLoading = eventsQuery.query.isLoading || (isServerSearching && listSearchQuery.isFetching);
 
   // Bookings ohne Quell-Inquiry → eigenständige „Gebucht"-Karten im Kanban
   const bookingsQuery = useQuery({
@@ -260,13 +298,13 @@ export const EventsList = () => {
 
   // Separate archived and active events. Standalone bookings always count as active "Gebucht".
   const { activeEvents, archivedEvents } = useMemo(() => {
-    const archived = allEvents.filter(e => e.archived_at);
-    const active = allEvents.filter(e => !e.archived_at);
+    const archived = visibleEvents.filter(e => e.archived_at);
+    const active = visibleEvents.filter(e => !e.archived_at);
     return {
       activeEvents: [...active, ...bookingEvents],
       archivedEvents: archived,
     };
-  }, [allEvents, bookingEvents]);
+  }, [visibleEvents, bookingEvents]);
 
   // Batch-load payment status for all visible events
   useEffect(() => {
@@ -768,7 +806,9 @@ export const EventsList = () => {
             <DataTable
               columns={columns}
               data={filteredEvents}
-              searchPlaceholder="Suche nach Name, Firma, E-Mail..."
+              searchPlaceholder="Suche im gesamten Bestand nach Name, Firma, E-Mail, Telefon oder Nummer..."
+              searchValue={listSearch}
+              onSearchChange={setListSearch}
               filterPills={filterPills}
               onFilterChange={handleFilterChange}
               onRefresh={() => eventsQuery.query.refetch()}
@@ -847,7 +887,7 @@ export const EventsList = () => {
               showRestoreAction={currentFilter === 'archived'}
             />
 
-            {hasMore && (
+            {hasMore && !isServerSearching && (
               <div className="flex flex-col items-center gap-2 pt-2">
                 <Button
                   variant="outline"
@@ -869,7 +909,7 @@ export const EventsList = () => {
               events={activeEvents}
               onRefresh={() => eventsQuery.query.refetch()}
             />
-            {hasMore && (
+            {hasMore && !isServerSearching && (
               <div className="flex justify-center pt-2">
                 <Button
                   variant="outline"
