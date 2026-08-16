@@ -168,6 +168,7 @@ export const EventsList = () => {
   const [paymentStatus, setPaymentStatus] = useState<Record<string, 'none' | 'pending' | 'partial' | 'complete' | 'overdue'>>({});
   const [printOpen, setPrintOpen] = useState(false);
   const { showTestData } = useTestMode();
+  const [pageSize, setPageSize] = useState(100);
 
   // Save view preference
   useEffect(() => {
@@ -183,17 +184,19 @@ export const EventsList = () => {
 
   const eventsQuery = useList<EventInquiry>({
     resource: "events",
-    pagination: { pageSize: 100 },
+    pagination: { pageSize },
     sorters: [{ field: "created_at", order: "desc" }],
     filters: showTestData
       ? []
       : [{ field: "is_test", operator: "ne", value: true }],
     queryOptions: {
-      queryKey: ["events-list", showTestData] as unknown as readonly unknown[],
+      queryKey: ["events-list", showTestData, pageSize] as unknown as readonly unknown[],
     },
   });
 
   const allEvents = eventsQuery.result?.data || [];
+  const totalEvents = eventsQuery.result?.total ?? 0;
+  const hasMore = allEvents.length < totalEvents;
   const isLoading = eventsQuery.query.isLoading;
 
   // Bookings ohne Quell-Inquiry → eigenständige „Gebucht"-Karten im Kanban
