@@ -6,7 +6,8 @@ import { de } from "date-fns/locale";
 import { Calendar, Users, Building2, Mail, Phone, Plus, Edit3, Send, MessageSquare, User, Flag, AlertTriangle, LayoutGrid, Table2, Archive, Printer } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "./AdminLayout";
-import { DataTable, sortableHeader } from "./DataTable";
+import { DataTable, sortableHeader, SHOW_ALL_PAGE_SIZE } from "./DataTable";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { KanbanView } from "./KanbanView";
 import { Home, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -780,6 +781,21 @@ export const EventsList = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Select
+              value={String(tablePageSize)}
+              onValueChange={(value) => setTablePageSize(Number(value))}
+            >
+              <SelectTrigger className="h-9 w-[130px] rounded-lg" aria-label="Anzahl pro Seite">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[25, 50, 100, SHOW_ALL_PAGE_SIZE].map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size === SHOW_ALL_PAGE_SIZE ? "Alle anzeigen" : `${size} anzeigen`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               variant="outline"
               size="sm"
@@ -830,6 +846,7 @@ export const EventsList = () => {
               isLoading={isLoading}
               pageSize={tablePageSize}
               onPageSizeChange={setTablePageSize}
+              hidePageSizeSelect
               enableSelection
               selectedRowIds={selectedIds}
               onSelectionChange={setSelectedIds}

@@ -76,9 +76,11 @@ interface DataTableProps<TData, TValue> {
   onRowClick?: (row: TData) => void;
   isLoading?: boolean;
   pageSize?: number;
-  /** Zeigt oben eine "Anzeigen: 25/50/100/Alle"-Auswahl; pageSize wird dadurch reaktiv statt fix. */
+  /** Macht pageSize reaktiv (statt nur beim ersten Render wirksam) — z.B. für eine extern gerenderte Anzeigen-Auswahl. */
   onPageSizeChange?: (size: number) => void;
   pageSizeOptions?: number[];
+  /** Blendet die eingebaute "Anzeigen: 25/50/100/Alle"-Auswahl aus, wenn sie extern (z.B. im Seiten-Header) gerendert wird. */
+  hidePageSizeSelect?: boolean;
   // Selection support
   enableSelection?: boolean;
   selectedRowIds?: string[];
@@ -106,6 +108,7 @@ export function DataTable<TData, TValue>({
   pageSize = 10,
   onPageSizeChange,
   pageSizeOptions = [25, 50, 100, SHOW_ALL_PAGE_SIZE],
+  hidePageSizeSelect = false,
   enableSelection = false,
   selectedRowIds = [],
   onSelectionChange,
@@ -280,7 +283,7 @@ export function DataTable<TData, TValue>({
                 className="pl-10 h-10 bg-white dark:bg-gray-900 border-border/60 rounded-lg focus-visible:ring-primary/20"
               />
             </div>
-            {onPageSizeChange && (
+            {onPageSizeChange && !hidePageSizeSelect && (
               <Select
                 value={String(pageSize)}
                 onValueChange={(value) => onPageSizeChange(Number(value))}
