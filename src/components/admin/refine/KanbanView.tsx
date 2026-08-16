@@ -121,6 +121,8 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const failedDeliveryIds = useFailedDeliveryInquiries();
+  const COLUMN_PAGE_SIZE = 25;
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
 
   const columnData = useMemo(() => {
     const data: Record<
@@ -280,6 +282,9 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   const renderColumn = (column: { id: ColumnId; title: string }) => {
     const { items, totalSum, actionCounts } = columnData[column.id];
     const isDragOver = dragOverColumn === column.id;
+    const visible = visibleCounts[column.id] ?? COLUMN_PAGE_SIZE;
+    const shownItems = items.slice(0, visible);
+    const remaining = items.length - shownItems.length;
     return (
       <div
         key={column.id}
@@ -329,7 +334,7 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
               Hierher ziehen
             </div>
           ) : (
-            items.map((event) => (
+            shownItems.map((event) => (
               <KanbanCard
                 key={event.id}
                 event={event}
@@ -348,6 +353,31 @@ export function KanbanView({ events, onRefresh }: KanbanViewProps) {
                 onMoveToColumn={(col) => applyStatusChange(event, col)}
               />
             ))
+          )}
+          {remaining > 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                setVisibleCounts((prev) => ({
+                  ...prev,
+                  [column.id]: visible + COLUMN_PAGE_SIZE,
+                }))
+              }
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              Weitere {Math.min(remaining, COLUMN_PAGE_SIZE)} anzeigen ({remaining} übrig)
+            </button>
+          )}
+          {visible > COLUMN_PAGE_SIZE && (
+            <button
+              type="button"
+              onClick={() =>
+                setVisibleCounts((prev) => ({ ...prev, [column.id]: COLUMN_PAGE_SIZE }))
+              }
+              className="w-full rounded-xl py-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              Weniger anzeigen
+            </button>
           )}
         </div>
       </div>
