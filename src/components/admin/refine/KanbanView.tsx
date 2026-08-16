@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays, differenceInHours } from "date-fns";
 import { de } from "date-fns/locale";
@@ -22,8 +22,6 @@ import { useFailedDeliveryInquiries } from "@/hooks/useFailedDeliveryInquiries";
 interface KanbanViewProps {
   events: EventInquiry[];
   onRefresh: () => void;
-  /** Wie viele Karten pro Spalte initial sichtbar sind, bevor „Weitere anzeigen" nötig ist. */
-  columnPageSize?: number;
 }
 
 const PIPELINE_COLUMNS = [
@@ -117,19 +115,14 @@ function ServiceBadge({ kind }: { kind: ServiceKind }) {
   );
 }
 
-export function KanbanView({ events, onRefresh, columnPageSize = 25 }: KanbanViewProps) {
+export function KanbanView({ events, onRefresh }: KanbanViewProps) {
   const navigate = useNavigate();
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const failedDeliveryIds = useFailedDeliveryInquiries();
-  const COLUMN_PAGE_SIZE = columnPageSize;
+  const COLUMN_PAGE_SIZE = 25;
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
-
-  // Reset auf die neue Spaltengröße, wenn der Nutzer oben die Anzeige umstellt.
-  useEffect(() => {
-    setVisibleCounts({});
-  }, [columnPageSize]);
 
   const columnData = useMemo(() => {
     const data: Record<
