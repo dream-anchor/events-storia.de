@@ -223,14 +223,13 @@ export const EventsList = () => {
           `company_name.ilike.${like}`,
           `email.ilike.${like}`,
           `phone.ilike.${like}`,
-          `order_number.ilike.${like}`,
         ].join(","))
         .order("created_at", { ascending: false })
         .limit(200);
-      if (!showTestData) query = query.neq("is_test", true);
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []) as unknown as EventInquiry[];
+      const rows = (data ?? []) as unknown as EventInquiry[];
+      return showTestData ? rows : rows.filter((event) => event.is_test !== true);
     },
   });
 
@@ -806,7 +805,7 @@ export const EventsList = () => {
             <DataTable
               columns={columns}
               data={filteredEvents}
-              searchPlaceholder="Suche im gesamten Bestand nach Name, Firma, E-Mail, Telefon oder Nummer..."
+              searchPlaceholder="Suche im gesamten Bestand nach Name, Firma, E-Mail oder Telefon..."
               searchValue={listSearch}
               onSearchChange={setListSearch}
               filterPills={filterPills}
