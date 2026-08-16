@@ -57,6 +57,34 @@ const applyFilter = (query: any, filter: CrudFilter): any => {
   }
 };
 
+/** PostgREST-sichere Escapes für or()-Ausdrücke. */
+const sanitizeValue = (value: unknown): string =>
+  String(value ?? '').replace(/[,()*"\\]/g, ' ').trim();
+
+/** Baut einen PostgREST or()/and()-Ausdruck aus verschachtelten Refine-Filtern. */
+const buildLogicalExpression = (filters: any[]): string =>
+  filters
+    .map((f) => {
+      if (f && (f.operator === 'or' || f.operator === 'and') && Array.isArray(f.value)) {
+        return `${f.operator}(${buildLogicalExpression(f.value)})`;
+      }
+      if (!f || !('field' in f)) return '';
+      const v = sanitizeValue(f.value);
+      switch (f.operator as FilterOperator) {
+        case 'contains':
+        case 'containss':
+          return `${f.field}.ilike.*${v}*`;
+        case 'ne':
+          return `${f.field}.neq.${v}`;
+        case 'in':
+          return `${f.field}.in.(${(f.value as unknown[]).map(sanitizeValue).join(',')})`;
+        default:
+          return `${f.field}.${f.operator}.${v}`;
+      }
+    })
+    .filter(Boolean)
+    .join(',');
+
 export const supabaseDataProvider: DataProvider = {
   getList: async ({ resource, pagination, filters, sorters }) => {
     const tableName = mapResource(resource);
@@ -66,7 +94,13 @@ export const supabaseDataProvider: DataProvider = {
     // Apply filters
     if (filters) {
       for (const filter of filters) {
-        if ('field' in filter && 'value' in filter) {
+        const f = filter as any;
+        if ((f.operator === 'or' || f.operator === 'and') && Array.isArray(f.value)) {
+          const expr = buildLogicalExpression(f.value);
+          if (expr) {
+            query = f.operator === 'or' ? query.or(expr) : query.or(`and(${expr})`);
+          }
+        } else if ('field' in filter && 'value' in filter) {
           query = applyFilter(query, filter as CrudFilter);
         }
       }

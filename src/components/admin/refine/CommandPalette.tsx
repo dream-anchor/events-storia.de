@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useList } from "@refinedev/core";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   LayoutDashboard, CalendarDays, FileText, Package, 
   UtensilsCrossed, Plus, ArrowRight, Inbox, Building2,
@@ -40,44 +41,67 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
   const qLower = q.toLowerCase();
   const isSearching = q.length >= 2;
 
-  // Fetch recent events for smart search
-  const recentEventsQuery = useList({
-    resource: "event_inquiries",
-    pagination: { pageSize: 5 },
-    sorters: [{ field: "created_at", order: "desc" }],
-    filters: isSearching ? [
-      {
-        operator: "or",
-        value: [
-          { field: "contact_name", operator: "contains", value: q },
-          { field: "company_name", operator: "contains", value: q },
-          { field: "email", operator: "contains", value: q },
-        ]
-      }
-    ] : [],
+  // PostgREST-sicherer Suchbegriff (Kommas/Klammern brechen or()-Ausdrücke)
+  const safeQ = q.replace(/[,()*"\\]/g, " ").trim();
+  const canSearch = isSearching && safeQ.length >= 2;
+
+  // Serverseitige Volltextsuche über ALLE Anfragen (nicht nur die zuletzt geladenen)
+  const eventsSearch = useQuery({
+    queryKey: ["cmdk-events", safeQ],
+    enabled: canSearch,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const like = `*${safeQ}*`;
+      const { data, error } = await supabase
+        .from("event_inquiries")
+        .select(
+          "id, company_name, contact_name, email, phone, preferred_date, guest_count, status, offer_phase, created_at",
+        )
+        .or(
+          [
+            `contact_name.ilike.${like}`,
+            `company_name.ilike.${like}`,
+            `email.ilike.${like}`,
+            `phone.ilike.${like}`,
+          ].join(","),
+        )
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
-  // Fetch recent orders for smart search
-  const recentOrdersQuery = useList({
-    resource: "catering_orders",
-    pagination: { pageSize: 5 },
-    sorters: [{ field: "created_at", order: "desc" }],
-    filters: isSearching ? [
-      {
-        operator: "or",
-        value: [
-          { field: "customer_name", operator: "contains", value: q },
-          { field: "company_name", operator: "contains", value: q },
-          { field: "order_number", operator: "contains", value: q },
-        ]
-      }
-    ] : [],
+  const ordersSearch = useQuery({
+    queryKey: ["cmdk-orders", safeQ],
+    enabled: canSearch,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const like = `*${safeQ}*`;
+      const { data, error } = await supabase
+        .from("catering_orders")
+        .select(
+          "id, order_number, customer_name, customer_email, company_name, desired_date, total_amount, created_at",
+        )
+        .or(
+          [
+            `customer_name.ilike.${like}`,
+            `company_name.ilike.${like}`,
+            `customer_email.ilike.${like}`,
+            `order_number.ilike.${like}`,
+          ].join(","),
+        )
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
-  const events = recentEventsQuery.result?.data || [];
-  const orders = recentOrdersQuery.result?.data || [];
+  const events = (eventsSearch.data ?? []) as any[];
+  const orders = (ordersSearch.data ?? []) as any[];
   const isFetching =
-    isSearching && (recentEventsQuery.query.isFetching || recentOrdersQuery.query.isFetching);
+    canSearch && (eventsSearch.isFetching || ordersSearch.isFetching);
 
   const handleSelect = (path: string) => {
     navigate(path);

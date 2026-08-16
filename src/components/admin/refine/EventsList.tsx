@@ -168,6 +168,7 @@ export const EventsList = () => {
   const [paymentStatus, setPaymentStatus] = useState<Record<string, 'none' | 'pending' | 'partial' | 'complete' | 'overdue'>>({});
   const [printOpen, setPrintOpen] = useState(false);
   const { showTestData } = useTestMode();
+  const [pageSize, setPageSize] = useState(100);
 
   // Save view preference
   useEffect(() => {
@@ -183,17 +184,19 @@ export const EventsList = () => {
 
   const eventsQuery = useList<EventInquiry>({
     resource: "events",
-    pagination: { pageSize: 100 },
+    pagination: { pageSize },
     sorters: [{ field: "created_at", order: "desc" }],
     filters: showTestData
       ? []
       : [{ field: "is_test", operator: "ne", value: true }],
     queryOptions: {
-      queryKey: ["events-list", showTestData] as unknown as readonly unknown[],
+      queryKey: ["events-list", showTestData, pageSize] as unknown as readonly unknown[],
     },
   });
 
   const allEvents = eventsQuery.result?.data || [];
+  const totalEvents = eventsQuery.result?.total ?? 0;
+  const hasMore = allEvents.length < totalEvents;
   const isLoading = eventsQuery.query.isLoading;
 
   // Bookings ohne Quell-Inquiry → eigenständige „Gebucht"-Karten im Kanban
@@ -719,6 +722,9 @@ export const EventsList = () => {
             <h1 className="text-2xl font-bold tracking-tight">Event-Anfragen</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {activeEvents.length} aktive Anfragen • {archivedEvents.length} archiviert
+              {totalEvents > 0 && (
+                <> • {allEvents.length} von {totalEvents} geladen</>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -840,12 +846,42 @@ export const EventsList = () => {
               onActionComplete={() => eventsQuery.query.refetch()}
               showRestoreAction={currentFilter === 'archived'}
             />
+
+            {hasMore && (
+              <div className="flex flex-col items-center gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={eventsQuery.query.isFetching}
+                  onClick={() => setPageSize((s) => s + 200)}
+                >
+                  {eventsQuery.query.isFetching ? 'Lädt…' : 'Weitere 200 Anfragen laden'}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {allEvents.length} von {totalEvents} Anfragen geladen
+                </span>
+              </div>
+            )}
           </>
         ) : (
-          <KanbanView
-            events={activeEvents}
-            onRefresh={() => eventsQuery.query.refetch()}
-          />
+          <>
+            <KanbanView
+              events={activeEvents}
+              onRefresh={() => eventsQuery.query.refetch()}
+            />
+            {hasMore && (
+              <div className="flex justify-center pt-2">
+                <Button
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={eventsQuery.query.isFetching}
+                  onClick={() => setPageSize((s) => s + 200)}
+                >
+                  {eventsQuery.query.isFetching ? 'Lädt…' : 'Weitere 200 Anfragen laden'}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
       <UpcomingOrdersPrintDialog
