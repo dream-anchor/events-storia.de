@@ -781,26 +781,21 @@ export const EventsList = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Nur in der Tabelle sichtbar — im Kanban gibt's pro Spalte bereits
-                "Weitere anzeigen"; eine globale Seitengröße hätte dort bei aktueller
-                Datenmenge (max. 10 Karten/Spalte) nie eine sichtbare Wirkung. */}
-            {viewMode === "table" && (
-              <Select
-                value={String(tablePageSize)}
-                onValueChange={(value) => setTablePageSize(Number(value))}
-              >
-                <SelectTrigger className="h-9 w-[130px] rounded-lg" aria-label="Anzahl pro Seite">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[25, 50, 100, SHOW_ALL_PAGE_SIZE].map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size === SHOW_ALL_PAGE_SIZE ? "Alle anzeigen" : `${size} anzeigen`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <Select
+              value={String(tablePageSize)}
+              onValueChange={(value) => setTablePageSize(Number(value))}
+            >
+              <SelectTrigger className="h-9 w-[130px] rounded-lg" aria-label="Anzahl pro Seite">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[25, 50, 100, SHOW_ALL_PAGE_SIZE].map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size === SHOW_ALL_PAGE_SIZE ? "Alle anzeigen" : `${size} anzeigen`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               variant="outline"
               size="sm"
@@ -928,6 +923,7 @@ export const EventsList = () => {
           <KanbanView
             events={activeEvents}
             onRefresh={() => eventsQuery.query.refetch()}
+            columnPageSize={tablePageSize}
           />
         )}
       </div>
