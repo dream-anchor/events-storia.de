@@ -168,7 +168,17 @@ export const EventsList = () => {
   const [paymentStatus, setPaymentStatus] = useState<Record<string, 'none' | 'pending' | 'partial' | 'complete' | 'overdue'>>({});
   const [printOpen, setPrintOpen] = useState(false);
   const { showTestData } = useTestMode();
-  const [pageSize, setPageSize] = useState(100);
+  // Server-Ladegröße: startet klein und lädt automatisch nach, sobald mehr Datensätze
+  // existieren als geladen wurden (count: 'exact' aus dem Data Provider) — kein manuelles
+  // "Weitere laden" mehr, das sonst ältere Anfragen unsichtbar hielt.
+  const [serverPageSize, setServerPageSize] = useState(200);
+  // Wie viele Zeilen PRO SEITE angezeigt werden (Nutzer-Auswahl oben: 25/50/100/Alle).
+  const [tablePageSize, setTablePageSize] = useState<number>(
+    () => Number(localStorage.getItem("eventsTablePageSize")) || 25
+  );
+  useEffect(() => {
+    localStorage.setItem("eventsTablePageSize", String(tablePageSize));
+  }, [tablePageSize]);
   const [listSearch, setListSearch] = useState("");
   const [debouncedListSearch, setDebouncedListSearch] = useState("");
 
@@ -194,19 +204,26 @@ export const EventsList = () => {
 
   const eventsQuery = useList<EventInquiry>({
     resource: "events",
-    pagination: { pageSize },
+    pagination: { pageSize: serverPageSize },
     sorters: [{ field: "created_at", order: "desc" }],
     filters: showTestData
       ? []
       : [{ field: "is_test", operator: "ne", value: true }],
     queryOptions: {
-      queryKey: ["events-list", showTestData, pageSize] as unknown as readonly unknown[],
+      queryKey: ["events-list", showTestData, serverPageSize] as unknown as readonly unknown[],
     },
   });
 
   const allEvents = eventsQuery.result?.data || [];
   const totalEvents = eventsQuery.result?.total ?? 0;
-  const hasMore = allEvents.length < totalEvents;
+  const isLoadingMore = !eventsQuery.query.isLoading && totalEvents > serverPageSize;
+
+  useEffect(() => {
+    if (!eventsQuery.query.isLoading && totalEvents > serverPageSize) {
+      setServerPageSize(totalEvents + 50);
+    }
+  }, [eventsQuery.query.isLoading, totalEvents, serverPageSize]);
+
   const safeListSearch = debouncedListSearch.replace(/[,()*"\\]/g, " ").trim();
   const isServerSearching = safeListSearch.length >= 2;
 
@@ -759,9 +776,7 @@ export const EventsList = () => {
             <h1 className="text-2xl font-bold tracking-tight">Event-Anfragen</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {activeEvents.length} aktive Anfragen • {archivedEvents.length} archiviert
-              {totalEvents > 0 && (
-                <> • {allEvents.length} von {totalEvents} geladen</>
-              )}
+              {isLoadingMore && <span className="ml-1">· weitere werden geladen …</span>}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -813,7 +828,8 @@ export const EventsList = () => {
               onRefresh={() => eventsQuery.query.refetch()}
               onRowClick={handleRowClick}
               isLoading={isLoading}
-              pageSize={15}
+              pageSize={tablePageSize}
+              onPageSizeChange={setTablePageSize}
               enableSelection
               selectedRowIds={selectedIds}
               onSelectionChange={setSelectedIds}
@@ -885,42 +901,13 @@ export const EventsList = () => {
               onActionComplete={() => eventsQuery.query.refetch()}
               showRestoreAction={currentFilter === 'archived'}
             />
-
-            {hasMore && !isServerSearching && (
-              <div className="flex flex-col items-center gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  className="rounded-lg"
-                  disabled={eventsQuery.query.isFetching}
-                  onClick={() => setPageSize((s) => s + 200)}
-                >
-                  {eventsQuery.query.isFetching ? 'Lädt…' : 'Weitere 200 Anfragen laden'}
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {allEvents.length} von {totalEvents} Anfragen geladen
-                </span>
-              </div>
-            )}
           </>
         ) : (
-          <>
-            <KanbanView
-              events={activeEvents}
-              onRefresh={() => eventsQuery.query.refetch()}
-            />
-            {hasMore && !isServerSearching && (
-              <div className="flex justify-center pt-2">
-                <Button
-                  variant="outline"
-                  className="rounded-lg"
-                  disabled={eventsQuery.query.isFetching}
-                  onClick={() => setPageSize((s) => s + 200)}
-                >
-                  {eventsQuery.query.isFetching ? 'Lädt…' : 'Weitere 200 Anfragen laden'}
-                </Button>
-              </div>
-            )}
-          </>
+          <KanbanView
+            events={activeEvents}
+            onRefresh={() => eventsQuery.query.refetch()}
+            columnPageSize={tablePageSize}
+          />
         )}
       </div>
       <UpcomingOrdersPrintDialog

@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Search, ChevronLeft, ChevronRight, X, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, CheckSquare } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -52,6 +53,9 @@ export function sortableHeader<TData>(label: string) {
   return HeaderCell;
 }
 
+/** Sentinel-Wert für die "Alle"-Option der Seitengrößen-Auswahl. */
+export const SHOW_ALL_PAGE_SIZE = 1_000_000;
+
 interface FilterPill {
   id: string;
   label: string;
@@ -72,6 +76,9 @@ interface DataTableProps<TData, TValue> {
   onRowClick?: (row: TData) => void;
   isLoading?: boolean;
   pageSize?: number;
+  /** Zeigt oben eine "Anzeigen: 25/50/100/Alle"-Auswahl; pageSize wird dadurch reaktiv statt fix. */
+  onPageSizeChange?: (size: number) => void;
+  pageSizeOptions?: number[];
   // Selection support
   enableSelection?: boolean;
   selectedRowIds?: string[];
@@ -97,6 +104,8 @@ export function DataTable<TData, TValue>({
   onRowClick,
   isLoading,
   pageSize = 10,
+  onPageSizeChange,
+  pageSizeOptions = [25, 50, 100, SHOW_ALL_PAGE_SIZE],
   enableSelection = false,
   selectedRowIds = [],
   onSelectionChange,
@@ -205,6 +214,14 @@ export function DataTable<TData, TValue>({
     table.setPageIndex(0);
   }, [effectiveSearchValue, data.length, table]);
 
+  // pageSize kommt bei onPageSizeChange aus State beim Aufrufer (25/50/100/Alle) —
+  // initialState greift nur beim ersten Render, daher hier reaktiv nachziehen.
+  useEffect(() => {
+    if (onPageSizeChange) {
+      table.setPageSize(pageSize);
+    }
+  }, [pageSize, onPageSizeChange, table]);
+
   const activeFilters = useMemo(() => 
     filterPills.filter(f => f.active), 
     [filterPills]
@@ -263,6 +280,23 @@ export function DataTable<TData, TValue>({
                 className="pl-10 h-10 bg-white dark:bg-gray-900 border-border/60 rounded-lg focus-visible:ring-primary/20"
               />
             </div>
+            {onPageSizeChange && (
+              <Select
+                value={String(pageSize)}
+                onValueChange={(value) => onPageSizeChange(Number(value))}
+              >
+                <SelectTrigger className="h-10 w-[120px] shrink-0 border-border/60 bg-white dark:bg-gray-900 rounded-lg" aria-label="Anzahl pro Seite">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {pageSizeOptions.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size === SHOW_ALL_PAGE_SIZE ? "Alle anzeigen" : `${size} pro Seite`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {isMobile && enableSelection && (
               <Button
                 variant="outline"
