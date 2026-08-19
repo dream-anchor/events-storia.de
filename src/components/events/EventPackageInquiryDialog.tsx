@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import MaestroWidget, { MAESTRO_WIDGET_ENABLED } from "@/components/maestro/MaestroWidget";
+import MaestroWidget, { MAESTRO_WIDGET_ENABLED, isMaestroUnavailable } from "@/components/maestro/MaestroWidget";
 import EventPackageInquiryDialogNative from "./EventPackageInquiryDialogNative";
 
 const MAESTRO_PACKAGE_INQUIRY_WIDGET_ID = "bf736453-8d35-46b3-9ef7-f6b7cb36da5a";
@@ -26,7 +26,7 @@ interface EventPackageInquiryDialogProps {
 const EventPackageInquiryDialog = (props: EventPackageInquiryDialogProps) => {
   const { open, onOpenChange, packageName, packageNameEn } = props;
   const { language } = useLanguage();
-  const [widgetFailed, setWidgetFailed] = useState(false);
+  const [widgetFailed, setWidgetFailed] = useState(() => isMaestroUnavailable());
   const displayName = language === "en" && packageNameEn ? packageNameEn : packageName;
 
   if (!MAESTRO_WIDGET_ENABLED || widgetFailed) {
