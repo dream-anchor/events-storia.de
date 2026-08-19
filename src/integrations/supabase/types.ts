@@ -7285,7 +7285,14 @@ export type Database = {
         | "cancelled"
         | "refunded"
         | "failed"
-      v2_payment_type: "deposit" | "prepayment" | "final" | "full" | "refund"
+      v2_payment_type:
+        | "deposit"
+        | "prepayment"
+        | "final"
+        | "full"
+        | "refund"
+        | "adjustment"
+        | "credit_note"
       v2_task_status: "open" | "in_progress" | "done" | "cancelled"
     }
     CompositeTypes: {
@@ -7468,7 +7475,15 @@ export const Constants = {
         "refunded",
         "failed",
       ],
-      v2_payment_type: ["deposit", "prepayment", "final", "full", "refund"],
+      v2_payment_type: [
+        "deposit",
+        "prepayment",
+        "final",
+        "full",
+        "refund",
+        "adjustment",
+        "credit_note",
+      ],
       v2_task_status: ["open", "in_progress", "done", "cancelled"],
     },
   },
