@@ -111,15 +111,28 @@ serve(async (req) => {
 
     // v2_payments-Record anlegen (status='sent', erwartete Summe = minGuests * preis)
     const expectedCents = body.pricePerPersonCents * minGuests;
-    const { data: paymentRow } = await supabaseAdmin.from("v2_payments").insert({
+    const { data: paymentRow, error: payErr } = await supabaseAdmin.from("v2_payments").insert({
       event_id: body.eventId,
       amount_cents: expectedCents,
-      payment_type: "balance",
+      payment_type: "final",
       status: "sent",
+      guests_charged: minGuests,
+      price_per_person_cents: body.pricePerPersonCents,
       stripe_payment_link_url: paymentLink.url,
       notes: `${productName} – ab ${minGuests} Gästen, ${(body.pricePerPersonCents / 100).toFixed(2)} €/Person`,
-      created_by: userData.user.email ?? null,
+      created_by: userData.user.id,
     }).select("id").single();
+    if (payErr) {
+      log("v2_payments insert FAILED", { error: payErr.message });
+      throw new Error(`Zahlung konnte nicht angelegt werden: ${payErr.message}`);
+    }
+
+    // Kalkulierte Gästezahl als Referenz für spätere Differenzen festhalten
+    await supabaseAdmin
+      .from("v2_events")
+      .update({ guests_quoted: minGuests, updated_at: new Date().toISOString() })
+      .eq("id", body.eventId)
+      .is("guests_quoted", null);
 
     // Optional: Einladungs-Mail
     if (body.sendEmail !== false && paymentRow?.id) {

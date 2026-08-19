@@ -72,14 +72,26 @@ serve(async (req) => {
     });
 
     if (link.event_id) {
-      await supabase.from("v2_payments").insert({
+      const { error: payErr } = await supabase.from("v2_payments").insert({
         event_id: link.event_id,
         amount_cents: amountCents,
-        payment_type: "balance",
+        payment_type: "final",
         status: "sent",
+        guests_charged: Math.round(guestsNum),
+        price_per_person_cents: link.price_per_person_cents,
         stripe_checkout_session_id: session.id,
         notes: `Restzahlung via /restzahlung/${slug} – ${guestsNum} Gäste`,
       });
+      if (payErr) {
+        console.error("[create-balance-checkout] v2_payments insert failed", payErr.message);
+        await supabase.from("system_errors").insert({
+          project: "events_storia",
+          source: "create-balance-checkout",
+          severity: "critical",
+          message: `Zahlung konnte nicht vorgemerkt werden: ${payErr.message}`,
+          payload: { event_id: link.event_id, session_id: session.id },
+        });
+      }
     }
 
     await supabase.from("activity_logs").insert({
