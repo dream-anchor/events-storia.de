@@ -188,6 +188,9 @@ async function processCheckoutPaid(
   } else if (metadata.kind === 'prepayment_per_person' && metadata.event_id) {
     // ━━━ PREPAYMENT mit anpassbarer Personenzahl ━━━
     await handlePrepaymentPerPerson(supabase, stripe, session, metadata);
+  } else if (metadata.balance_link_slug) {
+    // ━━━ RESTZAHLUNG über öffentlichen Zahlungslink (/restzahlung/:slug) ━━━
+    await handleBalanceLinkPayment(supabase, stripe, session, metadata);
   } else if (metadata.order_type === 'voucher' && metadata.voucher_id) {
     // ━━━ GUTSCHEIN-KAUF ━━━
     await handleVoucherPayment(supabase, session, metadata);
