@@ -2,12 +2,13 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const MAESTRO_SCRIPT_SRC = "https://storia.schrittmacher.ai/api/public/widgets/v1/maestro.js";
+const MAESTRO_API_BASE = "https://storia.schrittmacher.ai";
 
 /** Widget global an/aus — Fallback auf natives Formular bleibt immer aktiv. */
 export const MAESTRO_WIDGET_ENABLED = true;
 
 /** Zeit, nach der ein leerer Container als "Widget nicht gerendert" gilt. */
-const RENDER_TIMEOUT_MS = 4000;
+const RENDER_TIMEOUT_MS = 8000;
 
 /**
  * Merkt sich pro Seitenaufruf, dass das Widget nicht verfügbar ist
@@ -17,24 +18,33 @@ const RENDER_TIMEOUT_MS = 4000;
 let maestroUnavailable = false;
 export const isMaestroUnavailable = () => maestroUnavailable;
 
-/** Loads the MAESTRO widget loader script exactly once per page. */
-const ensureMaestroScript = (onError: () => void) => {
-  if (typeof document === "undefined") return;
+let scriptFailed = false;
+let scanCounter = 0;
 
-  const existing = document.querySelector<HTMLScriptElement>(
-    `script[src="${MAESTRO_SCRIPT_SRC}"]`
-  );
-  if (existing) {
-    if (existing.dataset.maestroFailed === "1") onError();
-    else existing.addEventListener("error", onError);
+/**
+ * Der MAESTRO-Loader scannt das DOM nur einmal beim Laden. Container, die
+ * später erscheinen (z. B. in einem Dialog), werden deshalb nie gerendert.
+ * Wir stoßen daher pro Mount einen neuen Scan an, indem wir den Loader-Guard
+ * zurücksetzen und das Skript erneut einhängen (aus dem Cache, kein Traffic).
+ */
+const requestMaestroScan = (onError: () => void) => {
+  if (typeof document === "undefined") return;
+  if (scriptFailed) {
+    onError();
     return;
   }
 
+  try {
+    delete (window as unknown as Record<string, unknown>).__maestroWidgetLoader;
+  } catch {
+    /* ignore */
+  }
+
   const script = document.createElement("script");
-  script.src = MAESTRO_SCRIPT_SRC;
-  script.defer = true;
+  script.src = `${MAESTRO_SCRIPT_SRC}?s=${++scanCounter}`;
+  script.async = false;
   script.addEventListener("error", () => {
-    script.dataset.maestroFailed = "1";
+    scriptFailed = true;
     onError();
   });
   document.body.appendChild(script);
@@ -67,7 +77,8 @@ const MaestroWidget = ({ widgetId, className, onUnavailable }: MaestroWidgetProp
       failRef.current?.();
     };
 
-    ensureMaestroScript(fail);
+    // Nächster Frame: Container ist dann sicher im DOM und sichtbar.
+    const raf = requestAnimationFrame(() => requestMaestroScan(fail));
 
     const timer = setTimeout(() => {
       const el = containerRef.current;
@@ -77,6 +88,7 @@ const MaestroWidget = ({ widgetId, className, onUnavailable }: MaestroWidgetProp
 
     return () => {
       done = true;
+      cancelAnimationFrame(raf);
       clearTimeout(timer);
     };
   }, [widgetId]);
@@ -85,6 +97,7 @@ const MaestroWidget = ({ widgetId, className, onUnavailable }: MaestroWidgetProp
     <div
       ref={containerRef}
       data-maestro-widget={widgetId}
+      data-maestro-api={MAESTRO_API_BASE}
       className={cn("w-full", className)}
     />
   );
