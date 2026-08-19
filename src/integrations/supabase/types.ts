@@ -5036,6 +5036,9 @@ export type Database = {
           final_lexoffice_invoice_number: string | null
           guest_count: number | null
           guest_count_max: number | null
+          guest_delta_settled_at: string | null
+          guests_confirmed: number | null
+          guests_quoted: number | null
           has_elevator: boolean | null
           id: string
           internal_notes: string | null
@@ -5174,6 +5177,9 @@ export type Database = {
           final_lexoffice_invoice_number?: string | null
           guest_count?: number | null
           guest_count_max?: number | null
+          guest_delta_settled_at?: string | null
+          guests_confirmed?: number | null
+          guests_quoted?: number | null
           has_elevator?: boolean | null
           id?: string
           internal_notes?: string | null
@@ -5312,6 +5318,9 @@ export type Database = {
           final_lexoffice_invoice_number?: string | null
           guest_count?: number | null
           guest_count_max?: number | null
+          guest_delta_settled_at?: string | null
+          guests_confirmed?: number | null
+          guests_quoted?: number | null
           has_elevator?: boolean | null
           id?: string
           internal_notes?: string | null
@@ -5436,6 +5445,145 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v2_guest_adjustments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          delta_amount_cents: number
+          delta_guests: number
+          event_id: string
+          guests_after: number
+          guests_before: number
+          id: string
+          kind: string
+          lexoffice_credit_note_id: string | null
+          lexoffice_credit_note_number: string | null
+          lexoffice_invoice_id: string | null
+          lexoffice_invoice_number: string | null
+          notes: string | null
+          payment_id: string | null
+          price_per_person_cents: number
+          settled_at: string | null
+          status: string
+          stripe_refund_id: string | null
+          stripe_session_id: string | null
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          delta_amount_cents?: number
+          delta_guests?: number
+          event_id: string
+          guests_after?: number
+          guests_before?: number
+          id?: string
+          kind?: string
+          lexoffice_credit_note_id?: string | null
+          lexoffice_credit_note_number?: string | null
+          lexoffice_invoice_id?: string | null
+          lexoffice_invoice_number?: string | null
+          notes?: string | null
+          payment_id?: string | null
+          price_per_person_cents?: number
+          settled_at?: string | null
+          status?: string
+          stripe_refund_id?: string | null
+          stripe_session_id?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          delta_amount_cents?: number
+          delta_guests?: number
+          event_id?: string
+          guests_after?: number
+          guests_before?: number
+          id?: string
+          kind?: string
+          lexoffice_credit_note_id?: string | null
+          lexoffice_credit_note_number?: string | null
+          lexoffice_invoice_id?: string | null
+          lexoffice_invoice_number?: string | null
+          notes?: string | null
+          payment_id?: string | null
+          price_per_person_cents?: number
+          settled_at?: string | null
+          status?: string
+          stripe_refund_id?: string | null
+          stripe_session_id?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v2_guest_adjustments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catering_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_guest_adjustments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_guest_adjustments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_guest_adjustments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_purge_candidates_inquiry"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "v2_guest_adjustments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_guest_adjustments_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "event_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_guest_adjustments_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "event_payments_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_guest_adjustments_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "v2_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_guest_adjustments_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "v2_payments_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -5593,8 +5741,11 @@ export type Database = {
           email_resend_id: string | null
           email_sent_at: string | null
           event_id: string
+          guests_charged: number | null
           id: string
           lexoffice_conflict_details: Json | null
+          lexoffice_credit_note_id: string | null
+          lexoffice_credit_note_number: string | null
           lexoffice_invoice_id: string | null
           lexoffice_invoice_number: string | null
           lexoffice_last_synced_at: string | null
@@ -5605,7 +5756,9 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           paid_via: string | null
+          parent_payment_id: string | null
           payment_type: Database["public"]["Enums"]["v2_payment_type"]
+          price_per_person_cents: number | null
           reminder_sent_at: string | null
           source_booking_payment_id: string | null
           source_offer_option_id: string | null
@@ -5614,6 +5767,7 @@ export type Database = {
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
           stripe_payment_link_url: string | null
+          stripe_refund_id: string | null
           tenant_id: string | null
           updated_at: string
         }
@@ -5626,8 +5780,11 @@ export type Database = {
           email_resend_id?: string | null
           email_sent_at?: string | null
           event_id: string
+          guests_charged?: number | null
           id?: string
           lexoffice_conflict_details?: Json | null
+          lexoffice_credit_note_id?: string | null
+          lexoffice_credit_note_number?: string | null
           lexoffice_invoice_id?: string | null
           lexoffice_invoice_number?: string | null
           lexoffice_last_synced_at?: string | null
@@ -5638,7 +5795,9 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           paid_via?: string | null
+          parent_payment_id?: string | null
           payment_type: Database["public"]["Enums"]["v2_payment_type"]
+          price_per_person_cents?: number | null
           reminder_sent_at?: string | null
           source_booking_payment_id?: string | null
           source_offer_option_id?: string | null
@@ -5647,6 +5806,7 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_payment_link_url?: string | null
+          stripe_refund_id?: string | null
           tenant_id?: string | null
           updated_at?: string
         }
@@ -5659,8 +5819,11 @@ export type Database = {
           email_resend_id?: string | null
           email_sent_at?: string | null
           event_id?: string
+          guests_charged?: number | null
           id?: string
           lexoffice_conflict_details?: Json | null
+          lexoffice_credit_note_id?: string | null
+          lexoffice_credit_note_number?: string | null
           lexoffice_invoice_id?: string | null
           lexoffice_invoice_number?: string | null
           lexoffice_last_synced_at?: string | null
@@ -5671,7 +5834,9 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           paid_via?: string | null
+          parent_payment_id?: string | null
           payment_type?: Database["public"]["Enums"]["v2_payment_type"]
+          price_per_person_cents?: number | null
           reminder_sent_at?: string | null
           source_booking_payment_id?: string | null
           source_offer_option_id?: string | null
@@ -5680,6 +5845,7 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_payment_link_url?: string | null
+          stripe_refund_id?: string | null
           tenant_id?: string | null
           updated_at?: string
         }
@@ -5717,6 +5883,34 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "v2_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_parent_payment_id_fkey"
+            columns: ["parent_payment_id"]
+            isOneToOne: false
+            referencedRelation: "event_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_parent_payment_id_fkey"
+            columns: ["parent_payment_id"]
+            isOneToOne: false
+            referencedRelation: "event_payments_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_parent_payment_id_fkey"
+            columns: ["parent_payment_id"]
+            isOneToOne: false
+            referencedRelation: "v2_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v2_payments_parent_payment_id_fkey"
+            columns: ["parent_payment_id"]
+            isOneToOne: false
+            referencedRelation: "v2_payments_enriched"
             referencedColumns: ["id"]
           },
           {
