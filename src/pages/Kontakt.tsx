@@ -6,6 +6,7 @@ import InternalLinks from "@/components/InternalLinks";
 import ConsentGoogleMaps from "@/components/ConsentGoogleMaps";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
+import EventContactForm from "@/components/events/EventContactForm";
 
 import { Phone, Mail, MapPin, Clock, Navigation as NavIcon, Car, Train } from "lucide-react";
 import storiaLogo from "@/assets/storia-logo.webp";
@@ -213,6 +214,9 @@ const Kontakt = () => {
               </div>
             </div>
           </div>
+
+          {/* MAESTRO Contact Widget - Conversion */}
+          <EventContactForm />
 
           {/* Transportation Info Section - Local SEO */}
           <section

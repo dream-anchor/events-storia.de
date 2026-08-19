@@ -1,6 +1,6 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import MaestroWidget from "@/components/maestro/MaestroWidget";
+import MaestroWidget, { MAESTRO_PRIMARY_COLOR } from "@/components/maestro/MaestroWidget";
 
 const MAESTRO_PACKAGE_INQUIRY_WIDGET_ID = "bf736453-8d35-46b3-9ef7-f6b7cb36da5a";
 
@@ -39,7 +39,12 @@ const EventPackageInquiryDialog = ({
           </DialogTitle>
           <DialogDescription>{displayName}</DialogDescription>
         </DialogHeader>
-        {open && <MaestroWidget widgetId={MAESTRO_PACKAGE_INQUIRY_WIDGET_ID} />}
+        {open && (
+          <MaestroWidget
+            widgetId={MAESTRO_PACKAGE_INQUIRY_WIDGET_ID}
+            primaryColor={MAESTRO_PRIMARY_COLOR}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

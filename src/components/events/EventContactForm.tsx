@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import MaestroWidget, { MAESTRO_WIDGET_ENABLED, isMaestroUnavailable } from "@/components/maestro/MaestroWidget";
+import MaestroWidget, { MAESTRO_WIDGET_ENABLED, MAESTRO_PRIMARY_COLOR, isMaestroUnavailable } from "@/components/maestro/MaestroWidget";
 import EventContactFormNative from "./EventContactFormNative";
 
 const MAESTRO_EVENT_CONTACT_WIDGET_ID = "e2a64978-cdbd-4fe3-b748-cf47c59adf41";
@@ -45,6 +45,7 @@ const EventContactForm = (props: EventContactFormProps) => {
           <div className="bg-card border border-border/50 rounded-2xl shadow-sm p-6 md:p-8">
             <MaestroWidget
               widgetId={MAESTRO_EVENT_CONTACT_WIDGET_ID}
+              primaryColor={MAESTRO_PRIMARY_COLOR}
               onUnavailable={() => setWidgetFailed(true)}
             />
           </div>
