@@ -9,6 +9,14 @@ export const MAESTRO_WIDGET_ENABLED = true;
 /** Zeit, nach der ein leerer Container als "Widget nicht gerendert" gilt. */
 const RENDER_TIMEOUT_MS = 4000;
 
+/**
+ * Merkt sich pro Seitenaufruf, dass das Widget nicht verfügbar ist
+ * (z. B. Origin nicht freigeschaltet oder Skript nicht erreichbar),
+ * damit weitere Formulare sofort das native Formular zeigen.
+ */
+let maestroUnavailable = false;
+export const isMaestroUnavailable = () => maestroUnavailable;
+
 /** Loads the MAESTRO widget loader script exactly once per page. */
 const ensureMaestroScript = (onError: () => void) => {
   if (typeof document === "undefined") return;
@@ -55,6 +63,7 @@ const MaestroWidget = ({ widgetId, className, onUnavailable }: MaestroWidgetProp
     const fail = () => {
       if (done) return;
       done = true;
+      maestroUnavailable = true;
       failRef.current?.();
     };
 
