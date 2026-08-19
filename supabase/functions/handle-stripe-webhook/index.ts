@@ -1735,8 +1735,11 @@ async function handlePrepaymentPerPerson(
     .select("id, guests_quoted, guests_confirmed, guest_count")
     .eq("id", eventId)
     .maybeSingle();
+  // Reihenfolge: explizit gespeicherter Angebotsstand → Basis aus dem Zahlungslink
+  // (min_guests = kalkulierte Gästezahl des Angebots) → aktueller Event-Wert.
+  // guest_count wird im Admin laufend gepflegt und taugt daher nicht als Baseline.
   const guestsQuoted: number =
-    eventRow?.guests_quoted ?? eventRow?.guest_count ?? minGuests;
+    eventRow?.guests_quoted ?? (minGuests > 0 ? minGuests : null) ?? eventRow?.guest_count ?? 0;
 
   // Existing sent record finden (anhand stripe_payment_link_url)
   const linkUrl = (session as any).url || null;
