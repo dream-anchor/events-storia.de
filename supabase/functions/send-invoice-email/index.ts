@@ -286,7 +286,20 @@ serve(async (req) => {
     });
 
     const amountTotal = (inquiry as any).amount_total;
-    const totalEuro = amountTotal != null ? Number(amountTotal) : null;
+    let totalEuro = amountTotal != null ? Number(amountTotal) : null;
+
+    // Gästezahl-Anpassungen (Stripe-Mengenänderung) in den Gesamtbetrag einrechnen,
+    // damit die Mail nicht die veraltete Angebotssumme zeigt.
+    if (totalEuro != null) {
+      const { data: adjustments } = await supabase
+        .from('v2_guest_adjustments')
+        .select('delta_amount_cents, status')
+        .eq('event_id', body.inquiry_id);
+      const deltaCents = (adjustments || [])
+        .filter((a: any) => a.status !== 'cancelled')
+        .reduce((sum: number, a: any) => sum + Number(a.delta_amount_cents || 0), 0);
+      if (deltaCents !== 0) totalEuro = Math.round((totalEuro + deltaCents / 100) * 100) / 100;
+    }
 
     // Mandanten-Konfiguration (Phase 4b) — Absender/Signatur/NAP aus tenants.
     // Fallback: Storia → für den Default-Tenant byte-identisch zum Hardcode.
