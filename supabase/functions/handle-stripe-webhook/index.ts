@@ -1677,6 +1677,15 @@ async function handlePrepaymentPerPerson(
 
   const amountCents = session.amount_total ?? (pricePerPersonCents * finalGuests);
 
+  // Referenz-Gästezahl (Angebotsstand) ermitteln — Basis für die Differenz
+  const { data: eventRow } = await supabase
+    .from("v2_events")
+    .select("id, guests_quoted, guests_confirmed, guest_count")
+    .eq("id", eventId)
+    .maybeSingle();
+  const guestsQuoted: number =
+    eventRow?.guests_quoted ?? eventRow?.guest_count ?? minGuests;
+
   // Existing sent record finden (anhand stripe_payment_link_url)
   const linkUrl = (session as any).url || null;
   const { data: sentRow } = await supabase
@@ -1707,6 +1716,8 @@ async function handlePrepaymentPerPerson(
     await supabase.from("v2_payments").update({
       status: "paid",
       amount_cents: amountCents,
+      guests_charged: finalGuests,
+      price_per_person_cents: pricePerPersonCents || null,
       paid_at: new Date().toISOString(),
       paid_via: paidVia,
       stripe_checkout_session_id: session.id,
@@ -1714,11 +1725,13 @@ async function handlePrepaymentPerPerson(
       updated_at: new Date().toISOString(),
     }).eq("id", paymentId);
   } else {
-    const { data: ins } = await supabase.from("v2_payments").insert({
+    const { data: ins, error: insErr } = await supabase.from("v2_payments").insert({
       event_id: eventId,
       amount_cents: amountCents,
-      payment_type: "balance",
+      payment_type: "final",
       status: "paid",
+      guests_charged: finalGuests,
+      price_per_person_cents: pricePerPersonCents || null,
       paid_at: new Date().toISOString(),
       paid_via: paidVia,
       stripe_checkout_session_id: session.id,
@@ -1726,14 +1739,42 @@ async function handlePrepaymentPerPerson(
       notes: `Prepayment per Person (${finalGuests} Gäste)`,
     }).select("id").single();
     paymentId = ins?.id;
+    if (insErr) {
+      logStep("v2_payments insert FAILED", { error: insErr.message, eventId });
+      try {
+        await supabase.from("system_errors").insert({
+          project: "events_storia",
+          source: "handle-stripe-webhook",
+          severity: "critical",
+          message: `Zahlung konnte nicht gespeichert werden: ${insErr.message}`,
+          payload: { event_id: eventId, session_id: session.id, amount_cents: amountCents },
+        });
+      } catch { /* non-fatal */ }
+    }
   }
 
-  // guest_count am Event aktualisieren (nur wenn ≥ min)
-  if (finalGuests >= minGuests) {
-    await supabase.from("v2_events").update({
-      guest_count: finalGuests,
-      updated_at: new Date().toISOString(),
-    }).eq("id", eventId);
+  // Gästezahlen am Event aktualisieren
+  await supabase.from("v2_events").update({
+    guest_count: finalGuests >= minGuests ? finalGuests : undefined,
+    guests_quoted: eventRow?.guests_quoted ?? guestsQuoted,
+    guests_confirmed: finalGuests,
+    updated_at: new Date().toISOString(),
+  }).eq("id", eventId);
+
+  // Differenz zur kalkulierten Gästezahl als Adjustment erfassen
+  await recordGuestAdjustment(supabase, {
+    eventId,
+    paymentId: paymentId ?? null,
+    guestsBefore: guestsQuoted,
+    guestsAfter: finalGuests,
+    pricePerPersonCents,
+    stripeSessionId: session.id,
+    amountPaidCents: amountCents,
+  });
+
+  // LexOffice-Rechnung über den tatsächlich gezahlten Betrag (Pflichtregel)
+  if (paymentId) {
+    await triggerInvoiceForPayment(paymentId, eventId, "final");
   }
 
   // Activity log
