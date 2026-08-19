@@ -1487,6 +1487,58 @@ function formatEUR(amount: number): string {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // UStG-Helper: Anzahlungsrechnung bzw. Schlussrechnung triggern
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ━━━ Gästezahl-Differenz erfassen (Nachberechnung / Storno) ━━━
+// Idempotent über stripe_session_id (Unique-Index).
+// deno-lint-ignore no-explicit-any
+async function recordGuestAdjustment(supabase: any, input: {
+  eventId: string;
+  paymentId: string | null;
+  guestsBefore: number;
+  guestsAfter: number;
+  pricePerPersonCents: number;
+  stripeSessionId: string;
+  amountPaidCents: number;
+}) {
+  const delta = input.guestsAfter - input.guestsBefore;
+  if (!delta) return;
+
+  const deltaAmount = delta * (input.pricePerPersonCents || 0);
+  const kind = delta > 0
+    ? "surcharge"
+    : (input.amountPaidCents > 0 ? "refund_due" : "note_only");
+  const status = kind === "note_only" ? "waived" : "open";
+
+  const { error } = await supabase.from("v2_guest_adjustments").insert({
+    event_id: input.eventId,
+    payment_id: input.paymentId,
+    guests_before: input.guestsBefore,
+    guests_after: input.guestsAfter,
+    delta_guests: delta,
+    price_per_person_cents: input.pricePerPersonCents || 0,
+    delta_amount_cents: deltaAmount,
+    kind,
+    status,
+    stripe_session_id: input.stripeSessionId,
+    settled_at: status === "waived" ? new Date().toISOString() : null,
+    notes: `Gästezahl bei Stripe angepasst: ${input.guestsBefore} → ${input.guestsAfter}`,
+  });
+
+  if (error && !String(error.message).includes("duplicate key")) {
+    logStep("guest adjustment insert failed", { error: error.message });
+    return;
+  }
+
+  await logActivity(supabase, {
+    entity_type: "event_inquiry",
+    entity_id: input.eventId,
+    action: "guest_count_adjustment",
+    description:
+      `Gästezahl geändert: ${input.guestsBefore} → ${input.guestsAfter} (${delta > 0 ? "+" : ""}${delta}, ${formatEUR(deltaAmount / 100)})`,
+    metadata: { kind, status, delta_guests: delta, delta_amount_cents: deltaAmount },
+  });
+}
+
 async function triggerInvoiceForPayment(
   paymentId: string,
   inquiryId: string,
