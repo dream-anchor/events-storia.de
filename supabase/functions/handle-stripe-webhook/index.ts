@@ -1934,7 +1934,7 @@ async function handleBalanceLinkPayment(
       message:
         `Restzahlung über /restzahlung/${slug} kann keiner Anfrage zugeordnet werden (event_id fehlt am Zahlungslink).`,
       payload: { slug, session_id: session.id, amount_cents: amountCents, guests: guestsPaid },
-    }).catch?.(() => {});
+    });
     await sendOperatorAlert(
       `Restzahlung ohne Zuordnung · ${slug}`,
       `<p>Eine Restzahlung ging ein, der Zahlungslink ist aber keiner Anfrage zugeordnet.</p>
