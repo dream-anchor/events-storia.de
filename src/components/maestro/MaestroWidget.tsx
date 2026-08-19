@@ -7,7 +7,7 @@ const MAESTRO_API_BASE = "https://storia.schrittmacher.ai";
 /** Widget global an/aus — Fallback auf natives Formular bleibt immer aktiv. */
 export const MAESTRO_WIDGET_ENABLED = true;
 
-/** Zeit, nach der ein leerer Container als "Widget nicht gerendert" gilt. */
+/** Zeit, nach der ein sichtbarer, aber leerer Container als "nicht gerendert" gilt. */
 const RENDER_TIMEOUT_MS = 8000;
 
 /**
@@ -62,6 +62,15 @@ interface MaestroWidgetProps {
  * Renders an externally hosted MAESTRO form widget.
  * The widget script injects natively via Shadow DOM (no iframe) and inherits
  * body font + primary button color from the page.
+ *
+ * Wichtige Implementierungs-Details:
+ * - Der Container bekommt eine Mindesthöhe, damit der IntersectionObserver des
+ *   MAESTRO-Skripts (rootMargin 200px) greift. Ein 0px hoher, leerer Container
+ *   hat keine Schnittmenge mit dem Viewport → das Skript würde nie rendern.
+ * - Der Fallback-Timer startet erst, wenn der Container tatsächlich sichtbar
+ *   geworden ist. Below-the-fold Formulare (z. B. Kontaktformular am Seitenende)
+ *   laden lazily beim Scrollen und dürfen nicht vorzeitig auf das native
+ *   Formular zurückfallen, nur weil der Nutzer noch nicht gescrollt hat.
  */
 const MaestroWidget = ({ widgetId, className, onUnavailable }: MaestroWidgetProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -77,19 +86,37 @@ const MaestroWidget = ({ widgetId, className, onUnavailable }: MaestroWidgetProp
       failRef.current?.();
     };
 
-    // Nächster Frame: Container ist dann sicher im DOM und sichtbar.
+    // Nächster Frame: Container ist dann sicher im DOM.
     const raf = requestAnimationFrame(() => requestMaestroScan(fail));
 
-    const timer = setTimeout(() => {
-      const el = containerRef.current;
-      const rendered = !!el && (el.shadowRoot != null || el.childElementCount > 0);
-      if (!rendered) fail();
-    }, RENDER_TIMEOUT_MS);
+    // Sichtbarkeits-gesteuerter Fallback: Der Timer startet erst, wenn der
+    // Container in den Viewport scrollt (bzw. im Dialog sofort sichtbar ist).
+    // Ist er nach RENDER_TIMEOUT_MS noch immer leer → natives Formular.
+    let visibleTimer: ReturnType<typeof setTimeout> | null = null;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            io.disconnect();
+            if (visibleTimer != null) break;
+            visibleTimer = setTimeout(() => {
+              const el = containerRef.current;
+              const rendered = !!el && (el.shadowRoot != null || el.childElementCount > 0);
+              if (!rendered) fail();
+            }, RENDER_TIMEOUT_MS);
+            break;
+          }
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    if (containerRef.current) io.observe(containerRef.current);
 
     return () => {
       done = true;
       cancelAnimationFrame(raf);
-      clearTimeout(timer);
+      if (visibleTimer) clearTimeout(visibleTimer);
+      io.disconnect();
     };
   }, [widgetId]);
 
@@ -98,7 +125,7 @@ const MaestroWidget = ({ widgetId, className, onUnavailable }: MaestroWidgetProp
       ref={containerRef}
       data-maestro-widget={widgetId}
       data-maestro-api={MAESTRO_API_BASE}
-      className={cn("w-full", className)}
+      className={cn("w-full min-h-[420px]", className)}
     />
   );
 };
