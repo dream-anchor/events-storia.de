@@ -80,6 +80,26 @@ const Datenschutz = () => {
               <p className="mt-2">
                 <strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO
               </p>
+
+              <h3 className="text-lg font-semibold mt-6 mb-2">
+                Verwendung von MAESTRO Cloud für Formulare und Anfragen
+              </h3>
+              <p>
+                Zur Bereitstellung unserer Kontaktformulare, Event-Anfragen und Reservierungsfunktionen
+                nutzen wir die Lösung „MAESTRO Cloud" der Schrittmacher AI GmbH. Wenn Sie ein Formular
+                auf unserer Website ausfüllen, werden die von Ihnen eingegebenen Daten (wie Name,
+                E-Mail-Adresse, Telefonnummer, Datum und Details zur Anfrage) sowie technische Daten
+                (wie Ihre IP-Adresse und Browser-Informationen zur Spam-Abwehr) an die Server von
+                MAESTRO Cloud übermittelt und dort verarbeitet.
+              </p>
+              <p className="mt-2">
+                Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Anbahnung oder
+                Durchführung eines Vertrages) bzw. Art. 6 Abs. 1 lit. f DSGVO (unser berechtigtes
+                Interesse an einer effizienten und sicheren Bearbeitung von Kundenanfragen). Wir haben
+                mit dem Anbieter einen Vertrag zur Auftragsverarbeitung (AVV) gemäß Art. 28 DSGVO
+                geschlossen, der sicherstellt, dass Ihre Daten streng nach unseren Weisungen und im
+                Einklang mit den europäischen Datenschutzrichtlinien verarbeitet werden.
+              </p>
             </section>
 
             {/* 4. Cookies */}
