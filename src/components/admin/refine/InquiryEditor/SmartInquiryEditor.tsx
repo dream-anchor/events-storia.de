@@ -25,6 +25,7 @@ import { Timeline } from "@/components/admin/shared/Timeline";
 import EventMailsTab from "./EventMailsTab";
 import { MailClient } from "@/components/admin/shared/MailClient";
 import { PaymentCard } from "./PaymentCard";
+import { GuestAdjustmentCard } from "./GuestAdjustmentCard";
 import { PaymentStatusStrip } from "./PaymentStatusStrip";
 import { EmailFailureBanner } from "./EmailFailureBanner";
 import { LexofficeDocumentsCard } from "./LexofficeDocumentsCard";
@@ -1446,6 +1447,8 @@ export const SmartInquiryEditor = () => {
               isTest={!!inquiry.is_test}
             />
           </div>
+          {/* Gästezahl-Differenzen aus Stripe */}
+          <GuestAdjustmentCard inquiryId={id!} />
           {/* LexOffice-Belege */}
           <LexofficeDocumentsCard orderId={id!} />
           {/* Anhänge des Kunden (AI Intake Bar) */}
