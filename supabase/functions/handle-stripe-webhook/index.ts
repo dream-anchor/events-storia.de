@@ -188,6 +188,9 @@ async function processCheckoutPaid(
   } else if (metadata.kind === 'prepayment_per_person' && metadata.event_id) {
     // ━━━ PREPAYMENT mit anpassbarer Personenzahl ━━━
     await handlePrepaymentPerPerson(supabase, stripe, session, metadata);
+  } else if (metadata.balance_link_slug) {
+    // ━━━ RESTZAHLUNG über öffentlichen Zahlungslink (/restzahlung/:slug) ━━━
+    await handleBalanceLinkPayment(supabase, stripe, session, metadata);
   } else if (metadata.order_type === 'voucher' && metadata.voucher_id) {
     // ━━━ GUTSCHEIN-KAUF ━━━
     await handleVoucherPayment(supabase, session, metadata);
@@ -1892,6 +1895,188 @@ async function handlePrepaymentPerPerson(
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // VOUCHER PAYMENT: Code generieren, PDF bauen, E-Mails versenden, LexOffice-Rechnung anlegen
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RESTZAHLUNG über öffentlichen Zahlungslink (create-balance-checkout)
+// Der Kunde wählt dort selbst die Personenzahl. Die Zahlung muss in MAESTRO
+// sichtbar sein (v2_payments), die Gästezahl am Event landen und eine Differenz
+// zur Angebotsgröße als Adjustment erfasst werden.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// deno-lint-ignore no-explicit-any
+async function handleBalanceLinkPayment(
+  supabase: any,
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+  metadata: Record<string, string>,
+) {
+  const slug = metadata.balance_link_slug;
+  logStep("Processing balance link payment", { slug, sessionId: session.id });
+
+  const { data: link } = await supabase
+    .from("balance_payment_links")
+    .select("*")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  const eventId: string | null = (metadata.event_id || link?.event_id || null) as string | null;
+  const guestsPaid = parseInt(metadata.guests || "0", 10) || link?.default_guests || 0;
+  const pricePerPersonCents =
+    parseInt(metadata.price_per_person_cents || "0", 10) || link?.price_per_person_cents || 0;
+  const amountCents = session.amount_total ?? 0;
+
+  if (!eventId) {
+    logStep("balance link without event_id — cannot attach payment", { slug });
+    await supabase.from("system_errors").insert({
+      project: "events_storia",
+      source: "handle-stripe-webhook",
+      severity: "critical",
+      message:
+        `Restzahlung über /restzahlung/${slug} kann keiner Anfrage zugeordnet werden (event_id fehlt am Zahlungslink).`,
+      payload: { slug, session_id: session.id, amount_cents: amountCents, guests: guestsPaid },
+    });
+    await sendOperatorAlert(
+      `Restzahlung ohne Zuordnung · ${slug}`,
+      `<p>Eine Restzahlung ging ein, der Zahlungslink ist aber keiner Anfrage zugeordnet.</p>
+       <ul><li>Slug: ${esc(slug)}</li><li>Betrag: ${formatEUR(amountCents / 100)}</li>
+       <li>Gäste: ${guestsPaid}</li><li>Session: ${esc(session.id)}</li></ul>`,
+    );
+    return;
+  }
+
+  // Idempotenz
+  const { data: existing } = await supabase
+    .from("v2_payments")
+    .select("id, status")
+    .eq("stripe_checkout_session_id", session.id)
+    .maybeSingle();
+  if (existing?.status === "paid") {
+    logStep("balance payment already paid, skipping", { paymentId: existing.id });
+    return;
+  }
+
+  // Zahlungsart
+  let paidVia = "card";
+  try {
+    if (session.payment_intent) {
+      const pi = await stripe.paymentIntents.retrieve(session.payment_intent as string);
+      if (pi.payment_method) {
+        const pm = await stripe.paymentMethods.retrieve(pi.payment_method as string);
+        paidVia = pm.type;
+      }
+    }
+  } catch { /* non-fatal */ }
+
+  const { data: eventRow } = await supabase
+    .from("v2_events")
+    .select("id, guests_quoted, guest_count")
+    .eq("id", eventId)
+    .maybeSingle();
+  const guestsQuoted: number =
+    eventRow?.guests_quoted ?? (link?.min_guests ?? 0) ?? eventRow?.guest_count ?? 0;
+
+  let paymentId: string | null = existing?.id ?? null;
+  const paidPatch = {
+    status: "paid",
+    amount_cents: amountCents,
+    guests_charged: guestsPaid || null,
+    price_per_person_cents: pricePerPersonCents || null,
+    paid_at: new Date().toISOString(),
+    paid_via: paidVia,
+    stripe_checkout_session_id: session.id,
+    stripe_payment_intent_id: (session.payment_intent as string) || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (paymentId) {
+    await supabase.from("v2_payments").update(paidPatch).eq("id", paymentId);
+  } else {
+    // Offene "final"-Zeile dieses Events wiederverwenden, sonst neu anlegen
+    const { data: sentRow } = await supabase
+      .from("v2_payments")
+      .select("id")
+      .eq("event_id", eventId)
+      .eq("payment_type", "final")
+      .in("status", ["sent", "draft", "overdue"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (sentRow?.id) {
+      paymentId = sentRow.id;
+      await supabase.from("v2_payments").update({
+        ...paidPatch,
+        notes: `Restzahlung via /restzahlung/${slug} – ${guestsPaid} Gäste`,
+      }).eq("id", paymentId);
+    } else {
+      const { data: ins, error: insErr } = await supabase.from("v2_payments").insert({
+        event_id: eventId,
+        payment_type: "final",
+        ...paidPatch,
+        notes: `Restzahlung via /restzahlung/${slug} – ${guestsPaid} Gäste`,
+      }).select("id").single();
+      paymentId = ins?.id ?? null;
+      if (insErr) {
+        logStep("balance v2_payments insert FAILED", { error: insErr.message, eventId });
+        await supabase.from("system_errors").insert({
+          project: "events_storia",
+          source: "handle-stripe-webhook",
+          severity: "critical",
+          message: `Restzahlung konnte nicht gespeichert werden: ${insErr.message}`,
+          payload: { event_id: eventId, session_id: session.id, amount_cents: amountCents },
+        });
+      }
+    }
+  }
+
+  // Gästezahlen am Event festhalten
+  await supabase.from("v2_events").update({
+    guests_quoted: eventRow?.guests_quoted ?? guestsQuoted,
+    guests_confirmed: guestsPaid || null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", eventId);
+
+  // Differenz zur Angebotsgröße erfassen
+  await recordGuestAdjustment(supabase, {
+    eventId,
+    paymentId,
+    guestsBefore: guestsQuoted,
+    guestsAfter: guestsPaid,
+    pricePerPersonCents,
+    stripeSessionId: session.id,
+    amountPaidCents: amountCents,
+  });
+
+  // LexOffice-Rechnung über den tatsächlich gezahlten Betrag (Pflichtregel)
+  if (paymentId) {
+    await triggerInvoiceForPayment(paymentId, eventId, "final");
+    try {
+      await supabase.functions.invoke("send-payment-confirmation-v2", {
+        body: { payment_id: paymentId },
+      });
+    } catch (e) {
+      logStep("balance confirmation email failed", { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  await logActivity(supabase, {
+    entity_type: "event_inquiry",
+    entity_id: eventId,
+    action: "balance_payment_paid",
+    description:
+      `Restzahlung über Zahlungslink: ${guestsPaid} Gäste · ${formatEUR(amountCents / 100)} (${paidVia})`,
+    metadata: {
+      payment_id: paymentId,
+      slug,
+      guests: guestsPaid,
+      guests_quoted: guestsQuoted,
+      amount_cents: amountCents,
+      stripe_session_id: session.id,
+      paid_via: paidVia,
+    },
+  });
+
+  logStep("balance link payment complete", { paymentId, guestsPaid, amountCents });
+}
 
 function formatEuroDE(n: number): string {
   return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
