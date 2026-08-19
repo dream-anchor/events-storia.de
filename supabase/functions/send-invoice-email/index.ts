@@ -43,6 +43,8 @@ const CHROME: Record<CustomerLang, {
   date: string;
   guests: string;
   total: string;
+  paid: string;
+  open: string;
   thanks: string;
   questions: string;
 }> = {
@@ -57,6 +59,8 @@ const CHROME: Record<CustomerLang, {
     date: 'Datum',
     guests: 'Gäste',
     total: 'Gesamtbetrag',
+    paid: 'Bereits gezahlt',
+    open: 'Offener Betrag',
     thanks: 'Vielen Dank für Ihr Vertrauen!',
     questions: 'Bei Fragen zur Rechnung stehen wir Ihnen jederzeit gerne zur Verfügung.',
   },
@@ -71,6 +75,8 @@ const CHROME: Record<CustomerLang, {
     date: 'Date',
     guests: 'Guests',
     total: 'Total amount',
+    paid: 'Already paid',
+    open: 'Outstanding amount',
     thanks: 'Thank you for your trust!',
     questions: 'If you have any questions about the invoice, we are happy to help.',
   },
@@ -85,6 +91,8 @@ const CHROME: Record<CustomerLang, {
     date: 'Data',
     guests: 'Ospiti',
     total: 'Importo totale',
+    paid: 'Già pagato',
+    open: 'Importo residuo',
     thanks: 'Grazie per la vostra fiducia!',
     questions: 'Per qualsiasi domanda sulla fattura, siamo a vostra disposizione.',
   },
@@ -99,6 +107,8 @@ const CHROME: Record<CustomerLang, {
     date: 'Date',
     guests: 'Invités',
     total: 'Montant total',
+    paid: 'Déjà payé',
+    open: 'Montant restant',
     thanks: 'Merci pour votre confiance !',
     questions: 'Pour toute question concernant la facture, nous restons à votre disposition.',
   },
@@ -110,6 +120,8 @@ function renderBlock(lang: CustomerLang, args: {
   eventDate: string | null;
   guestCount: number | null;
   totalEuro: number | null;
+  paidEuro?: number | null;
+  openEuro?: number | null;
   extraNote: string | null;
 }): string {
   const c = CHROME[lang];
@@ -124,9 +136,15 @@ function renderBlock(lang: CustomerLang, args: {
   if (args.guestCount) {
     detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">${c.guests}</td><td style="padding:4px 0;color:#222;">${args.guestCount}</td></tr>`);
   }
+  const fmtMoney = (n: number) => new Intl.NumberFormat(lang === 'de' ? 'de-DE' : (lang === 'fr' ? 'fr-FR' : (lang === 'it' ? 'it-IT' : 'en-GB')), { style: 'currency', currency: 'EUR' }).format(n);
   if (typeof args.totalEuro === 'number' && args.totalEuro > 0) {
-    const fmt = new Intl.NumberFormat(lang === 'de' ? 'de-DE' : (lang === 'fr' ? 'fr-FR' : (lang === 'it' ? 'it-IT' : 'en-GB')), { style: 'currency', currency: 'EUR' }).format(args.totalEuro);
-    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">${c.total}</td><td style="padding:4px 0;color:#222;font-weight:600;">${escapeHtml(fmt)}</td></tr>`);
+    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">${c.total}</td><td style="padding:4px 0;color:#222;font-weight:600;">${escapeHtml(fmtMoney(args.totalEuro))}</td></tr>`);
+  }
+  if (typeof args.paidEuro === 'number' && args.paidEuro > 0) {
+    detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">${c.paid}</td><td style="padding:4px 0;color:#222;">− ${escapeHtml(fmtMoney(args.paidEuro))}</td></tr>`);
+    if (typeof args.openEuro === 'number') {
+      detailsRows.push(`<tr><td style="padding:4px 12px 4px 0;color:#666;">${c.open}</td><td style="padding:4px 0;color:#222;font-weight:700;">${escapeHtml(fmtMoney(args.openEuro))}</td></tr>`);
+    }
   }
 
   const detailsBlock = detailsRows.length > 0
@@ -176,6 +194,8 @@ export function buildInvoiceEmailHtml(
     eventDate: string | null;
     guestCount: number | null;
     totalEuro: number | null;
+    paidEuro?: number | null;
+    openEuro?: number | null;
     extraNote: string | null;
   },
   sender: EmailSenderInfo = STORIA_SENDER,
@@ -301,6 +321,24 @@ serve(async (req) => {
       if (deltaCents !== 0) totalEuro = Math.round((totalEuro + deltaCents / 100) * 100) / 100;
     }
 
+    // Bereits geleistete Zahlungen (z. B. Anzahlung) abziehen → offener Betrag.
+    let paidEuro: number | null = null;
+    let openEuro: number | null = null;
+    if (totalEuro != null) {
+      const { data: payments } = await supabase
+        .from('v2_payments')
+        .select('amount_cents, status, payment_type')
+        .eq('event_id', body.inquiry_id)
+        .eq('status', 'paid');
+      const paidCents = (payments || [])
+        .filter((p: any) => p.payment_type !== 'refund' && p.payment_type !== 'credit_note')
+        .reduce((s: number, p: any) => s + Number(p.amount_cents || 0), 0);
+      if (paidCents > 0) {
+        paidEuro = Math.round(paidCents) / 100;
+        openEuro = Math.round((totalEuro - paidEuro) * 100) / 100;
+      }
+    }
+
     // Mandanten-Konfiguration (Phase 4b) — Absender/Signatur/NAP aus tenants.
     // Fallback: Storia → für den Default-Tenant byte-identisch zum Hardcode.
     const tenantCfg = await getTenantConfig(supabase, (inquiry as any).tenant_id);
@@ -322,6 +360,8 @@ serve(async (req) => {
       eventDate: (inquiry as any).date || null,
       guestCount: (inquiry as any).guest_count || null,
       totalEuro,
+      paidEuro,
+      openEuro,
       extraNote: body.extra_note || null,
     }, senderInfo);
 
