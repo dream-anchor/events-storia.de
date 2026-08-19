@@ -24,6 +24,7 @@ import CartButton from "./components/cart/CartButton";
 import CartSheet from "./components/cart/CartSheet";
 import { usePrerenderReady } from "./hooks/usePrerenderReady";
 import StickyCartPanel from "./components/cart/StickyCartPanel";
+import MaestroInquiryBridge from "./components/maestro/MaestroInquiryBridge";
 
 // Lazy-loaded routes (Code Splitting)
 const PublicOffer = lazy(() => import("./pages/PublicOffer"));
@@ -39,6 +40,7 @@ const Kontakt = lazy(() => import("./pages/Kontakt"));
 const Restzahlung = lazy(() => import("./pages/Restzahlung"));
 const Gutschein = lazy(() => import("./pages/Gutschein"));
 const GutscheinDanke = lazy(() => import("./pages/GutscheinDanke"));
+const Danke = lazy(() => import("./pages/Danke"));
 
 // Legal Pages (lazy)
 const Impressum = lazy(() => import("./pages/Impressum"));
@@ -77,6 +79,7 @@ const FrontendGlobals = () => {
         {/* Nur die wirklich globalen Elemente — kein Warenkorb */}
         <GoogleAnalytics />
         <MicrosoftClarity />
+        <MaestroInquiryBridge />
         <CookieBanner />
         <CookieSettingsButton />
       </>
@@ -87,6 +90,7 @@ const FrontendGlobals = () => {
     <>
       <GoogleAnalytics />
       <MicrosoftClarity />
+      <MaestroInquiryBridge />
       <FloatingActions />
       <MobileStickyActionBar />
       <CartButton />
@@ -188,6 +192,10 @@ const App = () => {
                     <Route path="/en/balance-payment/:slug" element={<Restzahlung />} />
 
                     {/* Gutschein / Voucher */}
+                    {/* MAESTRO Anfrage — Danke-Seite */}
+                    <Route path="/danke" element={<Danke />} />
+                    <Route path="/en/thank-you" element={<Danke />} />
+
                     <Route path="/gutschein" element={<Gutschein />} />
                     <Route path="/gutschein/danke" element={<GutscheinDanke />} />
                     <Route path="/en/voucher" element={<Gutschein />} />
