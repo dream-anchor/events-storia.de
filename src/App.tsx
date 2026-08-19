@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -164,6 +164,8 @@ const App = () => {
                     {/* === German Routes (no prefix) === */}
                     <Route path="/" element={<Index />} />
                     <Route path="/kontakt" element={<Kontakt />} />
+                    {/* Alte /anfrage-URL (Funnel entfernt, 491e2d56) - Bookmarks/Google sollen keine Leads verlieren */}
+                    <Route path="/anfrage" element={<Navigate to="/kontakt" replace />} />
 
                     {/* Catering */}
                     <Route path="/catering/buffet-fingerfood" element={<BuffetFingerfood />} />
