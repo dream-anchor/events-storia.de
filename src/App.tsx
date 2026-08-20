@@ -37,6 +37,7 @@ const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const Kontakt = lazy(() => import("./pages/Kontakt"));
+const Anfrage = lazy(() => import("./pages/Anfrage"));
 const Restzahlung = lazy(() => import("./pages/Restzahlung"));
 const Gutschein = lazy(() => import("./pages/Gutschein"));
 const GutscheinDanke = lazy(() => import("./pages/GutscheinDanke"));
@@ -164,12 +165,12 @@ const App = () => {
                     {/* === German Routes (no prefix) === */}
                     <Route path="/" element={<Index />} />
                     <Route path="/kontakt" element={<Kontakt />} />
-                    {/* PRIO-1-Notfall-Korrektur (20.08.2026): /anfrage war die wichtigste Lead-
-                        Quelle - die 301-Weiterleitung auf /kontakt (Commit eda8b68d/72933d2b)
-                        beruhte auf einer falschen Annahme aus einer früheren Session. Bewusst
-                        exakt dieselbe Komponente wie /kontakt (Antoines Vorgabe: kein Risiko,
-                        keine neue/abweichende Seite) - dasselbe MAESTRO-Widget läuft 1:1 identisch. */}
-                    <Route path="/anfrage" element={<Kontakt />} />
+                    {/* PRIO-1-Notfall-Korrektur (20.08.2026): Original-Seite aus der Git-Historie
+                        (vor Commit 491e2d56, Entfernung als "verwaist" am 29.06.2026) 1:1
+                        wiederhergestellt - eigenständige SEO-Landingpage, keine Kopie von /kontakt.
+                        Einziger Unterschied zum Original: der alte mehrstufige Funnel im FunnelSlot
+                        wurde durch das aktuelle MAESTRO-Widget ersetzt, Layout sonst unverändert. */}
+                    <Route path="/anfrage" element={<Anfrage />} />
 
                     {/* Catering */}
                     <Route path="/catering/buffet-fingerfood" element={<BuffetFingerfood />} />
