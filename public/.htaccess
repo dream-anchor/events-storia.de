@@ -49,10 +49,6 @@ RewriteRule ^gallerie(/.*)?$ /events/ [R=301,L]
 # Alte Datenschutz-URL → aktuelle Seite
 RewriteRule ^datenschutzerklaerung/?$ /datenschutz/ [R=301,L]
 
-# Alter /anfrage-Funnel (entfernt 491e2d56, abgeloest durch AiIntakeBar auf /kontakt) →
-# Bookmarks/Google-Treffer sollen keine Leads verlieren
-RewriteRule ^anfrage/?$ /kontakt/ [R=301,L]
-
 # Legacy WordPress URLs → 410 Gone
 RewriteRule ^comments/feed(/.*)?$ - [G,L]
 RewriteRule ^feed(/.*)?$ - [G,L]
