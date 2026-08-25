@@ -18,7 +18,7 @@ const MAESTRO_ACCENT_VAR = "--maestro-accent";
 const HEX_COLOR_RE = /^#[0-9a-f]{3,8}$/i;
 
 /** Widget global an/aus — Fallback auf natives Formular bleibt immer aktiv. */
-export const MAESTRO_WIDGET_ENABLED = true;
+export const MAESTRO_WIDGET_ENABLED = false;
 
 /** Zeit, nach der ein sichtbarer, aber leerer Container als "nicht gerendert" gilt. */
 const RENDER_TIMEOUT_MS = 8000;

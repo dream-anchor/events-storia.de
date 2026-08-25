@@ -1,49 +1,499 @@
+import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import MaestroWidget, { MAESTRO_PRIMARY_COLOR } from "@/components/maestro/MaestroWidget";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { SmartDatePicker } from "@/components/ui/smart-date-picker";
+import { Clock, Users, Building2, User, Mail, Phone, MessageSquare, ArrowRight, ArrowLeft, Loader2, CheckCircle, Send } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { z } from "zod";
+import { calculateEventPackagePrice, isLocationPackage, getLocationPricingBreakdown, LOCATION_BASE_GUESTS } from "@/lib/eventPricing";
 
-const MAESTRO_PACKAGE_INQUIRY_WIDGET_ID = "bf736453-8d35-46b3-9ef7-f6b7cb36da5a";
-
-export interface EventPackageInquiryDialogProps {
+interface EventPackageInquiryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  packageId?: string;
+  packageId: string;
   packageName: string;
   packageNameEn?: string | null;
-  initialGuestCount?: number;
-  pricePerPerson?: number;
+  initialGuestCount: number;
+  pricePerPerson: number;
   isPricePerPerson?: boolean;
   minGuests?: number;
 }
 
-/**
- * Paket-Anfrage — läuft jetzt über das externe MAESTRO-Widget
- * (Shadow DOM, kein iframe). Absenden triggert MAESTRO_INQUIRY_SUBMITTED,
- * das der globale MaestroInquiryBridge abfängt (GA4 + /danke-Redirect).
- */
+// Validation schema factory - dynamic based on minGuests
+const createStep1Schema = (minGuests: number) => z.object({
+  date: z.date({ required_error: "Datum erforderlich" }),
+  time: z.string().min(1, "Uhrzeit erforderlich"),
+  guestCount: z.number().min(minGuests, `Mindestens ${minGuests} Gäste`),
+});
+
+const step2Schema = z.object({
+  company: z.string().trim().max(100).optional().or(z.literal("")),
+  name: z.string().min(2, "Name erforderlich").max(100),
+  email: z.string().email("Ungültige E-Mail").max(255),
+  phone: z.string().trim().min(5, "Bitte Telefonnummer angeben").max(30, "Telefonnummer zu lang"),
+  message: z.string().max(2000).optional().or(z.literal("")),
+});
+
 const EventPackageInquiryDialog = ({
   open,
   onOpenChange,
+  packageId,
   packageName,
   packageNameEn,
+  initialGuestCount,
+  pricePerPerson,
+  isPricePerPerson = true,
+  minGuests = 10,
 }: EventPackageInquiryDialogProps) => {
   const { language } = useLanguage();
+  const { formatPrice } = usePriceDisplay();
+  const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    date: undefined as Date | undefined,
+    time: "19:00",
+    guestCount: initialGuestCount,
+    company: "",
+    name: "",
+    email: "",
+    phone: "",
+    message: "",
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const displayName = language === "en" && packageNameEn ? packageNameEn : packageName;
+  const isLocationPkg = isLocationPackage(packageId, pricePerPerson);
+  const estimatedTotal = calculateEventPackagePrice(
+    packageId,
+    pricePerPerson,
+    formData.guestCount,
+    isPricePerPerson
+  );
+  const pricingBreakdown = isLocationPkg ? getLocationPricingBreakdown(formData.guestCount) : null;
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error when user types
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const validateStep1 = () => {
+    const step1Schema = createStep1Schema(minGuests);
+    const result = step1Schema.safeParse({
+      date: formData.date,
+      time: formData.time,
+      guestCount: formData.guestCount,
+    });
+    
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        fieldErrors[err.path[0] as string] = err.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+    setErrors({});
+    return true;
+  };
+
+  const validateStep2 = () => {
+    const result = step2Schema.safeParse({
+      company: formData.company,
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      message: formData.message,
+    });
+    
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        fieldErrors[err.path[0] as string] = err.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+    setErrors({});
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep1()) {
+      setStep(2);
+    }
+  };
+
+  const handleBack = () => {
+    setStep(1);
+    setErrors({});
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep2()) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Use receive-event-inquiry Edge Function which handles BOTH:
+      // 1. Database insertion into event_inquiries
+      // 2. Email notifications to customer and restaurant
+      const { error } = await supabase.functions.invoke("receive-event-inquiry", {
+        body: {
+          companyName: formData.company,
+          contactName: formData.name,
+          email: formData.email,
+          phone: formData.phone || undefined,
+          guestCount: formData.guestCount.toString(),
+          preferredDate: formData.date ? format(formData.date, "yyyy-MM-dd") : undefined,
+          timeSlot: formData.time,
+          packageId: packageId,
+          eventType: displayName,
+          message: formData.message || undefined,
+          source: `package_inquiry_${packageId}`,
+        },
+      });
+
+      if (error) throw error;
+
+      setIsSuccess(true);
+      
+      // Reset after delay
+      setTimeout(() => {
+        onOpenChange(false);
+        setIsSuccess(false);
+        setStep(1);
+        setFormData({
+          date: undefined,
+          time: "19:00",
+          guestCount: initialGuestCount,
+          company: "",
+          name: "",
+          email: "",
+          phone: "",
+          message: "",
+        });
+      }, 3000);
+    } catch (error) {
+      console.error("Inquiry submission error:", error);
+      toast.error(
+        language === "de"
+          ? "Fehler beim Senden. Bitte versuchen Sie es erneut."
+          : "Error sending. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Success state
+  if (isSuccess) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="text-xl font-serif font-medium mb-2">
+              {language === "de" ? "Anfrage gesendet!" : "Request sent!"}
+            </h3>
+            <p className="text-muted-foreground">
+              {language === "de"
+                ? "Wir melden uns schnellstmöglich bei Ihnen."
+                : "We will get back to you as soon as possible."}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-serif text-2xl">
-            {language === "de" ? "Angebot anfragen" : "Request a quote"}
+          <DialogTitle className="font-serif text-xl">
+            {language === "de" ? "Individuelles Angebot" : "Custom Quote"}
           </DialogTitle>
-          <DialogDescription>{displayName}</DialogDescription>
+          <DialogDescription className="sr-only">
+            {language === "de"
+              ? "Füllen Sie das Formular aus, um ein individuelles Angebot zu erhalten"
+              : "Fill out the form to receive a custom quote"}
+          </DialogDescription>
         </DialogHeader>
-        {open && (
-          <MaestroWidget
-            widgetId={MAESTRO_PACKAGE_INQUIRY_WIDGET_ID}
-            primaryColor={MAESTRO_PRIMARY_COLOR}
-          />
+
+        {/* Package Info */}
+        <div className="bg-muted/50 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                {language === "de" ? "Ausgewähltes Paket" : "Selected package"}
+              </p>
+              <p className="font-medium">{displayName}</p>
+            </div>
+            <Badge variant="secondary">
+              {formatPrice(pricePerPerson)}{' '}
+              {isPricePerPerson
+                ? (language === 'de' ? 'p.P.' : 'p.p.')
+                : isLocationPkg
+                  ? (language === 'de' ? `ab ${LOCATION_BASE_GUESTS} Pers.` : `from ${LOCATION_BASE_GUESTS} guests`)
+                  : (language === 'de' ? 'pauschal' : 'flat rate')}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            {language === "de"
+              ? "(kann im Gespräch noch geändert werden)"
+              : "(can still be changed in discussion)"}
+          </p>
+        </div>
+
+        {/* Step Indicator */}
+        <div className="flex items-center gap-2 mb-6">
+          <div
+            className={cn(
+              "flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium",
+              step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}
+          >
+            1
+          </div>
+          <div className="flex-1 h-0.5 bg-muted">
+            <div
+              className={cn(
+                "h-full bg-primary transition-all",
+                step >= 2 ? "w-full" : "w-0"
+              )}
+            />
+          </div>
+          <div
+            className={cn(
+              "flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium",
+              step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}
+          >
+            2
+          </div>
+        </div>
+
+        {/* Step 1: Event Details */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {language === "de" ? "Schritt 1/2: Event-Details" : "Step 1/2: Event Details"}
+            </p>
+
+            {/* Date Picker */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                {language === "de" ? "Gewünschtes Datum *" : "Preferred Date *"}
+              </Label>
+              <SmartDatePicker
+                value={formData.date}
+                onChange={(date) => {
+                  setFormData((prev) => ({ ...prev, date }));
+                  if (errors.date) setErrors((prev) => ({ ...prev, date: "" }));
+                }}
+                language={language as 'de' | 'en'}
+                minLeadDays={1}
+                skipSundays={true}
+                quickSelectCount={3}
+                hasError={!!errors.date}
+              />
+              {errors.date && <p className="text-xs text-destructive">{errors.date}</p>}
+            </div>
+
+            {/* Time Input */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                {language === "de" ? "Uhrzeit" : "Time"}
+              </Label>
+              <Input
+                type="time"
+                name="time"
+                value={formData.time}
+                onChange={handleInputChange}
+                className={cn(errors.time && "border-destructive")}
+              />
+              {errors.time && <p className="text-xs text-destructive">{errors.time}</p>}
+            </div>
+
+            {/* Guest Count - Display only (already selected on card) */}
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {language === "de" ? "Anzahl Gäste" : "Number of Guests"}
+                </p>
+                <p className="font-medium">{formData.guestCount} {language === "de" ? "Personen" : "guests"}</p>
+              </div>
+            </div>
+
+            {/* Estimated Total */}
+            <div className="bg-muted/50 rounded-lg p-3 mt-4 space-y-1">
+              {isLocationPkg && pricingBreakdown && pricingBreakdown.extraGuests > 0 && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>
+                    {language === 'de'
+                      ? `Basis ${formatPrice(pricingBreakdown.basePrice)} + ${pricingBreakdown.extraGuests} Pers. × ${formatPrice(pricingBreakdown.pricePerExtraGuest)}`
+                      : `Base ${formatPrice(pricingBreakdown.basePrice)} + ${pricingBreakdown.extraGuests} guests × ${formatPrice(pricingBreakdown.pricePerExtraGuest)}`}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {language === "de" ? "Geschätzt:" : "Estimated:"}
+                </span>
+                <span className="text-lg font-semibold text-primary">
+                  {formatPrice(estimatedTotal)}
+                </span>
+              </div>
+            </div>
+
+            <Button onClick={handleNext} className="w-full gap-2" size="lg">
+              {language === "de" ? "Weiter" : "Next"}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* Step 2: Contact Details */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {language === "de" ? "Schritt 2/2: Kontaktdaten" : "Step 2/2: Contact Details"}
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Company */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  {language === "de" ? "Firma (optional)" : "Company (optional)"}
+                </Label>
+                <Input
+                  name="company"
+                  value={formData.company}
+                  onChange={handleInputChange}
+                  className={cn(errors.company && "border-destructive")}
+                  placeholder={language === "de" ? "Firmenname – oder leer für Privat" : "Company – leave empty for private"}
+                />
+                {errors.company && (
+                  <p className="text-xs text-destructive">{errors.company}</p>
+                )}
+              </div>
+
+              {/* Name */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  {language === "de" ? "Ansprechpartner *" : "Contact Person *"}
+                </Label>
+                <Input
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className={cn(errors.name && "border-destructive")}
+                  placeholder={language === "de" ? "Vor- und Nachname" : "Full name"}
+                />
+                {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Email */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  {language === "de" ? "E-Mail *" : "Email *"}
+                </Label>
+                <Input
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={cn(errors.email && "border-destructive")}
+                  placeholder="max@example.com"
+                />
+                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  {language === "de" ? "Telefon *" : "Phone *"}
+                </Label>
+                <Input
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder="+49 89 123456"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Message */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                {language === "de" ? "Nachricht (optional)" : "Message (optional)"}
+              </Label>
+              <Textarea
+                name="message"
+                value={formData.message}
+                onChange={handleInputChange}
+                placeholder={
+                  language === "de"
+                    ? "Besondere Wünsche, Allergien, Fragen..."
+                    : "Special requests, allergies, questions..."
+                }
+                rows={3}
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" onClick={handleBack} className="flex-1 gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                {language === "de" ? "Zurück" : "Back"}
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="flex-1 gap-2"
+                size="lg"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                {language === "de" ? "Anfrage senden" : "Send Request"}
+              </Button>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>
