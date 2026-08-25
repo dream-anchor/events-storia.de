@@ -362,6 +362,31 @@ const handler = async (req: Request): Promise<Response> => {
       .update({ notification_sent: emailsSent })
       .eq('id', inquiryId);
 
+    // MAESTRO dual-delivery (25.08.2026): zusätzliche Kopie ans neue System, additiv,
+    // best-effort, blockiert die Antwort nicht.
+    if (!data.skipInsert) {
+      const isoDate = data.preferredDate
+        ? (/^\d{4}-\d{2}-\d{2}$/.test(data.preferredDate) ? `${data.preferredDate}T00:00:00.000Z` : data.preferredDate)
+        : undefined;
+      const guests = data.guestCount ? parseInt(data.guestCount, 10) : NaN;
+      fetch('https://storia.schrittmacher.ai/api/public/inquiries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: data.contactName,
+          customerEmail: data.email,
+          ...(data.companyName ? { company: data.companyName } : {}),
+          ...(data.phone ? { phone: data.phone } : {}),
+          ...(isoDate ? { eventDate: isoDate } : {}),
+          ...(data.timeSlot ? { eventTime: data.timeSlot } : {}),
+          ...(data.eventType ? { eventType: data.eventType } : {}),
+          ...(Number.isFinite(guests) && guests > 0 ? { guests } : {}),
+          ...(data.message ? { message: data.message } : {}),
+          sourceDetail: 'events-storia-inquiry',
+        }),
+      }).catch((e) => console.error('MAESTRO forward error:', e));
+    }
+
     // WhatsApp-Benachrichtigung (fire-and-forget)
     const whatsappPayload = emailsSent
       ? {
