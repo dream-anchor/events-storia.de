@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
@@ -55,10 +55,36 @@ const getPackageImage = (name: string): string => {
   return ravioliDinner; // Fallback (echtes STORIA-Gericht)
 };
 
+/**
+ * Zerlegt einen Beschreibungstext in lesbare Absätze:
+ * echte Zeilenumbrüche haben Vorrang, sonst wird vor Gang-/Aufzählungs-Markern getrennt.
+ */
+const splitDescription = (text?: string | null): string[] => {
+  if (!text) return [];
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  let parts = trimmed
+    .split(/\r?\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    parts = trimmed
+      // vor "1. Gang", "2. Gang", "Aperitif:", Bullet-Zeichen umbrechen
+      .split(/(?=\d+\.\s*Gang)|(?=\d+(?:st|nd|rd|th)\s+course)|\s*[•·]\s*|\s+[–-]\s+(?=[A-ZÄÖÜ])/gi)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }
+
+  return parts;
+};
+
 interface EventPackageShopCardProps {
   pkg: EventPackage;
   featured?: boolean;
 }
+
 
 const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const { language } = useLanguage();
@@ -67,13 +93,18 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const [guestCount, setGuestCount] = useState(pkg.min_guests || 20);
   const [isAdded, setIsAdded] = useState(false);
   const [inquiryDialogOpen, setInquiryDialogOpen] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   const cartItem = items.find(i => i.id === `event-${pkg.id}`);
   const isInCart = !!cartItem;
 
   const name = language === 'de' ? pkg.name : (pkg.name_en || pkg.name);
   const description = language === 'de' ? pkg.description : (pkg.description_en || pkg.description);
+  const descriptionParts = useMemo(() => splitDescription(description), [description]);
+  const isDescriptionLong =
+    descriptionParts.length > 3 || (description?.trim().length ?? 0) > 220;
   const includes = pkg.includes || [];
+
   // Eigenes Bild aus dem Admin (image_url) hat Vorrang; sonst namensbasiertes Default.
   const image = pkg.image_url || getPackageImage(pkg.name);
 
@@ -191,9 +222,32 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           )}
         </div>
 
-        {description && (
-          <p className="text-base text-muted-foreground mt-2">{description}</p>
+        {descriptionParts.length > 0 && (
+          <div className="mt-3 text-left">
+            <div
+              className={cn(
+                "text-base text-muted-foreground space-y-1.5",
+                !descriptionExpanded && "line-clamp-5"
+              )}
+            >
+              {descriptionParts.map((part, idx) => (
+                <p key={idx} className="leading-relaxed">{part}</p>
+              ))}
+            </div>
+            {isDescriptionLong && (
+              <button
+                type="button"
+                onClick={() => setDescriptionExpanded((v) => !v)}
+                className="mt-1.5 text-sm font-medium text-primary hover:underline"
+              >
+                {descriptionExpanded
+                  ? (language === 'de' ? 'Weniger anzeigen' : 'Show less')
+                  : (language === 'de' ? 'Mehr anzeigen' : 'Show more')}
+              </button>
+            )}
+          </div>
         )}
+
       </CardHeader>
 
       <CardContent className="flex-1 pt-4">

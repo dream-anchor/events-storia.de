@@ -99,7 +99,11 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
       ];
 
   const onSubmit = async (data: FormData) => {
+    // Anti-Doppelklick: parallele Einsendungen verhindern
+    if (isSubmitting) return;
     setIsSubmitting(true);
+    
+
     
     try {
       // Call the correct receive-event-inquiry Edge Function

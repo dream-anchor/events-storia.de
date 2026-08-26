@@ -150,9 +150,13 @@ const EventPackageInquiryDialog = ({
   };
 
   const handleSubmit = async () => {
+    // Anti-Doppelklick: laufende oder bereits erfolgreiche Sendung blockieren
+    if (isSubmitting || isSuccess) return;
     if (!validateStep2()) return;
-    
+
     setIsSubmitting(true);
+    
+
     
     try {
       // Use receive-event-inquiry Edge Function which handles BOTH:
@@ -519,13 +523,19 @@ const EventPackageInquiryDialog = ({
 
             {/* Actions */}
             <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={handleBack} className="flex-1 gap-2">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={isSubmitting}
+                className="flex-1 gap-2"
+              >
                 <ArrowLeft className="h-4 w-4" />
                 {language === "de" ? "Zurück" : "Back"}
               </Button>
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
+                aria-busy={isSubmitting}
                 className="flex-1 gap-2"
                 size="lg"
               >
@@ -534,9 +544,16 @@ const EventPackageInquiryDialog = ({
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-                {language === "de" ? "Anfrage senden" : "Send Request"}
+                {isSubmitting
+                  ? language === "de"
+                    ? "Wird gesendet..."
+                    : "Sending..."
+                  : language === "de"
+                    ? "Anfrage senden"
+                    : "Send Request"}
               </Button>
             </div>
+
           </div>
         )}
       </DialogContent>
