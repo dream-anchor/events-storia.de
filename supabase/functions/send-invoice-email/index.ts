@@ -47,6 +47,8 @@ const CHROME: Record<CustomerLang, {
   open: string;
   thanks: string;
   questions: string;
+  payCta: string;
+  payHint: string;
 }> = {
   de: {
     subject: 'Ihre Rechnung von STORIA Events',
@@ -63,6 +65,8 @@ const CHROME: Record<CustomerLang, {
     open: 'Offener Betrag',
     thanks: 'Vielen Dank für Ihr Vertrauen!',
     questions: 'Bei Fragen zur Rechnung stehen wir Ihnen jederzeit gerne zur Verfügung.',
+    payCta: 'Jetzt online bezahlen',
+    payHint: 'Sie können den offenen Betrag bequem und sicher per Kreditkarte oder Bankeinzug über Stripe begleichen:',
   },
   en: {
     subject: 'Your invoice from STORIA Events',
@@ -79,6 +83,8 @@ const CHROME: Record<CustomerLang, {
     open: 'Outstanding amount',
     thanks: 'Thank you for your trust!',
     questions: 'If you have any questions about the invoice, we are happy to help.',
+    payCta: 'Pay online now',
+    payHint: 'You can settle the outstanding amount securely by credit card or bank debit via Stripe:',
   },
   it: {
     subject: 'La vostra fattura di STORIA Events',
@@ -95,6 +101,8 @@ const CHROME: Record<CustomerLang, {
     open: 'Importo residuo',
     thanks: 'Grazie per la vostra fiducia!',
     questions: 'Per qualsiasi domanda sulla fattura, siamo a vostra disposizione.',
+    payCta: 'Paga ora online',
+    payHint: 'Potete saldare l\u2019importo residuo in modo sicuro con carta di credito o addebito bancario tramite Stripe:',
   },
   fr: {
     subject: 'Votre facture STORIA Events',
@@ -111,6 +119,8 @@ const CHROME: Record<CustomerLang, {
     open: 'Montant restant',
     thanks: 'Merci pour votre confiance !',
     questions: 'Pour toute question concernant la facture, nous restons à votre disposition.',
+    payCta: 'Payer en ligne',
+    payHint: 'Vous pouvez régler le montant restant en toute sécurité par carte bancaire ou prélèvement via Stripe :',
   },
 };
 
@@ -122,6 +132,7 @@ function renderBlock(lang: CustomerLang, args: {
   totalEuro: number | null;
   paidEuro?: number | null;
   openEuro?: number | null;
+  paymentUrl?: string | null;
   extraNote: string | null;
 }): string {
   const c = CHROME[lang];
@@ -154,6 +165,13 @@ function renderBlock(lang: CustomerLang, args: {
        </div>`
     : '';
 
+  const payBlock = args.paymentUrl
+    ? `<p style="font-size:15px;color:#333;line-height:1.55;margin:16px 0 12px;">${c.payHint}</p>
+       <p style="margin:0 0 20px;">
+         <a href="${escapeHtml(args.paymentUrl)}" style="display:inline-block;background:#111111;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:13px 26px;border-radius:12px;">${c.payCta}</a>
+       </p>`
+    : '';
+
   const extra = args.extraNote && args.extraNote.trim().length > 0
     ? `<p style="font-size:15px;color:#333;line-height:1.55;margin:16px 0;white-space:pre-wrap;">${escapeHtml(args.extraNote.trim())}</p>`
     : '';
@@ -163,6 +181,7 @@ function renderBlock(lang: CustomerLang, args: {
     <p style="font-size:15px;color:#333;line-height:1.55;margin:0 0 14px;">${c.intro(args.invoiceNumber)}</p>
     <p style="font-size:15px;color:#333;line-height:1.55;margin:0 0 14px;">${c.attached}</p>
     ${detailsBlock}
+    ${payBlock}
     ${extra}
     <p style="font-size:15px;color:#333;line-height:1.55;margin:16px 0 6px;">${c.thanks}</p>
     <p style="font-size:14px;color:#666;line-height:1.55;margin:0 0 18px;">${c.questions}</p>
@@ -196,6 +215,7 @@ export function buildInvoiceEmailHtml(
     totalEuro: number | null;
     paidEuro?: number | null;
     openEuro?: number | null;
+    paymentUrl?: string | null;
     extraNote: string | null;
   },
   sender: EmailSenderInfo = STORIA_SENDER,
@@ -416,6 +436,7 @@ serve(async (req) => {
       totalEuro,
       paidEuro,
       openEuro,
+      paymentUrl,
       extraNote: body.extra_note || null,
     }, senderInfo);
 
