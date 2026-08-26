@@ -260,7 +260,12 @@ async function fetchInvoiceAmounts(
     if (!Number.isFinite(open)) return null;
 
     const deductions = (inv?.lineItems || []).reduce((sum: number, li: any) => {
-      const gross = Number(li?.lineItemAmount ?? li?.unitPrice?.grossAmount ?? 0);
+      const explicitLineGross = Number(li?.lineItemAmount?.grossAmount);
+      const unitGross = Number(li?.unitPrice?.grossAmount);
+      const quantity = Number(li?.quantity ?? 1);
+      const gross = Number.isFinite(explicitLineGross)
+        ? explicitLineGross
+        : (Number.isFinite(unitGross) && Number.isFinite(quantity) ? unitGross * quantity : 0);
       return gross < 0 ? sum + Math.abs(gross) : sum;
     }, 0);
 
@@ -416,17 +421,24 @@ serve(async (req) => {
 
 
     // Stripe-Zahlungslink für den offenen Betrag ermitteln (Button in der Mail).
+    // Der Betrag des konkret erzeugten offenen Stripe-Links ist bei Provider-
+    // Rate-Limits außerdem der verlässlichste Fallback für den offenen Betrag.
     let paymentUrl: string | null = body.payment_url?.trim() || null;
+    let linkedPaymentAmountEuro: number | null = null;
     if (!paymentUrl) {
       const { data: openPayments } = await supabase
         .from('v2_payments')
-        .select('stripe_payment_link_url, status, created_at')
+        .select('stripe_payment_link_url, amount_cents, status, created_at')
         .eq('event_id', body.inquiry_id)
         .neq('status', 'paid')
         .not('stripe_payment_link_url', 'is', null)
         .order('created_at', { ascending: false })
         .limit(1);
       paymentUrl = openPayments?.[0]?.stripe_payment_link_url || null;
+      const amountCents = Number(openPayments?.[0]?.amount_cents);
+      if (Number.isFinite(amountCents) && amountCents > 0) {
+        linkedPaymentAmountEuro = Math.round(amountCents) / 100;
+      }
     }
     if (!paymentUrl) {
       const { data: linkRow } = await supabase
@@ -437,6 +449,10 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(1);
       if (linkRow?.[0]?.slug) paymentUrl = `https://events-storia.de/restzahlung/${linkRow[0].slug}`;
+    }
+    if (linkedPaymentAmountEuro != null) {
+      openEuro = linkedPaymentAmountEuro;
+      totalEuro = Math.round((linkedPaymentAmountEuro + (paidEuro || 0)) * 100) / 100;
     }
     log('payment link resolved', { hasLink: !!paymentUrl });
 
