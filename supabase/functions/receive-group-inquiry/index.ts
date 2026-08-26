@@ -289,28 +289,47 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Group inquiry saved:", inquiry.id);
 
     // MAESTRO dual-delivery (25.08.2026): zusätzliche Kopie ans neue System, additiv,
-    // best-effort, blockiert die Antwort nicht.
+    // blockiert die Antwort nicht. EdgeRuntime.waitUntil (wie in send-offer-email/index.ts),
+    // weil ein nicht-awaiteter fetch() sonst von der Deno-Runtime abgebrochen werden kann,
+    // sobald die Response zurueckgegeben ist - vermutliche Ursache verlorener Leads.
     {
       const isoDate = data.preferredDate
         ? (/^\d{4}-\d{2}-\d{2}$/.test(data.preferredDate) ? `${data.preferredDate}T00:00:00.000Z` : data.preferredDate)
         : undefined;
-      fetch('https://storia.schrittmacher.ai/api/public/inquiries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName: data.contactName,
-          customerEmail: data.email,
-          ...(data.companyName ? { company: data.companyName } : {}),
-          ...(data.phone ? { phone: data.phone } : {}),
-          ...(isoDate ? { eventDate: isoDate } : {}),
-          ...(data.arrivalTime ? { eventTime: data.arrivalTime } : {}),
-          eventType: 'Reisegruppe',
-          guests: data.groupSize,
-          ...(data.message ? { message: data.message } : {}),
-          ...(data.language === 'de' || data.language === 'en' ? { language: data.language } : {}),
-          sourceDetail: 'ristorantestoria-reisegruppen',
-        }),
-      }).catch((e) => console.error('MAESTRO forward error:', e));
+      const forwardToMaestro = async () => {
+        try {
+          const res = await fetch('https://storia.schrittmacher.ai/api/public/inquiries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerName: data.contactName,
+              customerEmail: data.email,
+              ...(data.companyName ? { company: data.companyName } : {}),
+              ...(data.phone ? { phone: data.phone } : {}),
+              ...(isoDate ? { eventDate: isoDate } : {}),
+              ...(data.arrivalTime ? { eventTime: data.arrivalTime } : {}),
+              eventType: 'Reisegruppe',
+              guests: data.groupSize,
+              ...(data.message ? { message: data.message } : {}),
+              ...(data.language === 'de' || data.language === 'en' ? { language: data.language } : {}),
+              sourceDetail: 'ristorantestoria-reisegruppen',
+            }),
+          });
+          if (!res.ok) {
+            const body = await res.text().catch(() => '<unlesbar>');
+            console.error(`MAESTRO forward abgelehnt (inquiry ${inquiry.id}): HTTP ${res.status} — ${body}`);
+          }
+        } catch (e) {
+          console.error(`MAESTRO forward error (inquiry ${inquiry.id}):`, e instanceof Error ? e.message : e);
+        }
+      };
+      // @ts-ignore — EdgeRuntime ist in Supabase Deno verfügbar
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(forwardToMaestro());
+      } else {
+        forwardToMaestro();
+      }
     }
 
     // ============ Notifications (Kunde + Betreiber + WhatsApp) ============
