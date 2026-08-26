@@ -32,6 +32,8 @@ interface RequestBody {
   /** Optional override — use this LexOffice invoice id instead of the one on v2_events. */
   lexoffice_invoice_id?: string;
   invoice_number?: string;
+  /** Optional override — Stripe-/Zahlungslink, der als Button in der Mail erscheint. */
+  payment_url?: string;
 }
 
 const CHROME: Record<CustomerLang, {
@@ -412,6 +414,31 @@ serve(async (req) => {
       }
     }
 
+
+    // Stripe-Zahlungslink für den offenen Betrag ermitteln (Button in der Mail).
+    let paymentUrl: string | null = body.payment_url?.trim() || null;
+    if (!paymentUrl) {
+      const { data: openPayments } = await supabase
+        .from('v2_payments')
+        .select('stripe_payment_link_url, status, created_at')
+        .eq('event_id', body.inquiry_id)
+        .neq('status', 'paid')
+        .not('stripe_payment_link_url', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      paymentUrl = openPayments?.[0]?.stripe_payment_link_url || null;
+    }
+    if (!paymentUrl) {
+      const { data: linkRow } = await supabase
+        .from('balance_payment_links')
+        .select('slug, active')
+        .eq('event_id', body.inquiry_id)
+        .eq('active', true)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (linkRow?.[0]?.slug) paymentUrl = `https://events-storia.de/restzahlung/${linkRow[0].slug}`;
+    }
+    log('payment link resolved', { hasLink: !!paymentUrl });
 
     // Mandanten-Konfiguration (Phase 4b) — Absender/Signatur/NAP aus tenants.
     // Fallback: Storia → für den Default-Tenant byte-identisch zum Hardcode.
