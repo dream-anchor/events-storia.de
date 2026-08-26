@@ -80,6 +80,20 @@ const splitDescription = (text?: string | null): string[] => {
   return parts;
 };
 
+/**
+ * Erkennt Überschriften-Zeilen (Menü, 4-Gang-Menü, 1. Gang, 1. Vorspeise …)
+ * damit sie ohne Haken, aber hervorgehoben gerendert werden.
+ */
+const isHeadingLine = (line: string): boolean => {
+  const l = line.trim();
+  if (!l) return false;
+  if (l.endsWith(":")) return true;
+  return /^(\d+\s*[-–]?\s*)?(gang|gänge)/i.test(l)
+    || /^\d+\.\s*(gang|vorspeise|hauptgang|zwischengang|dessert|course)/i.test(l)
+    || /^\d+[-\s]?g(ä|a)nge?[- ]?men(ü|u)/i.test(l)
+    || /^(men(ü|u)|menu|aperitif|apéritif|aperitivo|vorspeisen?|hauptg(a|ä)nge?|desserts?|getr(ä|a)nke|empfang|starters?|main course|drinks)$/i.test(l);
+};
+
 interface EventPackageShopCardProps {
   pkg: EventPackage;
   featured?: boolean;
