@@ -331,6 +331,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
         pricePerPerson={pkg.price}
         isPricePerPerson={!!pkg.price_per_person}
         minGuests={pkg.min_guests || 10}
+        maxGuests={pkg.max_guests || 500}
       />
     </Card>
   );

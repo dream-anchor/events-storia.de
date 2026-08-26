@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { SmartDatePicker } from "@/components/ui/smart-date-picker";
-import { Clock, Users, Building2, User, Mail, Phone, MessageSquare, ArrowRight, ArrowLeft, Loader2, CheckCircle, Send } from "lucide-react";
+import { Clock, Users, Building2, User, Mail, Phone, MessageSquare, ArrowRight, ArrowLeft, Loader2, CheckCircle, Send, Minus, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,7 @@ interface EventPackageInquiryDialogProps {
   pricePerPerson: number;
   isPricePerPerson?: boolean;
   minGuests?: number;
+  maxGuests?: number;
 }
 
 // Validation schema factory - dynamic based on minGuests
@@ -53,6 +54,7 @@ const EventPackageInquiryDialog = ({
   pricePerPerson,
   isPricePerPerson = true,
   minGuests = 10,
+  maxGuests = 500,
 }: EventPackageInquiryDialogProps) => {
   const { language } = useLanguage();
   const { formatPrice } = usePriceDisplay();
@@ -337,15 +339,57 @@ const EventPackageInquiryDialog = ({
               {errors.time && <p className="text-xs text-destructive">{errors.time}</p>}
             </div>
 
-            {/* Guest Count - Display only (already selected on card) */}
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-              <Users className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {language === "de" ? "Anzahl Gäste" : "Number of Guests"}
-                </p>
-                <p className="font-medium">{formData.guestCount} {language === "de" ? "Personen" : "guests"}</p>
+            {/* Guest Count Stepper */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                {language === "de" ? "Anzahl Gäste" : "Number of Guests"}
+              </Label>
+              <div className="flex items-center justify-center gap-3 p-3 bg-muted/50 rounded-lg">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      guestCount: Math.max(minGuests, prev.guestCount - 1),
+                    }));
+                    if (errors.guestCount) setErrors((prev) => ({ ...prev, guestCount: "" }));
+                  }}
+                  disabled={formData.guestCount <= minGuests}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <div className="text-center min-w-[5rem]">
+                  <p className="text-2xl font-semibold leading-none">{formData.guestCount}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {language === "de" ? "Personen" : "guests"}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      guestCount: Math.min(maxGuests, prev.guestCount + 1),
+                    }));
+                    if (errors.guestCount) setErrors((prev) => ({ ...prev, guestCount: "" }));
+                  }}
+                  disabled={formData.guestCount >= maxGuests}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
+              <p className="text-xs text-muted-foreground text-center">
+                {language === "de"
+                  ? `Mindestens ${minGuests}${maxGuests < 500 ? `, maximal ${maxGuests}` : ""} Personen`
+                  : `Minimum ${minGuests}${maxGuests < 500 ? `, maximum ${maxGuests}` : ""} guests`}
+              </p>
             </div>
 
             {/* Estimated Total */}
