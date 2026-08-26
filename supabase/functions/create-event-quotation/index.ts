@@ -1673,12 +1673,10 @@ serve(async (req) => {
             (workingOptions as Array<OfferOption & { selected_quantity?: number | null }>)
               .reduce((s, o) => s + Number(o.total_amount || 0), 0),
           );
-      const deductions = Array.isArray(downPaymentDeductions)
-        ? round2(
-            (downPaymentDeductions as Array<{ gross: number }>)
-              .reduce((s, d) => s + Math.abs(Number(d.gross || 0)), 0),
-          )
-        : 0;
+      const deductions = round2(
+        effectiveDeductions.reduce((s, d) => s + Math.abs(Number(d.gross || 0)), 0),
+      );
+
       const expectedGross = round2(expectedFromOptions - deductions);
       const drift = round2(lineItemsGross - expectedGross);
       if (Math.abs(drift) > 0.01) {
