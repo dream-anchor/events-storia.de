@@ -229,6 +229,7 @@ export const SendInvoiceDialog = ({
         const { data, error } = await supabase.functions.invoke("send-invoice-email", {
           body: {
             inquiry_id: inquiryId,
+            lexoffice_invoice_id: activeInvoiceId,
             language,
             extra_note: extraNote || undefined,
             dry_run: true,
@@ -265,6 +266,7 @@ export const SendInvoiceDialog = ({
       const { data, error } = await supabase.functions.invoke("send-invoice-email", {
         body: {
           inquiry_id: inquiryId,
+          lexoffice_invoice_id: activeInvoiceId || undefined,
           recipient_email: recipient.trim(),
           language,
           extra_note: extraNote || undefined,
