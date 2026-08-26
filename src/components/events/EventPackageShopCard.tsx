@@ -238,16 +238,23 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
 
         {descriptionParts.length > 0 && (
           <div className="mt-3 text-left">
-            <div
-              className={cn(
-                "text-base text-muted-foreground space-y-1.5",
-                !descriptionExpanded && "line-clamp-5"
+            <ul className="space-y-1.5">
+              {visibleDescriptionParts.map((part, idx) =>
+                isHeadingLine(part) ? (
+                  <li
+                    key={idx}
+                    className="pt-1.5 first:pt-0 text-sm font-semibold uppercase tracking-wide text-foreground/90"
+                  >
+                    {part.replace(/:$/, "")}
+                  </li>
+                ) : (
+                  <li key={idx} className="flex items-start gap-2.5 text-base">
+                    <Check className="h-4 w-4 text-primary shrink-0 mt-1" />
+                    <span className="text-muted-foreground leading-relaxed">{part}</span>
+                  </li>
+                )
               )}
-            >
-              {descriptionParts.map((part, idx) => (
-                <p key={idx} className="leading-relaxed">{part}</p>
-              ))}
-            </div>
+            </ul>
             {isDescriptionLong && (
               <button
                 type="button"
