@@ -26,6 +26,7 @@ interface EventPackageInquiryDialogProps {
   pricePerPerson: number;
   isPricePerPerson?: boolean;
   minGuests?: number;
+  maxGuests?: number;
 }
 
 // Validation schema factory - dynamic based on minGuests
