@@ -339,6 +339,22 @@ serve(async (req) => {
       }
     }
 
+    // SINGLE SOURCE OF TRUTH: Die angehängte LexOffice-Rechnung gewinnt immer.
+    // Sie enthält bereits die tatsächliche Gästezahl und die Anzahlungs-Abzugsposition.
+    // Ohne das zeigt die Mail veraltete DB-Werte (amount_total) statt der Rechnungssumme.
+    {
+      const lexKey = Deno.env.get('LEXOFFICE_API_KEY');
+      if (lexKey) {
+        const amounts = await fetchInvoiceAmounts(lexofficeInvoiceId, lexKey);
+        if (amounts) {
+          totalEuro = amounts.totalEuro;
+          paidEuro = amounts.paidEuro;
+          openEuro = amounts.openEuro;
+        }
+      }
+    }
+
+
     // Mandanten-Konfiguration (Phase 4b) — Absender/Signatur/NAP aus tenants.
     // Fallback: Storia → für den Default-Tenant byte-identisch zum Hardcode.
     const tenantCfg = await getTenantConfig(supabase, (inquiry as any).tenant_id);
