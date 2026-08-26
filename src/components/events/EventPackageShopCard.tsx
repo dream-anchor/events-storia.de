@@ -115,8 +115,13 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const name = language === 'de' ? pkg.name : (pkg.name_en || pkg.name);
   const description = language === 'de' ? pkg.description : (pkg.description_en || pkg.description);
   const descriptionParts = useMemo(() => splitDescription(description), [description]);
+  const COLLAPSED_LINES = 5;
   const isDescriptionLong =
-    descriptionParts.length > 3 || (description?.trim().length ?? 0) > 220;
+    descriptionParts.length > COLLAPSED_LINES || (description?.trim().length ?? 0) > 220;
+  const visibleDescriptionParts =
+    descriptionExpanded || !isDescriptionLong
+      ? descriptionParts
+      : descriptionParts.slice(0, COLLAPSED_LINES);
   const includes = pkg.includes || [];
 
   // Eigenes Bild aus dem Admin (image_url) hat Vorrang; sonst namensbasiertes Default.
