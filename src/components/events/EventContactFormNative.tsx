@@ -124,6 +124,32 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
 
       if (error) throw error;
 
+      // --- Dual-Write Schattenbetrieb: paralleles Anlegen in MAESTRO (Storia) ---
+      try {
+        await fetch("https://storia.schrittmacher.ai/api/public/inquiries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerName: data.name,
+            customerEmail: data.email,
+            company: data.company || undefined,
+            phone: data.phone || undefined,
+            guests: data.guests,
+            eventType: data.eventType === "sonstiges" && data.eventTypeOther ? data.eventTypeOther : data.eventType,
+            eventDate: data.date ? data.date.toISOString() : undefined,
+            eventTime: data.time || undefined,
+            message: data.message || undefined,
+            serviceKind: "event",
+            packageId: data.selectedPackage || undefined,
+            language,
+            sourceDetail: data.selectedPackage ? `shadow_website_package_${data.selectedPackage}` : "shadow_website_contact_form",
+          }),
+        });
+      } catch (e) {
+        console.error("Dual-Write error", e);
+      }
+      // --- Ende Dual-Write ---
+
       toast.success(
         language === 'de' 
           ? 'Vielen Dank! Wir melden uns innerhalb von 24 Stunden bei Ihnen.' 
