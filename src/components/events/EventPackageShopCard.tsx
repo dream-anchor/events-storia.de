@@ -191,9 +191,32 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           )}
         </div>
 
-        {description && (
-          <p className="text-base text-muted-foreground mt-2">{description}</p>
+        {descriptionParts.length > 0 && (
+          <div className="mt-3 text-left">
+            <div
+              className={cn(
+                "text-base text-muted-foreground space-y-1.5",
+                !descriptionExpanded && "line-clamp-5"
+              )}
+            >
+              {descriptionParts.map((part, idx) => (
+                <p key={idx} className="leading-relaxed">{part}</p>
+              ))}
+            </div>
+            {isDescriptionLong && (
+              <button
+                type="button"
+                onClick={() => setDescriptionExpanded((v) => !v)}
+                className="mt-1.5 text-sm font-medium text-primary hover:underline"
+              >
+                {descriptionExpanded
+                  ? (language === 'de' ? 'Weniger anzeigen' : 'Show less')
+                  : (language === 'de' ? 'Mehr anzeigen' : 'Show more')}
+              </button>
+            )}
+          </div>
         )}
+
       </CardHeader>
 
       <CardContent className="flex-1 pt-4">
