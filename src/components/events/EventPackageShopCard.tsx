@@ -55,10 +55,36 @@ const getPackageImage = (name: string): string => {
   return ravioliDinner; // Fallback (echtes STORIA-Gericht)
 };
 
+/**
+ * Zerlegt einen Beschreibungstext in lesbare Absätze:
+ * echte Zeilenumbrüche haben Vorrang, sonst wird vor Gang-/Aufzählungs-Markern getrennt.
+ */
+const splitDescription = (text?: string | null): string[] => {
+  if (!text) return [];
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  let parts = trimmed
+    .split(/\r?\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    parts = trimmed
+      // vor "1. Gang", "2. Gang", "Aperitif:", Bullet-Zeichen umbrechen
+      .split(/(?=\d+\.\s*Gang)|(?=\d+(?:st|nd|rd|th)\s+course)|\s*[•·]\s*|\s+[–-]\s+(?=[A-ZÄÖÜ])/gi)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }
+
+  return parts;
+};
+
 interface EventPackageShopCardProps {
   pkg: EventPackage;
   featured?: boolean;
 }
+
 
 const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const { language } = useLanguage();
