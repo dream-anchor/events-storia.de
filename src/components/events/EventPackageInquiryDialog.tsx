@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { SmartDatePicker } from "@/components/ui/smart-date-picker";
-import { Clock, Users, Building2, User, Mail, Phone, MessageSquare, ArrowRight, ArrowLeft, Loader2, CheckCircle, Send } from "lucide-react";
+import { Clock, Users, Building2, User, Mail, Phone, MessageSquare, ArrowRight, ArrowLeft, Loader2, CheckCircle, Send, Minus, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
