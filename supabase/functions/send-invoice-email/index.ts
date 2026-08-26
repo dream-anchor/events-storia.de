@@ -218,8 +218,46 @@ export function buildInvoiceEmailHtml(
   </body></html>`;
 }
 
+/**
+ * Beträge direkt aus der LexOffice-Rechnung lesen (Single Source of Truth).
+ * openEuro   = totalGrossAmount der Rechnung (bereits abzgl. Anzahlungs-Positionen)
+ * paidEuro   = Summe der negativen Positionen (Anzahlungs-Abzug)
+ * totalEuro  = openEuro + paidEuro (Brutto-Gesamtleistung)
+ */
+async function fetchInvoiceAmounts(
+  invoiceId: string,
+  apiKey: string,
+): Promise<{ totalEuro: number; paidEuro: number | null; openEuro: number | null } | null> {
+  try {
+    const res = await fetch(`https://api.lexoffice.io/v1/invoices/${invoiceId}`, {
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+    });
+    if (!res.ok) { log('invoice amounts fetch failed', { status: res.status }); return null; }
+    const inv = await res.json();
+    const open = Number(inv?.totalPrice?.totalGrossAmount);
+    if (!Number.isFinite(open)) return null;
+
+    const deductions = (inv?.lineItems || []).reduce((sum: number, li: any) => {
+      const gross = Number(li?.lineItemAmount ?? li?.unitPrice?.grossAmount ?? 0);
+      return gross < 0 ? sum + Math.abs(gross) : sum;
+    }, 0);
+
+    const paidEuro = deductions > 0 ? Math.round(deductions * 100) / 100 : null;
+    const totalEuro = Math.round((open + deductions) * 100) / 100;
+    return {
+      totalEuro,
+      paidEuro,
+      openEuro: paidEuro != null ? Math.round(open * 100) / 100 : null,
+    };
+  } catch (e) {
+    log('invoice amounts exception', { err: String(e) });
+    return null;
+  }
+}
+
 /** Fetch the invoice PDF from LexOffice (2-step: /invoices/:id/document → /files/:id). */
 async function fetchInvoicePdf(invoiceId: string, apiKey: string): Promise<Uint8Array | null> {
+
   for (let i = 0; i < 5; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 1500 * i));
     try {
