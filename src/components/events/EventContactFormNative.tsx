@@ -147,6 +147,27 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
     <section id="kontaktformular" className="py-16 md:py-20">
       <div className="container mx-auto px-4">
         <div className="max-w-2xl mx-auto">
+          {isSuccess ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="h-8 w-8 text-primary" />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-serif font-medium mb-2">
+                {language === 'de' ? 'Anfrage gesendet!' : 'Request sent!'}
+              </h2>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                {language === 'de'
+                  ? 'Vielen Dank! Wir melden uns schnellstmöglich bei Ihnen — in der Regel innerhalb von 24 Stunden an Werktagen.'
+                  : 'Thank you! We will get back to you as soon as possible — usually within 24 hours on business days.'}
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => setIsSuccess(false)}
+              >
+                {language === 'de' ? 'Weitere Anfrage senden' : 'Send another request'}
+              </Button>
+            </div>
+          ) : (
           <div className="text-center mb-10">
             <h2 className="text-2xl md:text-3xl font-serif font-medium mb-4">
               {language === 'de' ? 'Jetzt unverbindlich anfragen' : 'Request a Quote'}
@@ -172,6 +193,7 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
               </a>
             </p>
           </div>
+          )}
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
