@@ -139,21 +139,32 @@ export function getRouteByEnPath(enPath: string): RouteConfig | undefined {
   return routeByEnPath.get(enPath);
 }
 
-/** Get the alternate language path for a given full path */
+/** Get the alternate language path for a given full path.
+ *  Static mappings are preferred. If the path is not in the ROUTES table
+ *  (e.g. /anfrage or a dynamic route like /offer/12345), the language prefix
+ *  is toggled dynamically while preserving the rest of the path — never
+ *  redirecting to the home page. Query string and hash are preserved by the
+ *  caller (LanguageContext) via a suffix, so we only operate on the path. */
 export function getAlternatePath(currentFullPath: string, currentLang: 'de' | 'en'): string {
   // Strip hash and query
   const [pathOnly] = currentFullPath.split(/[?#]/);
 
   if (currentLang === 'en') {
-    // Remove /en prefix to get the EN slug, then find DE path
+    // Currently EN → switching to DE.
+    // Remove /en prefix to obtain the EN slug, then look up the static DE path.
     const enSlug = pathOnly === '/en' ? '/' : pathOnly.replace(/^\/en/, '');
     const route = routeByEnPath.get(enSlug);
-    return route ? route.de : '/';
+    if (route) return route.de;
+    // Dynamic fallback: no mapping found → keep the path, just drop the /en prefix.
+    return enSlug || '/';
   } else {
-    // Find the EN path from DE path
+    // Currently DE → switching to EN.
+    // Look up the static EN path from the DE path.
     const route = routeByDePath.get(pathOnly);
-    if (!route) return '/en';
-    return route.en === '/' ? '/en' : `/en${route.en}`;
+    if (route) return route.en === '/' ? '/en' : `/en${route.en}`;
+    // Dynamic fallback: no mapping found → keep the path, just add the /en prefix.
+    if (pathOnly === '/') return '/en';
+    return `/en${pathOnly}`;
   }
 }
 
