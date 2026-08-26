@@ -485,6 +485,7 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
               </p>
             </form>
           </Form>
+          )}
         </div>
       </div>
     </section>
