@@ -1,0 +1,1 @@
+ALTER TABLE public.v2_events DISABLE TRIGGER tg_v2_events_maestro_inquiry_enqueue;
