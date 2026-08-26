@@ -80,6 +80,20 @@ const splitDescription = (text?: string | null): string[] => {
   return parts;
 };
 
+/**
+ * Erkennt Überschriften-Zeilen (Menü, 4-Gang-Menü, 1. Gang, 1. Vorspeise …)
+ * damit sie ohne Haken, aber hervorgehoben gerendert werden.
+ */
+const isHeadingLine = (line: string): boolean => {
+  const l = line.trim();
+  if (!l) return false;
+  if (l.endsWith(":")) return true;
+  return /^(\d+\s*[-–]?\s*)?(gang|gänge)/i.test(l)
+    || /^\d+\.\s*(gang|vorspeise|hauptgang|zwischengang|dessert|course)/i.test(l)
+    || /^\d+[-\s]?g(ä|a)nge?[- ]?men(ü|u)/i.test(l)
+    || /^(men(ü|u)|menu|aperitif|apéritif|aperitivo|vorspeisen?|hauptg(a|ä)nge?|desserts?|getr(ä|a)nke|empfang|starters?|main course|drinks)$/i.test(l);
+};
+
 interface EventPackageShopCardProps {
   pkg: EventPackage;
   featured?: boolean;
@@ -101,8 +115,13 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const name = language === 'de' ? pkg.name : (pkg.name_en || pkg.name);
   const description = language === 'de' ? pkg.description : (pkg.description_en || pkg.description);
   const descriptionParts = useMemo(() => splitDescription(description), [description]);
+  const COLLAPSED_LINES = 5;
   const isDescriptionLong =
-    descriptionParts.length > 3 || (description?.trim().length ?? 0) > 220;
+    descriptionParts.length > COLLAPSED_LINES || (description?.trim().length ?? 0) > 220;
+  const visibleDescriptionParts =
+    descriptionExpanded || !isDescriptionLong
+      ? descriptionParts
+      : descriptionParts.slice(0, COLLAPSED_LINES);
   const includes = pkg.includes || [];
 
   // Eigenes Bild aus dem Admin (image_url) hat Vorrang; sonst namensbasiertes Default.
@@ -224,16 +243,23 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
 
         {descriptionParts.length > 0 && (
           <div className="mt-3 text-left">
-            <div
-              className={cn(
-                "text-base text-muted-foreground space-y-1.5",
-                !descriptionExpanded && "line-clamp-5"
+            <ul className="space-y-1.5">
+              {visibleDescriptionParts.map((part, idx) =>
+                isHeadingLine(part) ? (
+                  <li
+                    key={idx}
+                    className="pt-1.5 first:pt-0 text-sm font-semibold uppercase tracking-wide text-foreground/90"
+                  >
+                    {part.replace(/:$/, "")}
+                  </li>
+                ) : (
+                  <li key={idx} className="flex items-start gap-2.5 text-base">
+                    <Check className="h-4 w-4 text-primary shrink-0 mt-1" />
+                    <span className="text-muted-foreground leading-relaxed">{part}</span>
+                  </li>
+                )
               )}
-            >
-              {descriptionParts.map((part, idx) => (
-                <p key={idx} className="leading-relaxed">{part}</p>
-              ))}
-            </div>
+            </ul>
             {isDescriptionLong && (
               <button
                 type="button"
