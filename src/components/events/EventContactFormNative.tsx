@@ -59,6 +59,7 @@ interface EventContactFormProps {
 const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
   const { language } = useLanguage();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const form = useForm<FormData>({
