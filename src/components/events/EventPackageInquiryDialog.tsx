@@ -54,6 +54,7 @@ const EventPackageInquiryDialog = ({
   pricePerPerson,
   isPricePerPerson = true,
   minGuests = 10,
+  maxGuests = 500,
 }: EventPackageInquiryDialogProps) => {
   const { language } = useLanguage();
   const { formatPrice } = usePriceDisplay();
