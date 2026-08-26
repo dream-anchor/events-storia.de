@@ -129,12 +129,7 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
 
       if (error) throw error;
 
-      toast.success(
-        language === 'de' 
-          ? 'Vielen Dank! Wir melden uns innerhalb von 24 Stunden bei Ihnen.' 
-          : 'Thank you! We will contact you within 24 hours.'
-      );
-      
+      setIsSuccess(true);
       form.reset();
     } catch (error) {
       console.error('Error submitting form:', error);
