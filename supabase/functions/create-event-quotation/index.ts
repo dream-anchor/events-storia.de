@@ -1374,13 +1374,50 @@ serve(async (req) => {
     // Zeile anhängen. Pflicht nach § 14 Abs. 5 UStG: Rechnungsnummer + Datum
     // im Namen, Bruttobetrag als negativer grossAmount, gleicher Steuersatz
     // wie die Anzahlung (Default 7 % Catering).
-    if (Array.isArray(downPaymentDeductions) && downPaymentDeductions.length > 0) {
-      for (const d of downPaymentDeductions as Array<{
-        invoice_number?: string | null;
-        date_iso?: string | null;
-        gross: number;
-        tax_rate?: number;
-      }>) {
+    //
+    // WICHTIG: Wenn der Aufrufer keine Abzüge übergibt, werden bereits
+    // bezahlte Anzahlungen/Vorauszahlungen IMMER automatisch aus der DB
+    // geladen und abgezogen — jede Rechnung muss geleistete Anzahlungen
+    // ausweisen, egal über welchen Pfad sie erzeugt wird.
+    type Deduction = {
+      invoice_number?: string | null;
+      date_iso?: string | null;
+      gross: number;
+      tax_rate?: number;
+    };
+    let effectiveDeductions: Deduction[] = Array.isArray(downPaymentDeductions)
+      ? (downPaymentDeductions as Deduction[])
+      : [];
+
+    if (effectiveDeductions.length === 0 && isInvoiceOrOrder) {
+      const { data: paidDownPayments } = await supabase
+        .from('event_payments')
+        .select('amount_cents, payment_type, lexoffice_invoice_number, paid_at, created_at')
+        .eq('inquiry_id', inquiryId)
+        .in('payment_type', ['deposit', 'prepayment'])
+        .eq('status', 'paid')
+        .order('created_at', { ascending: true });
+
+      effectiveDeductions = (paidDownPayments || [])
+        .filter((p: Record<string, unknown>) => Number(p.amount_cents || 0) > 0)
+        .map((p: Record<string, unknown>) => ({
+          invoice_number: (p.lexoffice_invoice_number as string | null) ?? null,
+          date_iso: (p.paid_at as string | null) || (p.created_at as string | null),
+          gross: Number(p.amount_cents || 0) / 100,
+          tax_rate: FOOD_TAX_RATE,
+        }));
+
+      if (effectiveDeductions.length > 0) {
+        console.log('[create-event-quotation] Anzahlungen automatisch abgezogen', {
+          inquiryId,
+          count: effectiveDeductions.length,
+          total: effectiveDeductions.reduce((s, d) => s + d.gross, 0),
+        });
+      }
+    }
+
+    if (effectiveDeductions.length > 0) {
+      for (const d of effectiveDeductions) {
         const taxRate = typeof d.tax_rate === 'number' ? d.tax_rate : FOOD_TAX_RATE;
         const grossAbs = Math.abs(round2(d.gross || 0));
         if (grossAbs <= 0) continue;
@@ -1407,6 +1444,7 @@ serve(async (req) => {
         });
       }
     }
+
 
     // 5. Adressen live auflösen (kein Snapshot)
     const businessData = await loadBusinessData(supabase);
