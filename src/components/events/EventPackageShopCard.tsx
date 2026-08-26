@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
@@ -93,13 +93,18 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const [guestCount, setGuestCount] = useState(pkg.min_guests || 20);
   const [isAdded, setIsAdded] = useState(false);
   const [inquiryDialogOpen, setInquiryDialogOpen] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   const cartItem = items.find(i => i.id === `event-${pkg.id}`);
   const isInCart = !!cartItem;
 
   const name = language === 'de' ? pkg.name : (pkg.name_en || pkg.name);
   const description = language === 'de' ? pkg.description : (pkg.description_en || pkg.description);
+  const descriptionParts = useMemo(() => splitDescription(description), [description]);
+  const isDescriptionLong =
+    descriptionParts.length > 3 || (description?.trim().length ?? 0) > 220;
   const includes = pkg.includes || [];
+
   // Eigenes Bild aus dem Admin (image_url) hat Vorrang; sonst namensbasiertes Default.
   const image = pkg.image_url || getPackageImage(pkg.name);
 
