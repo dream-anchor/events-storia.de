@@ -426,6 +426,16 @@ serve(async (req) => {
     let paymentUrl: string | null = body.payment_url?.trim() || null;
     let linkedPaymentAmountEuro: number | null = null;
     if (!paymentUrl) {
+      const { data: linkRow } = await supabase
+        .from('balance_payment_links')
+        .select('slug, active')
+        .eq('event_id', body.inquiry_id)
+        .eq('active', true)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (linkRow?.[0]?.slug) paymentUrl = `https://events-storia.de/restzahlung/${linkRow[0].slug}`;
+    }
+    if (!paymentUrl) {
       const { data: openPayments } = await supabase
         .from('v2_payments')
         .select('stripe_payment_link_url, amount_cents, status, created_at')
@@ -439,16 +449,6 @@ serve(async (req) => {
       if (Number.isFinite(amountCents) && amountCents > 0) {
         linkedPaymentAmountEuro = Math.round(amountCents) / 100;
       }
-    }
-    if (!paymentUrl) {
-      const { data: linkRow } = await supabase
-        .from('balance_payment_links')
-        .select('slug, active')
-        .eq('event_id', body.inquiry_id)
-        .eq('active', true)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (linkRow?.[0]?.slug) paymentUrl = `https://events-storia.de/restzahlung/${linkRow[0].slug}`;
     }
     if (linkedPaymentAmountEuro != null) {
       openEuro = linkedPaymentAmountEuro;
