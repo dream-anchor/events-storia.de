@@ -106,12 +106,9 @@ serve(async (req) => {
       .reduce((s, p) => s + (p.amount_cents || 0), 0);
 
     const guestCount = Math.max(1, Number(ev.guest_count || 1));
-    const amountTotalCents = Math.round(Number(ev.amount_total || 0) * 100);
-    // Preis pro Person 1:1 aus Maestro: amount_total / guest_count
-    // Fallback wenn amount_total fehlt: amountEur + deposit
-    const totalCents = amountTotalCents > 0
-      ? amountTotalCents
-      : Math.round(body.amountEur * 100) + depositPaidCents;
+    // Der vom Staff bestätigte offene Betrag ist für diesen Link verbindlich.
+    // v2_events.amount_total kann bei nachträglich geänderter Gästezahl veraltet sein.
+    const totalCents = Math.round(body.amountEur * 100) + depositPaidCents;
     const pricePerPersonCents = Math.round(totalCents / guestCount);
 
     // Slug: <nachname>-<booking_number-suffix>
@@ -154,7 +151,7 @@ serve(async (req) => {
       .from("v2_payments")
       .select("id")
       .eq("event_id", body.eventId)
-      .eq("payment_type", "balance")
+      .in("payment_type", ["balance", "final"])
       .in("status", ["sent", "overdue"])
       .order("created_at", { ascending: false })
       .limit(1)
