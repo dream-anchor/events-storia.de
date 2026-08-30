@@ -36,7 +36,7 @@ serve(async (req) => {
     // 1. Idempotenz-Check
     const { data: ev } = await supabase
       .from("v2_events")
-      .select("id, final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number, balance_method")
+      .select("id, final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number, lexoffice_document_type, balance_method")
       .eq("id", inquiryId)
       .single();
 
@@ -68,8 +68,10 @@ serve(async (req) => {
       );
     }
 
-    const existingInvoiceId = ev?.final_lexoffice_invoice_id || ev?.invoice_lexoffice_id;
-    const existingInvoiceNumber = ev?.final_lexoffice_invoice_number || ev?.invoice_lexoffice_number;
+    const standardInvoiceId = ev?.lexoffice_document_type === "invoice" ? ev?.invoice_lexoffice_id : null;
+    const standardInvoiceNumber = ev?.lexoffice_document_type === "invoice" ? ev?.invoice_lexoffice_number : null;
+    const existingInvoiceId = ev?.final_lexoffice_invoice_id || standardInvoiceId;
+    const existingInvoiceNumber = ev?.final_lexoffice_invoice_number || standardInvoiceNumber;
     if (existingInvoiceId && !force) {
       log("Final invoice exists — skip (idempotent)", {
         invoiceId: existingInvoiceId,

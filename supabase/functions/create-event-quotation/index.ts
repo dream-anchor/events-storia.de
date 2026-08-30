@@ -1205,19 +1205,25 @@ serve(async (req) => {
     if (isInvoiceModeEarly && !force) {
       const { data: invoiceState, error: invoiceStateError } = await supabase
         .from('v2_events')
-        .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number')
+        .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number, lexoffice_document_type')
         .eq('id', inquiryId)
         .maybeSingle();
       if (invoiceStateError) {
         throw new Error(`Rechnungsstatus nicht geladen: ${invoiceStateError.message}`);
       }
 
+      const standardInvoiceId = invoiceState?.lexoffice_document_type === 'invoice'
+        ? invoiceState?.invoice_lexoffice_id
+        : null;
+      const standardInvoiceNumber = invoiceState?.lexoffice_document_type === 'invoice'
+        ? invoiceState?.invoice_lexoffice_number
+        : null;
       const existingInvoiceId = isFinalInvoice
-        ? invoiceState?.final_lexoffice_invoice_id || invoiceState?.invoice_lexoffice_id
-        : invoiceState?.invoice_lexoffice_id || invoiceState?.final_lexoffice_invoice_id;
+        ? invoiceState?.final_lexoffice_invoice_id || standardInvoiceId
+        : standardInvoiceId || invoiceState?.final_lexoffice_invoice_id;
       const existingInvoiceNumber = isFinalInvoice
-        ? invoiceState?.final_lexoffice_invoice_number || invoiceState?.invoice_lexoffice_number
-        : invoiceState?.invoice_lexoffice_number || invoiceState?.final_lexoffice_invoice_number;
+        ? invoiceState?.final_lexoffice_invoice_number || standardInvoiceNumber
+        : standardInvoiceNumber || invoiceState?.final_lexoffice_invoice_number;
 
       if (existingInvoiceId) {
         console.log('[create-event-quotation] Existing invoice reused', {

@@ -84,13 +84,19 @@ export const SendInvoiceDialog = ({
       (async () => {
         const { data } = await (supabase as any)
           .from('v2_events')
-          .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number, balance_method')
+          .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number, lexoffice_document_type, balance_method')
           .eq('id', inquiryId)
           .maybeSingle();
+        const standardInvoiceId = data?.lexoffice_document_type === 'invoice'
+          ? data?.invoice_lexoffice_id
+          : null;
+        const standardInvoiceNumber = data?.lexoffice_document_type === 'invoice'
+          ? data?.invoice_lexoffice_number
+          : null;
         const existingId: string | null =
-          data?.final_lexoffice_invoice_id || data?.invoice_lexoffice_id || null;
+          data?.final_lexoffice_invoice_id || standardInvoiceId || null;
         const existingNumber: string | null =
-          data?.final_lexoffice_invoice_number || data?.invoice_lexoffice_number || invoiceNumber || null;
+          data?.final_lexoffice_invoice_number || standardInvoiceNumber || invoiceNumber || null;
 
         const onSite = ['on_site', 'onsite', 'cash', 'card_onsite']
           .includes(String(data?.balance_method || ''));
@@ -179,13 +185,19 @@ export const SendInvoiceDialog = ({
       // Frisch aus DB nachladen (neue Invoice-ID)
       const { data: ev } = await (supabase as any)
         .from('v2_events')
-        .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number')
+        .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number, lexoffice_document_type')
         .eq('id', inquiryId)
         .maybeSingle();
+      const standardInvoiceId = ev?.lexoffice_document_type === 'invoice'
+        ? ev?.invoice_lexoffice_id
+        : null;
+      const standardInvoiceNumber = ev?.lexoffice_document_type === 'invoice'
+        ? ev?.invoice_lexoffice_number
+        : null;
       const newId: string | null =
-        ev?.final_lexoffice_invoice_id || ev?.invoice_lexoffice_id || result?.invoiceId || null;
+        ev?.final_lexoffice_invoice_id || standardInvoiceId || result?.invoiceId || null;
       const newNumber: string | null =
-        ev?.final_lexoffice_invoice_number || ev?.invoice_lexoffice_number || result?.invoiceNumber || null;
+        ev?.final_lexoffice_invoice_number || standardInvoiceNumber || result?.invoiceNumber || null;
       setPdfError(null);
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
       setPdfUrl(null);
