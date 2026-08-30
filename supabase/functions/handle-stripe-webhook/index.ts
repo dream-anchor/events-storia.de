@@ -79,17 +79,17 @@ serve(async (req) => {
       // sodass ein doppeltes bzw. nachgelagertes Event eine bereits bezahlte
       // Zahlung nicht erneut verarbeitet.
       const session = event.data.object as Stripe.Checkout.Session;
-      // MAESTRO-Handoff: Bestellung (order-only) unabhängig vom Zahlungsstatus
-      // enqueuen. Zahlungstransaktion folgt separat, sobald Erfolg vorliegt.
-      await maestroEnqueueOrder(supabase, session, event.id);
       const result = await processCheckoutPaid(supabase, stripe, session, event.type);
       if (result.skippedUnpaid) {
+        // Noch nicht bezahlt → Bestellung ohne Transaktion übergeben (ein Eintrag).
+        await maestroEnqueueOrder(supabase, session, event.id);
         return new Response(JSON.stringify({ received: true, action: "skipped_unpaid" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      // Zahlung tatsächlich erfolgreich → Transaction-Handoff mit eigener Delivery-ID
+      // Zahlung erfolgreich → EIN Handoff mit Bestell- UND Transaktionsdaten
       await maestroEnqueuePayment(supabase, session, event.id);
+
     } else if (event.type === "checkout.session.async_payment_failed") {
       // ━━━ SEPA / asynchrone Zahlung FEHLGESCHLAGEN ━━━
       // Wird ausschließlich für asynchrone Methoden ausgelöst, NIE für Karten
