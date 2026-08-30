@@ -1197,6 +1197,50 @@ serve(async (req) => {
       .single();
     if (inqErr || !inquiry) throw new Error(`Anfrage nicht gefunden: ${inqErr?.message}`);
 
+    // Rechnungen sind pro Auftrag idempotent. Alle Aufrufer (UI, Automationen,
+    // interne Functions) laufen durch diesen zentralen Guard. Eine weitere
+    // Rechnung darf nur nach einer ausdruecklichen Bestaetigung mit force=true
+    // erzeugt werden.
+    const isInvoiceModeEarly = forceDocumentType === 'invoice' || forceDocumentType === 'order';
+    if (isInvoiceModeEarly && !force) {
+      const { data: invoiceState, error: invoiceStateError } = await supabase
+        .from('v2_events')
+        .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number')
+        .eq('id', inquiryId)
+        .maybeSingle();
+      if (invoiceStateError) {
+        throw new Error(`Rechnungsstatus nicht geladen: ${invoiceStateError.message}`);
+      }
+
+      const existingInvoiceId = isFinalInvoice
+        ? invoiceState?.final_lexoffice_invoice_id || invoiceState?.invoice_lexoffice_id
+        : invoiceState?.invoice_lexoffice_id || invoiceState?.final_lexoffice_invoice_id;
+      const existingInvoiceNumber = isFinalInvoice
+        ? invoiceState?.final_lexoffice_invoice_number || invoiceState?.invoice_lexoffice_number
+        : invoiceState?.invoice_lexoffice_number || invoiceState?.final_lexoffice_invoice_number;
+
+      if (existingInvoiceId) {
+        console.log('[create-event-quotation] Existing invoice reused', {
+          inquiryId,
+          invoiceId: existingInvoiceId,
+        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            reused: true,
+            reason: 'already_exists',
+            quotationId: existingInvoiceId,
+            invoiceId: existingInvoiceId,
+            invoiceNumber: existingInvoiceNumber ?? null,
+            documentType: 'invoices',
+            isFinalInvoice: !!isFinalInvoice,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
     // 2. Aktive Angebots-Optionen laden
     const { data: options, error: optErr } = await supabase
       .from('inquiry_offer_options')
@@ -1226,7 +1270,6 @@ serve(async (req) => {
     // gespeicherte Brutto-Gesamtbetrag noch zum aktuellen Stand der
     // inquiry_offer_options passt. Bei Differenz: altes Draft-Angebot in
     // LexOffice loeschen (best effort) und neu erzeugen.
-    const isInvoiceModeEarly = forceDocumentType === 'invoice' || forceDocumentType === 'order';
     const existingQuotationId = (inquiry as Record<string, unknown>).lexoffice_quotation_id as string | null;
     if (!isInvoiceModeEarly && existingQuotationId && !force) {
       try {
