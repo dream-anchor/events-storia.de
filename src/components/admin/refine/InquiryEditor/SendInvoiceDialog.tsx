@@ -7,6 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Loader2, Mail, FileText, Send, FilePlus2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
@@ -50,9 +60,10 @@ export const SendInvoiceDialog = ({
   const [sending, setSending] = useState(false);
   const [invoiceExists, setInvoiceExists] = useState<boolean>(!!hasInvoiceProp);
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
+  const [activeInvoiceNumber, setActiveInvoiceNumber] = useState<string | null>(invoiceNumber ?? null);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [regenerating, setRegenerating] = useState(false);
+  const [confirmAdditionalInvoice, setConfirmAdditionalInvoice] = useState(false);
   const [balanceOnSite, setBalanceOnSite] = useState(false);
   const queryClient = useQueryClient();
 
@@ -66,67 +77,33 @@ export const SendInvoiceDialog = ({
       setExtraNote("");
       setCreateError(null);
       setBalanceOnSite(false);
-      // Re-check live ob aktive Rechnung verknüpft ist (nach evtl. Storno).
-      // Wenn bereits eine Schlussrechnung existiert, erzeugen wir bei jedem
-      // Öffnen automatisch eine NEUE mit den aktuellen Maestro-Werten
-      // (Anzahlung %, Restzahlungs-Frist, Methode, Preise). Die alte Rechnung
-      // bleibt in der Belege-Liste stehen und kann dort manuell storniert werden.
+      setActiveInvoiceNumber(invoiceNumber ?? null);
+      setConfirmAdditionalInvoice(false);
+      // Re-check live ob eine Rechnung verknuepft ist. Eine vorhandene Rechnung
+      // wird nur angezeigt und niemals automatisch neu erzeugt.
       (async () => {
         const { data } = await (supabase as any)
           .from('v2_events')
-          .select('final_lexoffice_invoice_id, invoice_lexoffice_id, balance_method')
+          .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number, lexoffice_document_type, balance_method')
           .eq('id', inquiryId)
           .maybeSingle();
+        const standardInvoiceId = data?.lexoffice_document_type === 'invoice'
+          ? data?.invoice_lexoffice_id
+          : null;
+        const standardInvoiceNumber = data?.lexoffice_document_type === 'invoice'
+          ? data?.invoice_lexoffice_number
+          : null;
         const existingId: string | null =
-          data?.final_lexoffice_invoice_id || data?.invoice_lexoffice_id || null;
+          data?.final_lexoffice_invoice_id || standardInvoiceId || null;
+        const existingNumber: string | null =
+          data?.final_lexoffice_invoice_number || standardInvoiceNumber || invoiceNumber || null;
 
         const onSite = ['on_site', 'onsite', 'cash', 'card_onsite']
           .includes(String(data?.balance_method || ''));
         setBalanceOnSite(onSite);
-
-        // Bei „Restzahlung vor Ort" KEINE Schlussrechnung erzeugen oder regenerieren.
-        if (onSite) {
-          setActiveInvoiceId(existingId);
-          setInvoiceExists(!!existingId);
-          return;
-        }
-
-        if (!existingId) {
-          setActiveInvoiceId(null);
-          setInvoiceExists(false);
-          return;
-        }
-
-        // Auto-Regenerate mit aktuellen Werten
-        setRegenerating(true);
-        try {
-          const { data: regen, error } = await supabase.functions.invoke(
-            "create-lexoffice-final-invoice",
-            { body: { inquiryId, force: true } },
-          );
-          if (error) throw error;
-          if ((regen as any)?.error) throw new Error((regen as any).error);
-          // Neue ID aus DB nachladen
-          const { data: ev } = await (supabase as any)
-            .from('v2_events')
-            .select('final_lexoffice_invoice_id, invoice_lexoffice_id')
-            .eq('id', inquiryId)
-            .maybeSingle();
-          const newId: string | null =
-            ev?.final_lexoffice_invoice_id || ev?.invoice_lexoffice_id || existingId;
-          setActiveInvoiceId(newId);
-          setInvoiceExists(true);
-          // Belege-Liste invalidieren, damit alte Rechnung mit Storno-Symbol
-          // weiterhin sichtbar bleibt und die neue erscheint
-          queryClient.invalidateQueries({ queryKey: ['order-lex-docs', inquiryId] });
-        } catch (e: any) {
-          console.warn("[SendInvoiceDialog] Regenerate failed, fallback to existing:", e);
-          toast.error(e?.message || "Neue Rechnung konnte nicht erzeugt werden — vorhandene wird angezeigt");
-          setActiveInvoiceId(existingId);
-          setInvoiceExists(true);
-        } finally {
-          setRegenerating(false);
-        }
+        setActiveInvoiceId(existingId);
+        setActiveInvoiceNumber(existingNumber);
+        setInvoiceExists(!!existingId);
       })();
     } else {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
@@ -134,13 +111,14 @@ export const SendInvoiceDialog = ({
       setPdfError(null);
       setPreview({ loading: false, html: null, subject: null, error: null });
       setActiveInvoiceId(null);
+      setActiveInvoiceNumber(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, inquiryId]);
 
   // Load PDF preview when invoice exists
   useEffect(() => {
-    if (!open || !invoiceExists || !activeInvoiceId || regenerating) return;
+    if (!open || !invoiceExists || !activeInvoiceId) return;
     let cancelled = false;
     (async () => {
       setPdfLoading(true);
@@ -185,7 +163,7 @@ export const SendInvoiceDialog = ({
       }
     })();
     return () => { cancelled = true; };
-  }, [open, inquiryId, invoiceExists, activeInvoiceId, regenerating]);
+  }, [open, inquiryId, invoiceExists, activeInvoiceId]);
 
   const handleCreateInvoice = async (force = false) => {
     setCreatingInvoice(true);
@@ -196,20 +174,38 @@ export const SendInvoiceDialog = ({
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success(force ? "Endrechnung neu erzeugt" : "Endrechnung in LexOffice erzeugt");
+      const result = data as any;
+      toast.success(
+        result?.reused
+          ? `Vorhandene Rechnung ${result?.invoiceNumber || ""} wird verwendet`.trim()
+          : force
+            ? "Weitere Endrechnung erzeugt"
+            : "Endrechnung in LexOffice erzeugt",
+      );
       // Frisch aus DB nachladen (neue Invoice-ID)
       const { data: ev } = await (supabase as any)
         .from('v2_events')
-        .select('final_lexoffice_invoice_id, invoice_lexoffice_id')
+        .select('final_lexoffice_invoice_id, final_lexoffice_invoice_number, invoice_lexoffice_id, invoice_lexoffice_number, lexoffice_document_type')
         .eq('id', inquiryId)
         .maybeSingle();
+      const standardInvoiceId = ev?.lexoffice_document_type === 'invoice'
+        ? ev?.invoice_lexoffice_id
+        : null;
+      const standardInvoiceNumber = ev?.lexoffice_document_type === 'invoice'
+        ? ev?.invoice_lexoffice_number
+        : null;
       const newId: string | null =
-        ev?.final_lexoffice_invoice_id || ev?.invoice_lexoffice_id || null;
+        ev?.final_lexoffice_invoice_id || standardInvoiceId || result?.invoiceId || null;
+      const newNumber: string | null =
+        ev?.final_lexoffice_invoice_number || standardInvoiceNumber || result?.invoiceNumber || null;
       setPdfError(null);
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
       setPdfUrl(null);
       setActiveInvoiceId(newId);
+      setActiveInvoiceNumber(newNumber);
       setInvoiceExists(!!newId);
+      setConfirmAdditionalInvoice(false);
+      queryClient.invalidateQueries({ queryKey: ['order-lex-docs', inquiryId] });
     } catch (e: any) {
       const msg = e?.message || "Erzeugung fehlgeschlagen";
       setCreateError(msg);
@@ -255,8 +251,8 @@ export const SendInvoiceDialog = ({
   }, [open, language, extraNote, inquiryId, activeInvoiceId, pdfError]);
 
   const canSend = useMemo(() =>
-    !sending && !regenerating && !balanceOnSite && invoiceExists && !pdfError && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
-  [sending, regenerating, balanceOnSite, invoiceExists, pdfError, recipient, preview.html]);
+    !sending && !balanceOnSite && invoiceExists && !pdfError && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
+  [sending, balanceOnSite, invoiceExists, pdfError, recipient, preview.html]);
 
   const handleSend = async () => {
     setSending(true);
@@ -292,7 +288,7 @@ export const SendInvoiceDialog = ({
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
             Rechnung an Kunden senden
-            {invoiceNumber && <span className="text-sm font-normal text-muted-foreground ml-2">· {invoiceNumber}</span>}
+            {activeInvoiceNumber && <span className="text-sm font-normal text-muted-foreground ml-2">· {activeInvoiceNumber}</span>}
           </DialogTitle>
           <DialogDescription>
             Vorschau prüfen, ggf. anpassen und versenden. Eine Kopie geht automatisch an info@events-storia.de (BCC).
@@ -302,6 +298,26 @@ export const SendInvoiceDialog = ({
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-0 min-h-0 overflow-hidden">
           {/* Linke Spalte: Form */}
           <div className="p-6 space-y-4 overflow-y-auto border-r border-border/60 bg-muted/20">
+            {invoiceExists && (
+              <div className="rounded-xl border border-border/60 bg-background p-3 text-sm">
+                <div className="font-medium">Vorhandene Rechnung wird verwendet</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {activeInvoiceNumber ? `Rechnung ${activeInvoiceNumber}` : "Die verknüpfte Rechnung"} wird angezeigt und versendet. Es wird keine neue Rechnung erzeugt.
+                </div>
+                {!balanceOnSite && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 h-8 px-2 text-xs"
+                    onClick={() => setConfirmAdditionalInvoice(true)}
+                  >
+                    <FilePlus2 className="mr-1.5 h-3.5 w-3.5" />
+                    Weitere Rechnung erstellen
+                  </Button>
+                )}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="invoice-recipient">Empfänger</Label>
               <Input
@@ -417,11 +433,6 @@ export const SendInvoiceDialog = ({
                         )}
                       </div>
                     </div>
-                  ) : regenerating ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm z-10">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Rechnung wird mit aktuellen Werten neu erzeugt…</p>
-                    </div>
                   ) : !invoiceExists ? (
                     <div className="h-full flex flex-col items-center justify-center gap-4 p-8 text-center">
                       <div className="h-12 w-12 rounded-2xl bg-background border border-border/60 flex items-center justify-center">
@@ -461,12 +472,12 @@ export const SendInvoiceDialog = ({
                         <p className="text-xs text-muted-foreground">{pdfError}</p>
                       </div>
                       <Button
-                        onClick={() => handleCreateInvoice(true)}
+                        onClick={() => setConfirmAdditionalInvoice(true)}
                         disabled={creatingInvoice}
                         className="gap-2"
                       >
                         {creatingInvoice ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus2 className="h-4 w-4" />}
-                        {creatingInvoice ? "Erzeuge…" : "Endrechnung neu erzeugen"}
+                        {creatingInvoice ? "Erzeuge…" : "Weitere Endrechnung erzeugen"}
                       </Button>
                       {createError && (
                         <p className="text-xs text-destructive max-w-sm">{createError}</p>
@@ -504,6 +515,24 @@ export const SendInvoiceDialog = ({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={confirmAdditionalInvoice} onOpenChange={setConfirmAdditionalInvoice}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Weitere Rechnung erstellen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Für diesen Auftrag existiert bereits {activeInvoiceNumber ? `Rechnung ${activeInvoiceNumber}` : "eine Rechnung"}.
+              Nur fortfahren, wenn wirklich ein zusätzlicher Beleg benötigt wird. Dadurch wird eine neue Rechnung mit neuer Rechnungsnummer erzeugt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleCreateInvoice(true)} disabled={creatingInvoice}>
+              {creatingInvoice && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Weitere Rechnung erstellen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
