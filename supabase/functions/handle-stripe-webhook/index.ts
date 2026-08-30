@@ -2371,10 +2371,15 @@ function extractPaymentType(md: Record<string, string> | null): MaestroPaymentTy
   return "full";
 }
 
+// EIN Ereignis pro Checkout-Session: `order_<sourceOrderId>_<sessionId>`.
+// Enthält die Bestelldaten und – sobald die Zahlung erfolgreich ist – zusätzlich
+// die Transaktion. Der frühere separate `pay_<stripeEventId>`-Eintrag entfällt,
+// weil er dieselbe Zahlung/Bestellung beschrieben hat (doppelte Zustellung).
 async function maestroEnqueueOrder(
   supabase: ReturnType<typeof createClient>,
   session: Stripe.Checkout.Session,
   stripeEventId: string,
+  transaction?: MaestroTransaction,
 ): Promise<void> {
   if (!handoffEnabled()) return;
   try {
@@ -2385,7 +2390,7 @@ async function maestroEnqueueOrder(
     const orderNumber = md.order_number || `session-${session.id}`;
 
     const payload = buildOrderPayload({
-      deliveryEventId: `order_${sourceOrderId}`,
+      deliveryEventId: `order_${sourceOrderId}_${session.id}`,
       sourceOrderId,
       orderNumber,
       customerName: details?.name || md.customer_name || "",
@@ -2393,11 +2398,12 @@ async function maestroEnqueueOrder(
       company: md.company_name || null,
       phone: details?.phone || null,
       amountTotalCents: stripeAmountCents(session.amount_total),
+      transaction,
     });
 
     const result = await enqueueMaestroHandoff(supabase, payload);
     if (!result.ok && result.status === "conflict") {
-      logStep("MAESTRO order handoff CONFLICT", { deliveryId: payload.deliveryEventId.slice(0, 24) });
+      logStep("MAESTRO order handoff CONFLICT", { deliveryId: payload.deliveryEventId.slice(0, 32) });
     }
   } catch (err) {
     // DB-Fehler beim Insert → an Aufrufer weiterreichen, damit Stripe 500 sieht
@@ -2411,6 +2417,7 @@ async function maestroEnqueueOrder(
     throw err;
   }
 }
+
 
 async function maestroEnqueuePayment(
   supabase: ReturnType<typeof createClient>,
