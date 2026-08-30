@@ -2371,15 +2371,18 @@ function extractPaymentType(md: Record<string, string> | null): MaestroPaymentTy
   return "full";
 }
 
-// EIN Ereignis pro Checkout-Session: `order_<sourceOrderId>_<sessionId>`.
-// Enthält die Bestelldaten und – sobald die Zahlung erfolgreich ist – zusätzlich
-// die Transaktion. Der frühere separate `pay_<stripeEventId>`-Eintrag entfällt,
-// weil er dieselbe Zahlung/Bestellung beschrieben hat (doppelte Zustellung).
+// Bestell-Ereignis: `order_<sourceOrderId>_<sessionId>`.
+// Bei gleichzeitiger Bestellung + Zahlung trägt dieser eine Eintrag zusätzlich
+// die Transaktion (ein gemeinsames Ereignis, keine Doppelzustellung).
+// Wird eine zunächst unbezahlte Session SPÄTER bezahlt, entsteht stattdessen ein
+// genuin neuer Eintrag mit eigener Delivery-ID (siehe maestroEnqueuePayment) —
+// niemals ein Update des bereits zugestellten Bestell-Ereignisses.
 async function maestroEnqueueOrder(
   supabase: ReturnType<typeof createClient>,
   session: Stripe.Checkout.Session,
   stripeEventId: string,
   transaction?: MaestroTransaction,
+  deliveryEventIdOverride?: string,
 ): Promise<void> {
   if (!handoffEnabled()) return;
   try {
@@ -2390,7 +2393,7 @@ async function maestroEnqueueOrder(
     const orderNumber = md.order_number || `session-${session.id}`;
 
     const payload = buildOrderPayload({
-      deliveryEventId: `order_${sourceOrderId}_${session.id}`,
+      deliveryEventId: deliveryEventIdOverride || `order_${sourceOrderId}_${session.id}`,
       sourceOrderId,
       orderNumber,
       customerName: details?.name || md.customer_name || "",
@@ -2427,6 +2430,9 @@ async function maestroEnqueuePayment(
   if (!handoffEnabled()) return;
   try {
     const md = (session.metadata ?? {}) as Record<string, string>;
+    const sourceOrderId =
+      md.order_number || md.inquiry_id || md.payment_id || session.id;
+    const orderDeliveryId = `order_${sourceOrderId}_${session.id}`;
 
     const txn: MaestroTransaction = {
       provider: "stripe",
@@ -2440,8 +2446,25 @@ async function maestroEnqueuePayment(
       occurredAt: new Date().toISOString(),
     };
 
-    // Gleiche Delivery-ID wie das Bestell-Ereignis → genau EIN Outbox-Eintrag
-    // pro Checkout-Session, inklusive Transaktionsdaten.
+    // Wurde für diese Session bereits ein Bestell-Ereignis (ohne Transaktion)
+    // abgelegt, darf dieses NICHT nachträglich verändert/wiederholt werden —
+    // MAESTRO lehnt gleiche Delivery-ID mit geändertem Inhalt bewusst ab.
+    // Stattdessen: eigenständiges Zahlungs-Ereignis mit eigener Delivery-ID,
+    // inkl. Stripe-Event-ID gegen Doppelzustellung bei Stripe-Redeliveries.
+    const { data: existing } = await supabase
+      .from("maestro_handoff_outbox")
+      .select("id")
+      .eq("delivery_event_id", orderDeliveryId)
+      .maybeSingle();
+
+    if (existing) {
+      const payDeliveryId = `pay_${sourceOrderId}_${session.id}_${stripeEventId}`;
+      logStep("MAESTRO separate payment handoff", { deliveryId: payDeliveryId.slice(0, 48) });
+      await maestroEnqueueOrder(supabase, session, stripeEventId, txn, payDeliveryId);
+      return;
+    }
+
+    // Bestellung und Zahlung gleichzeitig → EIN gemeinsamer Eintrag (unverändert).
     await maestroEnqueueOrder(supabase, session, stripeEventId, txn);
 
   } catch (err) {
@@ -2454,6 +2477,7 @@ async function maestroEnqueuePayment(
     throw err;
   }
 }
+
 
 async function maestroEnqueueRefund(
   supabase: ReturnType<typeof createClient>,
