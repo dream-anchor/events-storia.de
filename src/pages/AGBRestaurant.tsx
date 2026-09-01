@@ -112,7 +112,7 @@ const AGBRestaurant = () => {
               <p>
                 Für den Kauf und die Einlösung von Gutscheinen gelten zusätzliche AGB. 
                 Bitte beachten Sie unsere{" "}
-                <a href="/agb-gutscheine" className="text-primary hover:underline">
+                <a href="/agb-gutscheine/" className="text-primary hover:underline">
                   AGB für Gutscheine
                 </a>.
               </p>

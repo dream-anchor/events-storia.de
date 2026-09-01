@@ -132,7 +132,7 @@ export function OrderConfirmationDialog({
             <span className="text-muted-foreground">
               {tOffer(lang, "dialogAccept2Prefix")}{" "}
               <a
-                href="/agb-veranstaltungen"
+                href="/agb-veranstaltungen/"
                 target="_blank"
                 rel="noreferrer"
                 className="underline hover:text-primary"

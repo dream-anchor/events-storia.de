@@ -153,10 +153,37 @@ gilt das Konzept.
 
 ## P2 — URL-Kanonisierung
 
-- [ ] **P2.1** Trailing-Slash-Konsistenz zwischen Sitemap und internen Links hergestellt
+- [x] **P2.1** Trailing-Slash-Konsistenz zwischen Sitemap und internen Links hergestellt
       (KONZEPT § P2.1).
       Beweis: `bun run sitemap` Output + Stichprobe interner Links ohne abweichende Form.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · Root Cause: `getLocalizedPath()` in `src/config/routes.ts` erzeugte Pfade
+      OHNE Trailing Slash (`/kontakt`), während `scripts/generate-sitemap.ts` (`withTrailingSlash`)
+      und die `.htaccess`-301-Regel (§0, erzwingt Slash auf JEDER Nicht-Datei-URL) MIT Slash
+      arbeiten — jeder interne `<LocalizedLink>`/`<Link>`-Klick auf eine ROUTES-Seite kostete
+      dadurch einen unnötigen serverseitigen 301-Hop. Zusätzlich fielen `getRouteByDePath`/
+      `getRouteByEnPath`/`getAlternatePath` bei einem Pfad MIT Slash (dem echten Produktions-Fall)
+      auf ihren dynamischen Fallback zurück, weil die Map-Lookups gegen Keys ohne Slash liefen —
+      das produzierte einen **echten Sprachumschalter-Bug**: `getAlternatePath('/en/contact/', 'en')`
+      lieferte vor dem Fix `/contact/` (keine gültige DE-Route, statt korrekt `/kontakt/`).
+      Fix: `withTrailingSlash`/`stripTrailingSlash`-Helper ergänzt; `getLocalizedPath` gibt jetzt
+      immer Trailing Slash zurück, `getRouteByDePath`/`getRouteByEnPath` normalisieren den Input
+      vor dem Lookup, `getAlternatePath` normalisiert Input UND Output. Zusätzlich 5 hartcodierte
+      interne `<a href>`/`<LocalizedLink to>`-Ziele ohne Slash gefunden und korrigiert:
+      `AGBVeranstaltungen.tsx` (`/datenschutz`→`/datenschutz/`), `AGBRestaurant.tsx`
+      (`/agb-gutscheine`→`/agb-gutscheine/`), `OrderConfirmationDialog.tsx`,
+      `PublicOffer.tsx`, `public-offer/ContactSection.tsx` (je `/agb-veranstaltungen`→
+      `/agb-veranstaltungen/`). Vorher/Nachher-Beweis (`git stash` auf unveränderten Code,
+      identisches Prüfscript erneut ausgeführt):
+      VORHER `getAlternatePath('/en/contact/', 'en')` → `/contact/` (Bug) ·
+      NACHHER → `/kontakt/` (korrekt). `bun run sitemap` → `✓ Sitemap generated … 22 routes ×
+      2 languages = 44 URLs` · `grep "<loc>" public/sitemap.xml` → alle 44 Einträge enden auf
+      `/</loc>` (0 Abweichungen). `bun run build` → `✓ built in 44.09s` (Exit 0) · `bun run lint`
+      → `599 problems (512 errors, 87 warnings)` identisch zur P0–P1-Baseline, 0 Findings in
+      `routes.ts`/den 5 geänderten Dateien. Build-Nebenwirkungen `public/sitemap.xml` +
+      `src/data/static-menus.json` vor Commit mit `git checkout --` zurückgesetzt (Sitemap-Logik
+      selbst unverändert, nur `routes.ts` und 5 Link-Ziele betroffen). Scope-Hinweis: reine
+      Admin-Routen (`/admin/*`) und der tote Legacy-Link `/reservierung` (existiert in keiner
+      Route-Config) bewusst nicht angefasst — außerhalb des öffentlichen Content-Systems.
 - [ ] **P2.2** `/catering/`-403 geklärt: Absicht dokumentiert ODER Bug behoben (KONZEPT § P2.2).
       Beweis: Fund + Entscheidung im PR-Text, ggf. Code-Diff.
       ✓ _ausstehend_

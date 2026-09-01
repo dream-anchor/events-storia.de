@@ -241,7 +241,7 @@ const AGBVeranstaltungen = () => {
                 </h2>
                 <p>
                   Die Verarbeitung personenbezogener Daten erfolgt gemäß unserer{" "}
-                  <a href="/datenschutz" className="text-primary hover:underline">
+                  <a href="/datenschutz/" className="text-primary hover:underline">
                     Datenschutzerklärung
                   </a>. Zahlungsdaten werden über Stripe Payments Europe Ltd. verarbeitet.
                   Für Kauf auf Rechnung (Geschäftskunden) wird Billie GmbH als Zahlungsdienstleister

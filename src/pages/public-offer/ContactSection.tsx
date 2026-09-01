@@ -57,7 +57,7 @@ export function CancellationTermsAccordion({ lang = 'de' }: { lang?: OfferLang }
 
           <p className="pt-2 text-xs text-muted-foreground leading-relaxed">
             {tOffer(lang, 'cancelDetailedFooter')}{" "}
-            <LocalizedLink to="/agb-veranstaltungen" className="underline hover:text-foreground">
+            <LocalizedLink to="/agb-veranstaltungen/" className="underline hover:text-foreground">
               {tOffer(lang, 'cancelTermsLink')}
             </LocalizedLink>.
           </p>
