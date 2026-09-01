@@ -77,7 +77,8 @@ const Index = () => {
         title={t.seo.home.title}
         description={t.seo.home.description}
       />
-      <StructuredData type="restaurant" faqItems={faqItems} />
+      <StructuredData type="localbusiness" />
+      <StructuredData type="faq" faqItems={faqItems} />
       <Header />
       <Navigation />
       <div className="min-h-screen bg-background flex flex-col">

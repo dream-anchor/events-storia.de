@@ -66,11 +66,32 @@ gilt das Konzept.
 
 ## P1 — Markenkonzept STORIA Catering vs. Ristorante Storia
 
-- [ ] **P1.1** `Index.tsx`: `type="restaurant"` → `type="localbusiness"` + separater
+- [x] **P1.1** `Index.tsx`: `type="restaurant"` → `type="localbusiness"` + separater
       `type="faq"`-Aufruf (Vorbild `Kontakt.tsx`). Prüfen ob `restaurantSchema`/`localBusinessSchema`
       danach noch anderswo referenziert werden (KONZEPT § P1.1).
       Beweis: `bun run build`/`lint` grün + Diff + Vermerk, ob `restaurantSchema` toter Code wurde.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · `bun run build` → `✓ built in 57.06s` (Exit 0) · `bun run lint` →
+      `599 problems (512 errors, 87 warnings)` identisch zur P0.1–P0.3-Baseline, 0 Findings in
+      `Index.tsx`/`StructuredData.tsx` · `git diff -- src/pages/Index.tsx` zeigt
+      `<StructuredData type="restaurant" faqItems={faqItems} />` ersetzt durch
+      `<StructuredData type="localbusiness" />` + `<StructuredData type="faq" faqItems={faqItems} />`
+      (exakt Kontakt.tsx-Muster, Zeilen 61+69) · Vorab-Check StructuredData.tsx: der
+      `type === 'localbusiness'`-Zweig (Zeile 555–559) rendert `cateringBusinessSchema`
+      (`@type: 'CateringBusiness'`, kein Restaurant-Bezug), NICHT die gleichnamige Konstante
+      `localBusinessSchema` (Zeile 228, `@type`-Array enthält `'Restaurant'`) — die wird nur vom
+      `type === 'restaurant'`-Zweig (Zeile 545–553) mitgerendert. Passend zum Ziel „kein
+      Restaurant-Bezug mehr auf der Homepage".
+      **Toter-Code-Vermerk:** `grep -rn 'type="restaurant"' src/pages` → kein Treffer mehr (0/28
+      `<StructuredData>`-Aufrufe in `src/pages` nutzen noch `type="restaurant"`, Verteilung:
+      `localbusiness` ×2 [Kontakt, Index], `faq` ×3, `menu` ×3, `service` ×11, `product` ×5,
+      `breadcrumb` ×1, `event` ×1). Damit ist der `if (type === 'restaurant')`-Zweig in
+      `StructuredData.tsx` (Zeile 545–553) unerreichbar geworden, und die beiden Konstanten
+      `restaurantSchema` (Zeile 118) und `localBusinessSchema` (Zeile 228) sind toter Code —
+      **nicht gelöscht in dieser Iteration**, nur vermerkt wie im Protokoll vorgegeben.
+      Nebenbefund: `bun run build` hat wie erwartet `public/sitemap.xml` und
+      `src/data/static-menus.json` aus Live-Supabase-Daten neu geschrieben; beide vor dem Commit
+      mit `git checkout -- public/sitemap.xml src/data/static-menus.json` zurückgesetzt
+      (nicht Teil dieses Kriteriums).
 - [ ] **P1.2** `sameAs`-Verweis auf `instagram.com/storia_ristorante` entfernt oder durch eigenen
       Account ersetzt (KONZEPT § P1.2).
       Beweis: `grep -rn "storia_ristorante" src` Ergebnis vorher/nachher + `bun run build` grün.
