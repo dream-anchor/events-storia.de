@@ -146,6 +146,16 @@ const Footer = () => {
             <LocalizedLink to="seo.pizzaCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Pizza Catering' : 'Pizza Catering'}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
             <LocalizedLink to="seo.bueroCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Büro Catering' : 'Office Catering'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="seo.weihnachtsfeier" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Weihnachtsfeier Catering' : 'Christmas Party Catering'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="seo.hochzeitCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Hochzeit Catering' : 'Wedding Catering'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="seo.geburtstagCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Geburtstag Catering' : 'Birthday Catering'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="seo.partyservice" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Partyservice' : 'Party Service'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="seo.messeCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Messe Catering' : 'Trade Fair Catering'}</LocalizedLink>
           </div>
 
           {/* Legal Links */}

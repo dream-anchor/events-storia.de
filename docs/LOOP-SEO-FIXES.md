@@ -213,9 +213,20 @@ gilt das Konzept.
 
 ## P3 — Interne Verlinkung stärken
 
-- [ ] **P3.1** Footer-Links zu Anlass-Cluster (6 DE + EN-Pendants) ergänzt.
+- [x] **P3.1** Footer-Links zu Anlass-Cluster (6 DE + EN-Pendants) ergänzt.
       Beweis: `bun run build`/`lint` grün + Diff Footer-Komponente.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · Anlass-Cluster laut `src/config/routes.ts` (6 `seo.*`-Keys mit Anlassbezug):
+      `firmenfeier` (bereits vor diesem Kriterium verlinkt), `weihnachtsfeier`, `hochzeitCatering`,
+      `geburtstagCatering`, `partyservice`, `messeCatering` — die letzten 5 neu ergänzt, jeweils als
+      ein `<LocalizedLink to="seo.*">` (löst DE/EN-Pendant automatisch über `getLocalizedPath` nach
+      aktuellem Sprachkontext auf, exakt das Bestandsmuster der 4 schon vorhandenen Footer-Links
+      wie `seo.pizzaCatering`) · `bun run build` → `✓ built in 45.52s` (Exit 0) · `bun run lint` →
+      `599 problems (512 errors, 87 warnings)` identisch zur P0–P2-Baseline, 0 Findings in
+      `Footer.tsx` (`grep -c Footer.tsx` im Lint-Output → `0`) · `git diff -- src/components/Footer.tsx`
+      zeigt 5 neue `<LocalizedLink>`-Zeilen (Weihnachtsfeier/Hochzeit/Geburtstag/Partyservice/Messe
+      Catering, je DE-Label mit EN-Pendant per Ternary) in der „Service Links"-Zeile im Footer.
+      Build-Nebenwirkungen `public/sitemap.xml`/`src/data/static-menus.json` vor Commit mit
+      `git checkout --` zurückgesetzt (keine inhaltliche Änderung durch dieses Kriterium).
 - [ ] **P3.2** Footer/Content-Links zu Kulinarik-Cluster ergänzt.
       Beweis: `bun run build`/`lint` grün + Diff.
       ✓ _ausstehend_
