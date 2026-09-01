@@ -263,10 +263,10 @@ export const de = {
       description: 'Anmelden oder registrieren für Ihr STORIA Catering Kundenkonto.',
     },
     passwordReset: {
-      title: 'Passwort zurücksetzen | STORIA',
+      title: 'Passwort zurücksetzen | STORIA Catering',
     },
     orderSuccess: {
-      title: 'Bestellung erfolgreich | STORIA',
+      title: 'Bestellung erfolgreich | STORIA Catering',
       description: 'Ihre Bestellung war erfolgreich',
     },
     notFound: {

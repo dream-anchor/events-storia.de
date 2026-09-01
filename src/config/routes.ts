@@ -119,24 +119,35 @@ for (const route of ROUTES) {
 
 // --- Helper Functions ---
 
+// Trailing-Slash-Konsistenz mit scripts/generate-sitemap.ts und der .htaccess-301-Regel
+// (die JEDE Nicht-Datei-URL auf eine Form mit Slash erzwingt): interne Links müssen bereits
+// mit Slash erzeugt werden, sonst crawlt/klickt man einen unnötigen Redirect-Hop.
+const withTrailingSlash = (path: string): string =>
+  path === '/' || path.endsWith('/') ? path : `${path}/`;
+
+// Eingehende Pfade (z. B. location.pathname aus dem Browser) können mit oder ohne Slash
+// ankommen — Lookups gegen die ROUTES-Maps (Keys ohne Slash) normalisieren vor dem Vergleich.
+const stripTrailingSlash = (path: string): string =>
+  path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
+
 /** Get the full localized path for a route key */
 export function getLocalizedPath(key: RouteKey, lang: 'de' | 'en'): string {
   const route = routeByKey.get(key);
   if (!route) return '/';
-  if (lang === 'en') {
-    return route.en === '/' ? '/en' : `/en${route.en}`;
-  }
-  return route.de;
+  const path = lang === 'en'
+    ? (route.en === '/' ? '/en' : `/en${route.en}`)
+    : route.de;
+  return withTrailingSlash(path);
 }
 
-/** Find route config by German path */
+/** Find route config by German path (accepts path with or without trailing slash) */
 export function getRouteByDePath(dePath: string): RouteConfig | undefined {
-  return routeByDePath.get(dePath);
+  return routeByDePath.get(stripTrailingSlash(dePath));
 }
 
-/** Find route config by English path (without /en prefix) */
+/** Find route config by English path (without /en prefix; with or without trailing slash) */
 export function getRouteByEnPath(enPath: string): RouteConfig | undefined {
-  return routeByEnPath.get(enPath);
+  return routeByEnPath.get(stripTrailingSlash(enPath));
 }
 
 /** Get the alternate language path for a given full path.
@@ -144,27 +155,30 @@ export function getRouteByEnPath(enPath: string): RouteConfig | undefined {
  *  (e.g. /anfrage or a dynamic route like /offer/12345), the language prefix
  *  is toggled dynamically while preserving the rest of the path — never
  *  redirecting to the home page. Query string and hash are preserved by the
- *  caller (LanguageContext) via a suffix, so we only operate on the path. */
+ *  caller (LanguageContext) via a suffix, so we only operate on the path.
+ *  Output always carries a trailing slash, matching the sitemap and the
+ *  .htaccess-enforced canonical form. */
 export function getAlternatePath(currentFullPath: string, currentLang: 'de' | 'en'): string {
   // Strip hash and query
-  const [pathOnly] = currentFullPath.split(/[?#]/);
+  const [rawPathOnly] = currentFullPath.split(/[?#]/);
+  const pathOnly = stripTrailingSlash(rawPathOnly);
 
   if (currentLang === 'en') {
     // Currently EN → switching to DE.
     // Remove /en prefix to obtain the EN slug, then look up the static DE path.
     const enSlug = pathOnly === '/en' ? '/' : pathOnly.replace(/^\/en/, '');
     const route = routeByEnPath.get(enSlug);
-    if (route) return route.de;
+    if (route) return withTrailingSlash(route.de);
     // Dynamic fallback: no mapping found → keep the path, just drop the /en prefix.
-    return enSlug || '/';
+    return withTrailingSlash(enSlug || '/');
   } else {
     // Currently DE → switching to EN.
     // Look up the static EN path from the DE path.
     const route = routeByDePath.get(pathOnly);
-    if (route) return route.en === '/' ? '/en' : `/en${route.en}`;
+    if (route) return withTrailingSlash(route.en === '/' ? '/en' : `/en${route.en}`);
     // Dynamic fallback: no mapping found → keep the path, just add the /en prefix.
     if (pathOnly === '/') return '/en';
-    return `/en${pathOnly}`;
+    return withTrailingSlash(`/en${pathOnly}`);
   }
 }
 

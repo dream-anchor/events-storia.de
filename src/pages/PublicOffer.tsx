@@ -2364,7 +2364,7 @@ function CancellationTermsAccordion() {
             Bereits geleistete Anzahlungen werden mit der Stornogebühr verrechnet —
             ein etwaiger Überschuss wird Ihnen zurückerstattet.
             Vollständige Bedingungen finden Sie in unseren{" "}
-            <LocalizedLink to="/agb-veranstaltungen" className="underline hover:text-foreground">
+            <LocalizedLink to="/agb-veranstaltungen/" className="underline hover:text-foreground">
               AGB für Veranstaltungen
             </LocalizedLink>.
           </p>

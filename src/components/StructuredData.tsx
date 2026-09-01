@@ -126,8 +126,9 @@ const StructuredData = ({
     servesCuisine: ['Italian', 'Pizza Napoletana', 'Pasta', 'Mediterranean', 'Fingerfood'],
     acceptsReservations: 'True',
     hasMenu: 'https://events-storia.de/catering/buffet-fingerfood',
+    // Kein eigener Catering-Instagram-Account verifiziert (früher fälschlich auf das Restaurant
+    // "ristorante_storia" verlinkt, siehe P1.2) — weglassen statt falsch verlinken.
     sameAs: [
-      'https://www.instagram.com/storia_ristorante/',
       'https://www.facebook.com/STORIAMunich',
     ],
     founder: [
@@ -188,8 +189,9 @@ const StructuredData = ({
       { '@type': 'Person', name: 'Domenico Speranza', alternateName: 'Mimmo' },
       { '@type': 'Person', name: 'Nicola Speranza' },
     ],
+    // Kein eigener Catering-Instagram-Account verifiziert (früher fälschlich auf das Restaurant
+    // "ristorante_storia" verlinkt, siehe P1.2) — weglassen statt falsch verlinken.
     sameAs: [
-      'https://www.instagram.com/storia_ristorante/',
       'https://www.facebook.com/STORIAMunich',
     ],
     contactPoint: [
@@ -358,7 +360,6 @@ const StructuredData = ({
       '@type': 'Brand',
       name: 'STORIA Catering',
     },
-    aggregateRating,
   } : null;
 
   // NEW: HowTo schema for booking process
@@ -387,7 +388,7 @@ const StructuredData = ({
   } : null;
 
   // NEW: ItemList schema for menu categories
-  const itemListSchema = products && products.length > 0 && (type === 'itemlist' || type === 'product') ? {
+  const itemListSchema = products && products.length > 0 && type === 'itemlist' ? {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     '@id': `https://events-storia.de/#itemlist-${(itemListName || 'products').toLowerCase().replace(/\s+/g, '-')}`,
@@ -492,12 +493,47 @@ const StructuredData = ({
       priceCurrency: 'EUR',
       availability: 'https://schema.org/InStock',
       seller: { '@id': 'https://events-storia.de/#organization' },
+      validFrom: new Date().toISOString().split('T')[0],
       priceValidUntil: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
       deliveryLeadTime: {
         '@type': 'QuantitativeValue',
         minValue: 1,
         maxValue: 3,
         unitCode: 'DAY',
+      },
+      // Widerrufsrecht entfällt gem. § 312g Abs. 2 Nr. 2 BGB für leicht verderbliche Speiselieferungen (AGBCatering § 10)
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        returnPolicyCategory: 'https://schema.org/MerchantReturnNotPermitted',
+        applicableCountry: 'DE',
+      },
+      // Lieferkosten/-zeiten gespiegelt aus AGBCatering § 4 (Münchner Stadtgebiet, Regelfall)
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingRate: {
+          '@type': 'MonetaryAmount',
+          value: '25.00',
+          currency: 'EUR',
+        },
+        shippingDestination: {
+          '@type': 'DefinedRegion',
+          addressCountry: 'DE',
+        },
+        deliveryTime: {
+          '@type': 'ShippingDeliveryTime',
+          handlingTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 0,
+            maxValue: 1,
+            unitCode: 'DAY',
+          },
+          transitTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 1,
+            maxValue: 3,
+            unitCode: 'DAY',
+          },
+        },
       },
     },
     aggregateRating,
