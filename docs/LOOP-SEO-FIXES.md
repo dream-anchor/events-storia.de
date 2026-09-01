@@ -111,10 +111,45 @@ gilt das Konzept.
       tragen ebenfalls falsche/uneinheitliche Instagram-`sameAs`-Werte
       (`storia_ristorante` bzw. `ristorante_storia`) — Kandidat für P1.3 oder eine eigene
       Nachfolge-Iteration.
-- [ ] **P1.3** Title/Meta/Schema-Namen auf „STORIA Catering" vereinheitlicht, Stichprobe
+- [x] **P1.3** Title/Meta/Schema-Namen auf „STORIA Catering" vereinheitlicht, Stichprobe
       `src/pages/seo/*.tsx` + `organizationSchema`/`websiteSchema` (KONZEPT § P1.3).
       Beweis: Liste der geänderten Dateien + `bun run build`/`lint` grün.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · Stichprobe: `organizationSchema`/`websiteSchema` in `StructuredData.tsx`
+      tragen bereits `name: 'STORIA Catering & Events München'` bzw. `alternateName` mit
+      „STORIA Catering"-Varianten — **kein Fund, keine Änderung nötig**. `src/pages/seo/*.tsx`
+      selbst enthält keine eigenen Title/Meta-Strings (alle 12 Landingpages beziehen
+      `title`/`description` über `t.seo.*` aus `src/translations/{de,en}.ts` — dort tatsächlich
+      geprüft statt blind der KONZEPT-Pfadangabe vertraut, wie im Protokoll gefordert). Von
+      9 bare-„STORIA"-Titeln ohne Zusatz enthalten 7 bereits „Catering" an anderer Stelle im
+      selben Titel (z. B. „Fingerfood Catering München | ... – STORIA") — dort belassen, um das
+      SEO-Titel-Längenlimit (<60 Zeichen, 3 davon bereits vor diesem Fix über dem Limit) nicht
+      zusätzlich zu verschlechtern für keinen zusätzlichen Disambiguierungs-Nutzen. Echte Funde
+      (STORIA komplett ohne jeden Zusatz im String): `passwordReset.title` und
+      `orderSuccess.title` in `de.ts`+`en.ts` (4 Stellen, noIndex-Utility-Seiten) →
+      „STORIA" → „STORIA Catering" ergänzt. Nebenbefund-Behebung (aus P1.2 übernommen):
+      `grep -rn "storia_ristorante\|ristorante_storia\|instagram.com" public/llm-de.html
+      public/llm-en.html public/llm.html` → 4 Treffer, alle falsche Restaurant-Instagram-Links
+      im `sameAs` (kein eigenes verifiziertes Catering-Konto, siehe P1.2) → alle 4 entfernt
+      (nicht ersetzt): `llm-de.html:106`, `llm-en.html:106` (jeweils einziger `sameAs`-Eintrag,
+      Property komplett entfernt), `llm.html:488` (einer von 3 Einträgen, Instagram-Zeile
+      entfernt, `ristorantestoria.de`+OpenTable-Link bleiben — siehe Nebenbefund unten),
+      `llm.html:661` (einziger Eintrag, Property entfernt). JSON-LD-Validität aller 3 Dateien
+      nach dem Fix per `python3 json.loads()` auf jedem `<script type="application/ld+json">`-
+      Block geprüft: alle 9 Blöcke (3 je Datei) weiterhin gültiges JSON. `grep` danach:
+      kein Treffer mehr für `storia_ristorante`/`ristorante_storia`/`instagram.com` in den drei
+      Dateien. `bun run build` → `✓ built in 47.12s` (Exit 0) · `bun run lint` →
+      `599 problems (512 errors, 87 warnings)` identisch zur Baseline, 0 Findings in
+      `translations/de.ts`/`translations/en.ts`/`StructuredData.tsx` · `git diff --stat` (5
+      Dateien): `public/llm-de.html | 5 +----`, `public/llm-en.html | 5 +----`,
+      `public/llm.html | 6 +-----`, `src/translations/de.ts | 4 ++--`,
+      `src/translations/en.ts | 4 ++--` — `7 insertions(+), 17 deletions(-)`. Build-Nebenwirkung
+      `public/sitemap.xml`+`src/data/static-menus.json` neu geschrieben, vor Commit mit
+      `git checkout --` zurückgesetzt. **Neuer Nebenbefund für Folge-Iteration:**
+      `llm.html:489-490` (Organization-Schema von „Events STORIA") enthält im `sameAs`-Array
+      weiterhin `https://www.ristorantestoria.de` und einen OpenTable-Link des Restaurants —
+      exakt dieselbe Domain-Konfusion wie das ursprüngliche P1.1-Problem, aber außerhalb des
+      hier explizit beauftragten Instagram-Scopes (Grep-Muster traf nicht auf diese beiden
+      URLs) — nicht in dieser Iteration angefasst, sondern nur vermerkt.
 
 ## P2 — URL-Kanonisierung
 

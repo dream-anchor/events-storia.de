@@ -263,10 +263,10 @@ export const en = {
       description: 'Login or register for your STORIA Catering customer account.',
     },
     passwordReset: {
-      title: 'Reset Password | STORIA',
+      title: 'Reset Password | STORIA Catering',
     },
     orderSuccess: {
-      title: 'Order Successful | STORIA',
+      title: 'Order Successful | STORIA Catering',
       description: 'Your order was successful',
     },
     notFound: {
