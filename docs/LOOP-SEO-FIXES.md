@@ -227,9 +227,28 @@ gilt das Konzept.
       Catering, je DE-Label mit EN-Pendant per Ternary) in der „Service Links"-Zeile im Footer.
       Build-Nebenwirkungen `public/sitemap.xml`/`src/data/static-menus.json` vor Commit mit
       `git checkout --` zurückgesetzt (keine inhaltliche Änderung durch dieses Kriterium).
-- [ ] **P3.2** Footer/Content-Links zu Kulinarik-Cluster ergänzt.
+- [x] **P3.2** Footer/Content-Links zu Kulinarik-Cluster ergänzt.
       Beweis: `bun run build`/`lint` grün + Diff.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · Kulinarik-Cluster laut `src/config/routes.ts` (5 `catering.*`-Keys):
+      `fingerfood`, `platters`, `casseroles`, `pizza`, `desserts` · Content-Links-Check: alle 5
+      bereits umfassend im Fließtext verlinkt — Homepage-Sektion „Entdecken Sie mehr“
+      (`src/pages/Index.tsx:239-247`, alle 5 Keys), plus Cross-Links in 10 von 12
+      `src/pages/seo/*.tsx`-Landingpages und im Header-Dropdown (`Navigation.tsx:40-50`) — nur der
+      Footer fehlte (P3.1 hatte ausschließlich die 6 Anlass-`seo.*`-Keys ergänzt, keinen einzigen
+      `catering.*`-Key) · `grep -n "catering\." src/components/Footer.tsx` vorher → kein Treffer,
+      nachher → 5 Treffer · Fix: 5 neue `<LocalizedLink to="catering.*">` in der „Service
+      Links“-Zeile im Footer, direkt nach dem letzten P3.1-Link (`seo.messeCatering`), exakt im
+      P3.1-Bestandsmuster (ein Link pro Zeile, `<span>·</span>`-Trenner davor, DE-Label mit
+      EN-Pendant per Ternary) und mit denselben Labels wie in `Index.tsx:239-247` für
+      Konsistenz: Fingerfood Catering/Finger Food Catering, Warme Gerichte/Hot Dishes, Platten &
+      Sharing/Platters & Sharing, Pizza Napoletana/Pizza Napoletana, Desserts/Desserts ·
+      `bun run build` → `✓ built in 46.26s` (Exit 0, kein Prerender-Fehler) · `bun run lint` →
+      `599 problems (512 errors, 87 warnings)` identisch zur P0–P3.1-Baseline, 0 Findings in
+      `Footer.tsx` (`grep -c Footer.tsx` im Lint-Output → `0`) · `git diff -- src/components/Footer.tsx`
+      zeigt 5 neue `<LocalizedLink>`-Zeilen (Fingerfood/Warme Gerichte/Platten & Sharing/Pizza
+      Napoletana/Desserts) am Ende der „Service Links“-Zeile. Build-Nebenwirkungen
+      `public/sitemap.xml`/`src/data/static-menus.json` vor Commit mit `git checkout --`
+      zurückgesetzt (keine inhaltliche Änderung durch dieses Kriterium).
 - [ ] **P3.3** `/kontakt/`, `/en/contact/`, `/events/`, `/en/events/` prominent verlinkt
       (Header/Footer/Homepage-CTA).
       Beweis: `bun run build`/`lint` grün + Diff + Screenshot oder Beschreibung der Platzierung.

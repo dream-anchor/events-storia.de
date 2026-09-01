@@ -156,6 +156,16 @@ const Footer = () => {
             <LocalizedLink to="seo.partyservice" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Partyservice' : 'Party Service'}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
             <LocalizedLink to="seo.messeCatering" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Messe Catering' : 'Trade Fair Catering'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="catering.fingerfood" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Fingerfood Catering' : 'Finger Food Catering'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="catering.casseroles" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Warme Gerichte' : 'Hot Dishes'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="catering.platters" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Platten & Sharing' : 'Platters & Sharing'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="catering.pizza" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Pizza Napoletana' : 'Pizza Napoletana'}</LocalizedLink>
+            <span className="opacity-50 hidden sm:inline">·</span>
+            <LocalizedLink to="catering.desserts" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground transition-colors touch-manipulation">{language === 'de' ? 'Desserts' : 'Desserts'}</LocalizedLink>
           </div>
 
           {/* Legal Links */}
