@@ -1,0 +1,98 @@
+# LOOP — SEO/GEO-Fixes nach Search-Audit
+
+Bauplan: `docs/KONZEPT-SEO-FIXES.md` (dort stehen die exakten Code-Ursachen — vor jedem Kriterium
+lesen). Zustand hier ist der Zeiger, nicht die zweite Wahrheit: weicht dieser Log vom Konzept ab,
+gilt das Konzept.
+
+**Ziel:** mehr qualifizierte Lead-Anfragen über organische Suche + GEO, nach dem GSC-Audit vom
+01.09.2026 (Artifact „events-storia.de Search Audit").
+
+**Deploy-Modell:** Push auf `main` = sofortiges Live-Deployment (SFTP, kein CI-Gate). Bündelung
+„ein PR je Einheit" gilt deshalb strikt — siehe Konzept, Abschnitt „Deploy-Modell".
+
+---
+
+## P0 — Structured-Data-Fehler (Bugfixes, keine Rückfrage nötig)
+
+- [ ] **P0.1** Review-Snippet-Fehler beheben: `aggregateRating` aus `serviceSchema` in
+      `StructuredData.tsx` entfernen (Details: KONZEPT § P0.1).
+      Beweis: `bun run build` grün + `bun run lint` grün + Diff zeigt `aggregateRating` nur noch in
+      `restaurantSchema`/`cateringBusinessSchema`/`productSchemas`, nicht mehr in `serviceSchema`.
+      ✓ _ausstehend_
+- [ ] **P0.2** Merchant-Duplikat beheben: `itemListSchema`-Bedingung auf `type === 'itemlist'`
+      verengen, nachdem geprüft ist, ob `type="itemlist"` irgendwo verwendet wird (KONZEPT § P0.2).
+      Beweis: `grep -rn 'type="itemlist"' src/pages` Ergebnis dokumentiert + `bun run build`/`lint`
+      grün + generiertes JSON-LD auf `/catering/pizze-napoletane/` zeigt jede Produkt-`@id` nur
+      noch einmal (manuell im Build-Output/`dist` geprüft).
+      ✓ _ausstehend_
+- [ ] **P0.3** Fehlende Offer-Felder ergänzen: `hasMerchantReturnPolicy`, `shippingDetails`,
+      `validFrom` im `offers`-Objekt von `productSchemas` (KONZEPT § P0.3).
+      Beweis: `bun run build`/`lint` grün + Diff zeigt alle drei Felder im `offers`-Objekt.
+      ✓ _ausstehend_
+
+## P1 — Markenkonzept STORIA Catering vs. Ristorante Storia
+
+- [ ] **P1.1** `Index.tsx`: `type="restaurant"` → `type="localbusiness"` + separater
+      `type="faq"`-Aufruf (Vorbild `Kontakt.tsx`). Prüfen ob `restaurantSchema`/`localBusinessSchema`
+      danach noch anderswo referenziert werden (KONZEPT § P1.1).
+      Beweis: `bun run build`/`lint` grün + Diff + Vermerk, ob `restaurantSchema` toter Code wurde.
+      ✓ _ausstehend_
+- [ ] **P1.2** `sameAs`-Verweis auf `instagram.com/storia_ristorante` entfernt oder durch eigenen
+      Account ersetzt (KONZEPT § P1.2).
+      Beweis: `grep -rn "storia_ristorante" src` Ergebnis vorher/nachher + `bun run build` grün.
+      ✓ _ausstehend_
+- [ ] **P1.3** Title/Meta/Schema-Namen auf „STORIA Catering" vereinheitlicht, Stichprobe
+      `src/pages/seo/*.tsx` + `organizationSchema`/`websiteSchema` (KONZEPT § P1.3).
+      Beweis: Liste der geänderten Dateien + `bun run build`/`lint` grün.
+      ✓ _ausstehend_
+
+## P2 — URL-Kanonisierung
+
+- [ ] **P2.1** Trailing-Slash-Konsistenz zwischen Sitemap und internen Links hergestellt
+      (KONZEPT § P2.1).
+      Beweis: `bun run sitemap` Output + Stichprobe interner Links ohne abweichende Form.
+      ✓ _ausstehend_
+- [ ] **P2.2** `/catering/`-403 geklärt: Absicht dokumentiert ODER Bug behoben (KONZEPT § P2.2).
+      Beweis: Fund + Entscheidung im PR-Text, ggf. Code-Diff.
+      ✓ _ausstehend_
+
+## P3 — Interne Verlinkung stärken
+
+- [ ] **P3.1** Footer-Links zu Anlass-Cluster (6 DE + EN-Pendants) ergänzt.
+      Beweis: `bun run build`/`lint` grün + Diff Footer-Komponente.
+      ✓ _ausstehend_
+- [ ] **P3.2** Footer/Content-Links zu Kulinarik-Cluster ergänzt.
+      Beweis: `bun run build`/`lint` grün + Diff.
+      ✓ _ausstehend_
+- [ ] **P3.3** `/kontakt/`, `/en/contact/`, `/events/`, `/en/events/` prominent verlinkt
+      (Header/Footer/Homepage-CTA).
+      Beweis: `bun run build`/`lint` grün + Diff + Screenshot oder Beschreibung der Platzierung.
+      ✓ _ausstehend_
+
+## P4 — Indexierung bei Google beantragen — HARTES GATE
+
+🔒 **Blockiert bis Antoine `scripts/service-account.json` in
+`~/Developer/Websites/seo.schrittmacher.ai/scripts/` bereitstellt** (oder
+`GOOGLE_APPLICATION_CREDENTIALS` setzt) **und** P3 auf `main` deployed + live verifiziert ist.
+Nicht raten, nicht überspringen — bei fehlendem Credential `BLOCKED` ausgeben und im Log unten
+vermerken, dann Turn beenden.
+
+- [ ] **P4.1** `node scripts/google-index-submit.mjs --url <URL>` für die 30 betroffenen
+      Cluster-URLs (Liste: Audit-Artifact „Indexierungslücke") ausgeführt.
+      Beweis: Script-Output (Anzahl erfolgreich eingereicht) + Datum.
+      ✓ _ausstehend_
+
+---
+
+## BLOCKED-Log
+
+<!-- Format: DATUM · Kriterium · Grund · was gebraucht wird -->
+
+- 2026-09-01 · P4.1 · `scripts/service-account.json` fehlt lokal, gitignored, kein Zugriff ohne
+  Antoines Bereitstellung · benötigt: Datei am genannten Pfad oder `GOOGLE_APPLICATION_CREDENTIALS`.
+
+## Abschluss
+
+Sind P0–P3 vollständig abgehakt (P4 bleibt ggf. bis Credential wartend): wörtlich
+`SEO-FIXES-EINHEIT-FERTIG` ausgeben und Antoine im Chat Bescheid geben (Slack nur nach 5 Min. ohne
+Reaktion, siehe `~/.claude/CLAUDE.md` § „Fragen & Meldungen").
