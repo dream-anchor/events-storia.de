@@ -491,12 +491,47 @@ const StructuredData = ({
       priceCurrency: 'EUR',
       availability: 'https://schema.org/InStock',
       seller: { '@id': 'https://events-storia.de/#organization' },
+      validFrom: new Date().toISOString().split('T')[0],
       priceValidUntil: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
       deliveryLeadTime: {
         '@type': 'QuantitativeValue',
         minValue: 1,
         maxValue: 3,
         unitCode: 'DAY',
+      },
+      // Widerrufsrecht entfällt gem. § 312g Abs. 2 Nr. 2 BGB für leicht verderbliche Speiselieferungen (AGBCatering § 10)
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        returnPolicyCategory: 'https://schema.org/MerchantReturnNotPermitted',
+        applicableCountry: 'DE',
+      },
+      // Lieferkosten/-zeiten gespiegelt aus AGBCatering § 4 (Münchner Stadtgebiet, Regelfall)
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingRate: {
+          '@type': 'MonetaryAmount',
+          value: '25.00',
+          currency: 'EUR',
+        },
+        shippingDestination: {
+          '@type': 'DefinedRegion',
+          addressCountry: 'DE',
+        },
+        deliveryTime: {
+          '@type': 'ShippingDeliveryTime',
+          handlingTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 0,
+            maxValue: 1,
+            unitCode: 'DAY',
+          },
+          transitTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 1,
+            maxValue: 3,
+            unitCode: 'DAY',
+          },
+        },
       },
     },
     aggregateRating,

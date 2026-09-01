@@ -48,10 +48,21 @@ gilt das Konzept.
       „Feld brand doppelt"-Bug), nach dem Fix ist `itemListSchema` für `type === 'product'`
       strukturell `null` (Bedingung erlaubt nur noch `type === 'itemlist'`, das nirgends
       verwendet wird) — die Kollision ist damit unabhängig vom Prerender-Timing ausgeschlossen.
-- [ ] **P0.3** Fehlende Offer-Felder ergänzen: `hasMerchantReturnPolicy`, `shippingDetails`,
+- [x] **P0.3** Fehlende Offer-Felder ergänzen: `hasMerchantReturnPolicy`, `shippingDetails`,
       `validFrom` im `offers`-Objekt von `productSchemas` (KONZEPT § P0.3).
       Beweis: `bun run build`/`lint` grün + Diff zeigt alle drei Felder im `offers`-Objekt.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · `bun run build` → `✓ built in 56.90s` (Exit 0, `build` enthält laut
+      `package.json` nur `sitemap`+`prebuild`+`vite build`, kein Prerender — die aus P0.2 bekannte
+      Puppeteer-Flakiness betrifft `bun run prerender`, nicht diesen Beweis) · `bun run lint` →
+      `599 problems (512 errors, 87 warnings)` identisch zur P0.1/P0.2-Baseline, 0 Findings in
+      `StructuredData.tsx` · `git diff -- src/components/StructuredData.tsx` zeigt alle drei
+      Felder neu im `offers`-Objekt von `productSchemas`: `validFrom` (heutiges Datum),
+      `hasMerchantReturnPolicy` (`returnPolicyCategory: MerchantReturnNotPermitted`, da AGBCatering
+      § 10 / § 312g Abs. 2 Nr. 2 BGB für leicht verderbliche Speiselieferungen kein Widerrufsrecht
+      vorsieht — keine neue Geschäftsentscheidung, nur die AGB gespiegelt) und `shippingDetails`
+      (`OfferShippingDetails` mit `shippingRate` 25 € — Münchner-Stadtgebiet-Satz aus AGBCatering
+      § 4 —, `shippingDestination: DE`, `deliveryTime` mit `handlingTime`/`transitTime` passend zum
+      bestehenden `deliveryLeadTime` von 1–3 Tagen).
 
 ## P1 — Markenkonzept STORIA Catering vs. Ristorante Storia
 
