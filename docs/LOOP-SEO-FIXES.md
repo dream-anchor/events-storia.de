@@ -275,11 +275,23 @@ gilt das Konzept.
       `src/data/static-menus.json` vor Commit mit `git checkout --` zurückgesetzt (keine
       Sitemap-relevante Änderung).
 
+## Einheit P0–P3: gemergt und live
+
+PR #10 (11 Commits, 16 Dateien, +347/−64) am 01.09.2026 vom Hauptfenster nach Diff-Sichtung
+squash-gemergt (`b51884f9`). Deploy-Workflow `deploy-ionos.yml` erfolgreich (Run 33529356647,
+2m33s). Live-Stichprobe direkt nach Deploy:
+- `curl https://www.events-storia.de/` → kein `Restaurant`-Typ mehr im Homepage-Schema, `CateringBusiness` vorhanden.
+- `curl -I https://www.events-storia.de/catering/` → `200` (kein 403 mehr).
+- `curl https://www.events-storia.de/impressum/` → „STORIA Catering" im Header sichtbar (vorher unverlinkte Seite).
+
+**SEO-FIXES-EINHEIT-FERTIG** — P0–P3 vollständig abgehakt, PR gemergt, live verifiziert.
+
 ## P4 — Indexierung bei Google beantragen — HARTES GATE
 
 🔒 **Blockiert bis Antoine `scripts/service-account.json` in
 `~/Developer/Websites/seo.schrittmacher.ai/scripts/` bereitstellt** (oder
-`GOOGLE_APPLICATION_CREDENTIALS` setzt) **und** P3 auf `main` deployed + live verifiziert ist.
+`GOOGLE_APPLICATION_CREDENTIALS` setzt). P3 ist jetzt deployed + live verifiziert (s.o.) — die
+zweite Bedingung des Gates ist damit erfüllt, es fehlt nur noch das Credential.
 Nicht raten, nicht überspringen — bei fehlendem Credential `BLOCKED` ausgeben und im Log unten
 vermerken, dann Turn beenden.
 
