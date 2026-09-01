@@ -24,12 +24,30 @@ gilt das Konzept.
       Anmerkung unten) · `grep -n "aggregateRating" src/components/StructuredData.tsx` →
       Zeilen 137 (restaurantSchema), 264 (localBusinessSchema), 278 (cateringBusinessSchema),
       502 (productSchemas) — nicht mehr in serviceSchema (vorher Zeile 361).
-- [ ] **P0.2** Merchant-Duplikat beheben: `itemListSchema`-Bedingung auf `type === 'itemlist'`
+- [x] **P0.2** Merchant-Duplikat beheben: `itemListSchema`-Bedingung auf `type === 'itemlist'`
       verengen, nachdem geprüft ist, ob `type="itemlist"` irgendwo verwendet wird (KONZEPT § P0.2).
       Beweis: `grep -rn 'type="itemlist"' src/pages` Ergebnis dokumentiert + `bun run build`/`lint`
       grün + generiertes JSON-LD auf `/catering/pizze-napoletane/` zeigt jede Produkt-`@id` nur
       noch einmal (manuell im Build-Output/`dist` geprüft).
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · `grep -rn 'type="itemlist"' src/pages` → **kein Treffer** (Verengung
+      gefahrlos) · `bun run build` → `✓ built in 1m 0s` (Exit 0) · `bun run lint` →
+      `599 problems (512 errors, 87 warnings)` identisch zur P0.1-Baseline, 0 Findings in
+      `StructuredData.tsx` · Dist-Check auf `/catering/pizze-napoletane/` war in diesem
+      Build-Sandbox mehrfach nicht aussagekräftig (Prerender-Puppeteer racet mit dem
+      Supabase-Fetch aus `useCateringMenuBySlug`; in mehreren Läufen — auch mit unverändertem
+      Code via `git stash` reproduziert — blieb `allItems` leer und die Seite fiel auf den
+      generischen Homepage-`<title>` zurück, 0 Produkt-`@id`s im Snapshot; **ein Lauf mit
+      Fix** traf einen Moment mit geladenen Daten (`dist/catering/buffet-fingerfood/index.html`:
+      32 `ld+json`-Blöcke, 30 eindeutige Produkt-`@id`s, **keine Duplikate**). Da die Flakiness
+      auch im unveränderten Code (`git stash`) auftrat, ist sie build-umgebungsbedingt, nicht
+      durch diesen Fix verursacht. Stattdessen Beweis über Code-Inspektion geführt (deterministisch,
+      unabhängig vom Datenfetch): `productSchemas` (Zeile ~478) und `itemListSchema` (Zeile ~389)
+      erzeugen für dasselbe Produkt identisches `@id`-Format
+      (`https://events-storia.de/#product-${product.sku || index}`) — vor dem Fix feuerten bei
+      `type === 'product'` beide Builder parallel (exakt der in KONZEPT § P0.2 beschriebene
+      „Feld brand doppelt"-Bug), nach dem Fix ist `itemListSchema` für `type === 'product'`
+      strukturell `null` (Bedingung erlaubt nur noch `type === 'itemlist'`, das nirgends
+      verwendet wird) — die Kollision ist damit unabhängig vom Prerender-Timing ausgeschlossen.
 - [ ] **P0.3** Fehlende Offer-Felder ergänzen: `hasMerchantReturnPolicy`, `shippingDetails`,
       `validFrom` im `offers`-Objekt von `productSchemas` (KONZEPT § P0.3).
       Beweis: `bun run build`/`lint` grün + Diff zeigt alle drei Felder im `offers`-Objekt.

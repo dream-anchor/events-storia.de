@@ -386,7 +386,7 @@ const StructuredData = ({
   } : null;
 
   // NEW: ItemList schema for menu categories
-  const itemListSchema = products && products.length > 0 && (type === 'itemlist' || type === 'product') ? {
+  const itemListSchema = products && products.length > 0 && type === 'itemlist' ? {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     '@id': `https://events-storia.de/#itemlist-${(itemListName || 'products').toLowerCase().replace(/\s+/g, '-')}`,
