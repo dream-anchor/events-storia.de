@@ -1,4 +1,4 @@
-import { Phone, Mail, Instagram, User } from "lucide-react";
+import { Phone, Mail, Instagram, User, Sparkles, MessageSquare } from "lucide-react";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LocalizedLink } from "@/components/LocalizedLink";
@@ -15,6 +15,22 @@ const Header = () => {
             STORIA
           </LocalizedLink>
           <div className="flex items-center gap-2 md:gap-6 text-base text-foreground/80 font-medium">
+            <LocalizedLink
+              to="events"
+              aria-label={language === 'de' ? 'Events im STORIA' : 'Events at STORIA'}
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] gap-2 hover:text-foreground transition-colors touch-manipulation"
+            >
+              <Sparkles className="h-5 w-5" aria-hidden="true" />
+              <span className="hidden sm:inline">{language === 'de' ? 'Events' : 'Events'}</span>
+            </LocalizedLink>
+            <LocalizedLink
+              to="contact"
+              aria-label={language === 'de' ? 'Kontakt' : 'Contact'}
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] gap-2 hover:text-foreground transition-colors touch-manipulation"
+            >
+              <MessageSquare className="h-5 w-5" aria-hidden="true" />
+              <span className="hidden sm:inline">{language === 'de' ? 'Kontakt' : 'Contact'}</span>
+            </LocalizedLink>
             <a
               href="tel:+498951519696"
               aria-label={language === 'de' ? 'STORIA anrufen: +49 89 51519696' : 'Call STORIA: +49 89 51519696'}

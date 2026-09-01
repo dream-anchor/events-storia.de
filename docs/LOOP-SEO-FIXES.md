@@ -249,10 +249,31 @@ gilt das Konzept.
       Napoletana/Desserts) am Ende der „Service Links“-Zeile. Build-Nebenwirkungen
       `public/sitemap.xml`/`src/data/static-menus.json` vor Commit mit `git checkout --`
       zurückgesetzt (keine inhaltliche Änderung durch dieses Kriterium).
-- [ ] **P3.3** `/kontakt/`, `/en/contact/`, `/events/`, `/en/events/` prominent verlinkt
+- [x] **P3.3** `/kontakt/`, `/en/contact/`, `/events/`, `/en/events/` prominent verlinkt
       (Header/Footer/Homepage-CTA).
       Beweis: `bun run build`/`lint` grün + Diff + Screenshot oder Beschreibung der Platzierung.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · Ist-Zustand-Check vor dem Fix: `Navigation.tsx` (Hauptmenü) verlinkt „EVENTS IM
+      STORIA" (`getPath('events')`) und „KONTAKT" (`getPath('contact')`) bereits prominent, Desktop
+      + Mobile — aber `Navigation.tsx` wird laut `grep -L "<Navigation" $(grep -rl "<Header />"
+      src/pages --include="*.tsx")` auf **13 Seiten NICHT gerendert** (Anfrage, Lebensmittelhinweise,
+      Datenschutz, AGBRestaurant, AGBVeranstaltungen, AGBCatering, Zahlungsinformationen, Impressum,
+      Haftungsausschluss, AGBGutscheine, CookieRichtlinie, Widerrufsbelehrung, FAQ) — dort läuft nur
+      der schlanke `Header.tsx` (Telefon/Mail/Instagram/Konto), ganz ohne Kontakt-/Events-Link.
+      `Footer.tsx` hatte bereits einen `contact`-Link (Service-Links-Zeile) und einen prominenten
+      CTA-Button zu `events#kontaktformular`; Homepage (`Index.tsx`) hatte bereits 2 CTA-Buttons zu
+      `events#contact` sowie den Footer-/Navigation-Kontaktlink — die eigentliche Lücke war
+      `Header.tsx` als einziger auf allen ~41 Seiten garantiert gerenderter Bestandteil. Fix:
+      `Header.tsx` um zwei neue `<LocalizedLink>`-Einträge ergänzt (`to="events"` mit
+      `Sparkles`-Icon, `to="contact"` mit `MessageSquare`-Icon, identisches Bestandsmuster wie
+      Telefon/Mail: `min-h-[44px] min-w-[44px]`-Touch-Target, Label `hidden sm:inline`), sodass
+      `/kontakt/`+`/en/contact/` und `/events/`+`/en/events/` jetzt auf **jeder** Seite verlinkt
+      sind, auch den 13 zuvor lückenhaften. `bun run build` → `✓ built in 47.95s` (Exit 0, kein
+      Prerender-Fehler) · `bun run lint` → `599 problems (512 errors, 87 warnings)` identisch zur
+      P0–P3.2-Baseline, 0 Findings in `Header.tsx`. `git diff -- src/components/Header.tsx`: neue
+      Imports `Sparkles`, `MessageSquare` + zwei neue `<LocalizedLink>`-Blöcke direkt nach dem
+      STORIA-Logo, vor dem Telefon-Link. Build-Nebenwirkungen `public/sitemap.xml`/
+      `src/data/static-menus.json` vor Commit mit `git checkout --` zurückgesetzt (keine
+      Sitemap-relevante Änderung).
 
 ## P4 — Indexierung bei Google beantragen — HARTES GATE
 
