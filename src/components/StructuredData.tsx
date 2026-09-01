@@ -358,7 +358,6 @@ const StructuredData = ({
       '@type': 'Brand',
       name: 'STORIA Catering',
     },
-    aggregateRating,
   } : null;
 
   // NEW: HowTo schema for booking process

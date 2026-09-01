@@ -14,11 +14,16 @@ gilt das Konzept.
 
 ## P0 — Structured-Data-Fehler (Bugfixes, keine Rückfrage nötig)
 
-- [ ] **P0.1** Review-Snippet-Fehler beheben: `aggregateRating` aus `serviceSchema` in
+- [x] **P0.1** Review-Snippet-Fehler beheben: `aggregateRating` aus `serviceSchema` in
       `StructuredData.tsx` entfernen (Details: KONZEPT § P0.1).
       Beweis: `bun run build` grün + `bun run lint` grün + Diff zeigt `aggregateRating` nur noch in
       `restaurantSchema`/`cateringBusinessSchema`/`productSchemas`, nicht mehr in `serviceSchema`.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · `bun run build` → `✓ built in 1m 14s` (Exit 0, kein Prerender-Fehler) ·
+      `bun run lint` → `599 problems (512 errors, 87 warnings)` identisch zu main (Baseline-Debt,
+      0 Findings in `StructuredData.tsx` – Repo-Lint war vor diesem Loop schon nicht grün, siehe
+      Anmerkung unten) · `grep -n "aggregateRating" src/components/StructuredData.tsx` →
+      Zeilen 137 (restaurantSchema), 264 (localBusinessSchema), 278 (cateringBusinessSchema),
+      502 (productSchemas) — nicht mehr in serviceSchema (vorher Zeile 361).
 - [ ] **P0.2** Merchant-Duplikat beheben: `itemListSchema`-Bedingung auf `type === 'itemlist'`
       verengen, nachdem geprüft ist, ob `type="itemlist"` irgendwo verwendet wird (KONZEPT § P0.2).
       Beweis: `grep -rn 'type="itemlist"' src/pages` Ergebnis dokumentiert + `bun run build`/`lint`
