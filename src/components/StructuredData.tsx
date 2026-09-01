@@ -126,8 +126,9 @@ const StructuredData = ({
     servesCuisine: ['Italian', 'Pizza Napoletana', 'Pasta', 'Mediterranean', 'Fingerfood'],
     acceptsReservations: 'True',
     hasMenu: 'https://events-storia.de/catering/buffet-fingerfood',
+    // Kein eigener Catering-Instagram-Account verifiziert (früher fälschlich auf das Restaurant
+    // "ristorante_storia" verlinkt, siehe P1.2) — weglassen statt falsch verlinken.
     sameAs: [
-      'https://www.instagram.com/storia_ristorante/',
       'https://www.facebook.com/STORIAMunich',
     ],
     founder: [
@@ -188,8 +189,9 @@ const StructuredData = ({
       { '@type': 'Person', name: 'Domenico Speranza', alternateName: 'Mimmo' },
       { '@type': 'Person', name: 'Nicola Speranza' },
     ],
+    // Kein eigener Catering-Instagram-Account verifiziert (früher fälschlich auf das Restaurant
+    // "ristorante_storia" verlinkt, siehe P1.2) — weglassen statt falsch verlinken.
     sameAs: [
-      'https://www.instagram.com/storia_ristorante/',
       'https://www.facebook.com/STORIAMunich',
     ],
     contactPoint: [

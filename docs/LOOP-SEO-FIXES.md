@@ -92,10 +92,25 @@ gilt das Konzept.
       `src/data/static-menus.json` aus Live-Supabase-Daten neu geschrieben; beide vor dem Commit
       mit `git checkout -- public/sitemap.xml src/data/static-menus.json` zurückgesetzt
       (nicht Teil dieses Kriteriums).
-- [ ] **P1.2** `sameAs`-Verweis auf `instagram.com/storia_ristorante` entfernt oder durch eigenen
+- [x] **P1.2** `sameAs`-Verweis auf `instagram.com/storia_ristorante` entfernt oder durch eigenen
       Account ersetzt (KONZEPT § P1.2).
       Beweis: `grep -rn "storia_ristorante" src` Ergebnis vorher/nachher + `bun run build` grün.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · `grep -rn "storia_ristorante" src` vorher → 2 Treffer (`StructuredData.tsx:130`
+      in `restaurantSchema.sameAs`, `StructuredData.tsx:192` in `organizationSchema.sameAs`) ·
+      nachher → **kein Treffer** (Exit 1) · Ersatz-Account-Prüfung: `Header.tsx`/`Footer.tsx`
+      verlinken bereits `instagram.com/ristorante_storia` (anderer Handle, ebenfalls das Restaurant
+      — kein Ersatz), einzig `supabase/functions/send-review-requests/index.ts` nennt
+      `instagram.com/storia_muenchen` als mögliches Catering-Konto, per `WebFetch` aber nicht
+      verifizierbar (Instagram liefert kein lesbares Profil ohne JS) → gemäß KONZEPT § P1.2
+      „sonst weglassen statt falsch verlinken" beide `sameAs`-Arrays auf nur noch
+      `facebook.com/STORIAMunich` reduziert, kein Ersatzlink geraten · `bun run build` →
+      `✓ built in 49.96s` (Exit 0) · `bun run lint` → `599 problems (512 errors, 87 warnings)`
+      identisch zur Baseline, 0 Findings in `StructuredData.tsx` · Nebenbefund (nicht in diesem
+      Kriterium behoben, da Beweis-Scope laut Protokoll auf `src` beschränkt ist):
+      `public/llm-de.html:106` und `public/llm-en.html:106` sowie `public/llm.html:488/661`
+      tragen ebenfalls falsche/uneinheitliche Instagram-`sameAs`-Werte
+      (`storia_ristorante` bzw. `ristorante_storia`) — Kandidat für P1.3 oder eine eigene
+      Nachfolge-Iteration.
 - [ ] **P1.3** Title/Meta/Schema-Namen auf „STORIA Catering" vereinheitlicht, Stichprobe
       `src/pages/seo/*.tsx` + `organizationSchema`/`websiteSchema` (KONZEPT § P1.3).
       Beweis: Liste der geänderten Dateien + `bun run build`/`lint` grün.
