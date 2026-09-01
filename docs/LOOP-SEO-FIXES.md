@@ -288,13 +288,14 @@ squash-gemergt (`b51884f9`). Deploy-Workflow `deploy-ionos.yml` erfolgreich (Run
 
 ## P4 — Indexierung bei Google beantragen
 
-🔒 **Teilweise blockiert:** `scripts/service-account.json` (die echte Google Indexing API,
-`urlNotifications:publish`, Einzel-URL-Push) existiert weiterhin nicht lokal — Suche über das
-gesamte Home-Verzeichnis am 01.09.2026 bestätigt: nirgends vorhanden. Bleibt blockiert bis Antoine
-die Datei bereitstellt.
+**Gate aufgelöst:** Antoine hat am 01.09.2026 einen neuen Service-Account-Key aus der Google Cloud
+Console generiert und bereitgestellt (`evocative-shore-486623-v4-cc97d98b68a1.json` →
+`~/Developer/Websites/seo.schrittmacher.ai/scripts/service-account.json`, `chmod 600`, Download-Kopie
+gelöscht).
 
-**Alternative gefunden und ausgeführt (01.09.2026, via Composio, `google_search_console`-Toolkit,
-bereits aktiv verbunden mit `https://www.events-storia.de/` als Property):**
+**Weg über Composio (ohne Credential möglich, zuerst ausgeführt, 01.09.2026, via Composio,
+`google_search_console`-Toolkit, bereits aktiv verbunden mit `https://www.events-storia.de/` als
+Property):**
 - [x] **P4.1a** Sitemap neu eingereicht: `GOOGLE_SEARCH_CONSOLE_SUBMIT_SITEMAP` →
       `https://www.events-storia.de/sitemap.xml` erfolgreich übermittelt. Vorher zuletzt am
       09.02.2026 eingereicht (`GOOGLE_SEARCH_CONSOLE_LIST_SITEMAPS` zeigte `lastSubmitted:
@@ -309,16 +310,26 @@ bereits aktiv verbunden mit `https://www.events-storia.de/` als Property):**
       (Empfehlung: in 1–2 Wochen erneut inspizieren, ob sich `coverageState` durch Sitemap-Resubmit
       + die neuen internen Links aus P3 verbessert hat).
       ✓ 2026-09-01 · 4× `GOOGLE_SEARCH_CONSOLE_INSPECT_URL`, Ergebnisse wie oben.
-- [ ] **P4.1c** Echte Einzel-URL-Indexierungs-Anfrage (schnellster Weg, sofortiger Push statt
-      Warten auf Recrawl) für die 30 betroffenen Cluster-URLs via
-      `node scripts/google-index-submit.mjs --url <URL>` — weiterhin blockiert, s.o.
-      ✓ _ausstehend, wartet auf Credential_
+- [x] **P4.1c** Echte Einzel-URL-Indexierungs-Anfrage (Google Indexing API, sofortiger Push statt
+      Warten auf Recrawl) für alle 30 betroffenen Cluster-URLs via
+      `node scripts/google-index-submit.mjs --url <URL>` (aus
+      `~/Developer/Websites/seo.schrittmacher.ai`, dort liegt das Tool zentral, s. KONZEPT § P4).
+      Beweis: Script-Output.
+      ✓ 2026-09-01 · Lauf 1 (Auth-Test, 2 URLs: `/kontakt/`, `/events/`) →
+      „Ergebnis: 2 eingereicht, 0 fehlgeschlagen (von 2 URLs)" · Lauf 2 (restliche 29 URLs,
+      inkl. 1 Überschneidung mit Lauf 1) → „Ergebnis: 29 eingereicht, 0 fehlgeschlagen (von
+      29 URLs)" · **alle 30 Ziel-URLs erfolgreich bei der Google Indexing API eingereicht,
+      0 Fehler.**
 
-**Einordnung:** P4.1a+b decken den ohne Credential erreichbaren Teil ab und sind ein echter
-Fortschritt (Sitemap war seit 6 Monaten nicht aktualisiert). Sie sind aber **kein Ersatz** für
-P4.1c — Composio bietet keine Aktion, die Google zur sofortigen Indexierung EINER URL auffordert
-(nur Diagnose + sitemap-weites Resubmit). Ohne P4.1c verlässt man sich auf organisches Recrawling,
-das Tage bis Wochen dauern kann.
+**P4 vollständig abgeschlossen** — sowohl der credential-freie Weg (Sitemap-Resubmit + Composio-
+Diagnose) als auch die direkte Einzel-URL-Indexierung sind erledigt. Erwartung: die 30 Seiten
+sollten binnen Stunden bis weniger Tage gecrawlt werden (statt Tage bis Wochen bei reinem
+organischen Recrawling). **Empfehlung für eine Folge-Session in 1–2 Wochen:** die 4 in P4.1b
+dokumentierten Baseline-URLs erneut per `GOOGLE_SEARCH_CONSOLE_INSPECT_URL` prüfen, ob
+`coverageState` sich von „unknown"/„discovered" zu „indexed" geändert hat — das ist der eigentliche
+Erfolgsnachweis für diesen ganzen Loop.
+
+## SEO-FIXES-LOOP VOLLSTÄNDIG ABGESCHLOSSEN (P0–P4, 01.09.2026)
 
 ---
 
