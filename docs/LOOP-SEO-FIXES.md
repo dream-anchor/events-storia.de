@@ -184,9 +184,32 @@ gilt das Konzept.
       selbst unverändert, nur `routes.ts` und 5 Link-Ziele betroffen). Scope-Hinweis: reine
       Admin-Routen (`/admin/*`) und der tote Legacy-Link `/reservierung` (existiert in keiner
       Route-Config) bewusst nicht angefasst — außerhalb des öffentlichen Content-Systems.
-- [ ] **P2.2** `/catering/`-403 geklärt: Absicht dokumentiert ODER Bug behoben (KONZEPT § P2.2).
+- [x] **P2.2** `/catering/`-403 geklärt: Absicht dokumentiert ODER Bug behoben (KONZEPT § P2.2).
       Beweis: Fund + Entscheidung im PR-Text, ggf. Code-Diff.
-      ✓ _ausstehend_
+      ✓ 2026-09-01 · `curl -sIL https://events-storia.de/catering/` → `301` auf
+      `https://www.events-storia.de/catering/`, dann `200` (kein 403 mehr) · `git log --oneline --
+      public/.htaccess` fördert Commit `2f4b1f2b` (27.03.2026, VOR diesem Loop) zutage: „fix:
+      resolve 403 on /catering/ by requiring index.html in directory rule" — Root Cause war der
+      Apache-Directory-Match in `public/.htaccess` § „SSG: Ordner mit index.html direkt
+      ausliefern": `dist/catering/` existiert physisch (angelegt durch die Sub-Seiten wie
+      `dist/catering/buffet-fingerfood/`), enthielt aber kein eigenes `index.html` → Apache lieferte
+      403 statt auf die SPA-Fallback-Regel durchzufallen. Fix (bereits committet, `git show
+      2f4b1f2b -- public/.htaccess`): zusätzliche `RewriteCond %{REQUEST_FILENAME}/index.html -f`
+      vor der Directory-Rule, sodass sie nur noch greift, wenn wirklich ein `index.html` im Ordner
+      liegt — sonst fällt die Anfrage durch bis zur letzten Regel „Frontend: Serve pre-rendered
+      index.html (SPA Fallback)". **Ergebnis: reine Doku-Entscheidung, kein neuer Code-Fix nötig**
+      — der Bug war ein echter Bug (nicht Absicht), ist aber bereits vor diesem Loop behoben; die
+      403-Meldung im GSC-Audit vom 01.09.2026 ist eine veraltete Crawl-Momentaufnahme von vor dem
+      März-Fix. `bun run build` → `✓ built in 49.34s` (Exit 0) · `bun run lint` →
+      `599 problems (512 errors, 87 warnings)` identisch zur P0–P2.1-Baseline (keine Datei
+      geändert). Nebenbefund (außerhalb P2.2-Scope, nicht behoben): `/catering/` liefert aktuell
+      per SPA-Fallback den Homepage-Inhalt mit `<link rel="canonical" href=".../">`
+      (Selbst-Canonical auf die Startseite) statt eines eigenen Kategorie-Contents — das ist eines
+      der 3 in KONZEPT § P2 genannten „Alternative Seite mit richtigem kanonischen Tag"-Signale,
+      kein Fehler (Google respektiert den Canonical), aber Kandidat für eine echte
+      `/catering/`-Übersichtsseite oder einen gezielten 301 in einer künftigen Iteration.
+      Build-Nebenwirkungen `public/sitemap.xml`/`src/data/static-menus.json` vor Commit mit
+      `git checkout --` zurückgesetzt (keine Sitemap-relevante Änderung in diesem Kriterium).
 
 ## P3 — Interne Verlinkung stärken
 
