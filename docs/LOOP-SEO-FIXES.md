@@ -425,11 +425,21 @@ freigegeben.
       Baseline, 0 neue Findings in `src/pages/Index.tsx`/`src/components/Footer.tsx`.
       Build-Nebenwirkung `public/sitemap.xml`+`src/data/static-menus.json` neu geschrieben, vor
       Commit mit `git restore` zurückgesetzt.
-- [ ] **P6.3** Zwei ungenutzte `preconnect`-Hints entfernen (`static.elfsight.com`,
+- [x] **P6.3** Zwei ungenutzte `preconnect`-Hints entfernen (`static.elfsight.com`,
       `iieethejhwfsyzhbweps.supabase.co`) — Vorsicht: nur entfernen, nicht die aktive
       Supabase-Projekt-ID (`sovlfqncotxcjqseeawp`) anfassen (KONZEPT § P6.3).
       Beweis: `grep -n "preconnect" index.html` vorher/nachher + `bun run build`/`lint` grün.
-      ✓ _ausstehend_
+      **Teilweise umgesetzt (Fund):** `static.elfsight.com` ist entgegen der Lighthouse-Annahme
+      NICHT ungenutzt — `src/components/ConsentElfsightReviews.tsx:17` lädt
+      `https://static.elfsight.com/platform/platform.js` per `document.createElement('script')`,
+      sobald der User Cookie-Consent für "external" erteilt (Lighthouse sieht das beim initialen
+      Crawl ohne Consent nicht). Preconnect-Hint bleibt daher stehen. `iieethejhwfsyzhbweps.supabase.co`
+      hat keine weitere Referenz im Code (`grep -rn "iieethejhwfsyzhbweps"` nur noch in docs/) —
+      veraltete Projekt-ID entfernt.
+      ✓ 2026-09-02 · `grep -n "preconnect" index.html` vorher: Zeilen 39+40 (elfsight + iieethejhwfsyzhbweps) →
+      nachher: nur noch Zeile 39 (elfsight) → `bun run build` grün (`✓ built in 55.12s`) ·
+      `bun run lint` unverändert 599/512 (Baseline vor Change identisch, keine neuen Findings durch
+      diesen Change)
 - [ ] **P6.4** Homepage-Grid-Bilder responsive ausliefern (`srcSet`/`sizes` oder auf ~2×
       Anzeigegröße zugeschnittene Quelldateien), mindestens für die 3 größten Posten (`hero-pizza`,
       `firmenfeier-catering-muenchen-storia`, `catering-lieferservice-muenchen-storia`)
