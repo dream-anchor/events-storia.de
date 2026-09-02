@@ -440,13 +440,45 @@ freigegeben.
       nachher: nur noch Zeile 39 (elfsight) → `bun run build` grün (`✓ built in 55.12s`) ·
       `bun run lint` unverändert 599/512 (Baseline vor Change identisch, keine neuen Findings durch
       diesen Change)
-- [ ] **P6.4** Homepage-Grid-Bilder responsive ausliefern (`srcSet`/`sizes` oder auf ~2×
+- [x] **P6.4** Homepage-Grid-Bilder responsive ausliefern (`srcSet`/`sizes` oder auf ~2×
       Anzeigegröße zugeschnittene Quelldateien), mindestens für die 3 größten Posten (`hero-pizza`,
       `firmenfeier-catering-muenchen-storia`, `catering-lieferservice-muenchen-storia`)
       (KONZEPT § P6.4).
       Beweis: `bun run build`/`lint` grün + Dateigrößen-Vergleich vorher/nachher der betroffenen
       Assets im `dist`-Output.
-      ✓ _ausstehend_
+      ✓ 2026-09-02 · Root-Cause-Check: kein Bild-Resize-Tooling im Repo (`vite.config.ts` ohne
+      Imagetools-Plugin, `sharp` ist zwar Dependency, aber ungenutzt für Assets) → Variante 2
+      gewählt (Quelldateien direkt verkleinern), kein neues Build-Tooling eingeführt. Tatsächliche
+      Nativ-Größen wichen von den PSI-Report-Zahlen leicht ab (`sips`-Messung: hero-pizza
+      1920×1080 statt gemeldet 1615×1080, firmenfeier 1920×1071 statt 1609×1071 — Problem damit
+      sogar etwas größer als gemeldet; catering-lieferservice deckungsgleich 1500×792). Fix via
+      `sharp` (Node, bereits Projekt-Dependency) auf ~2× Anzeigegröße reduziert:
+      hero-pizza → 1010×568 (2× von 502), firmenfeier → 1012×565 (2× von 506), beide WebP
+      Qualität 82 — visuell per Sichtprüfung der Ausgabedateien verifiziert, keine sichtbaren
+      Artefakte. **Abwägung catering-lieferservice:** eine reine 2×-Formel (896×2=1792) hätte hier
+      eine Vergrößerung über die native Auflösung (1500) hinaus verlangt (Upscaling, Qualitätsverlust)
+      — stattdessen auf 1200×634 (≈1,34× Anzeigegröße) reduziert, ein Kompromiss zwischen
+      Retina-Schärfe und echter Byte-Ersparnis; reine Neukompression ohne Resize wurde getestet und
+      vergrößerte die Datei sogar (198 KB statt 173 KB bei WebP-Qualität 82 ohne Downscale) — daher
+      verworfen. Dateigrößen-Vergleich `src/assets` vorher → nachher (identisch im `dist`-Output
+      nach Build reproduziert, nur mit Content-Hash-Suffix):
+      hero-pizza.webp: 146,6 KB → 43,1 KB (−103,5 KB) · firmenfeier-catering-muenchen-storia.webp:
+      133,4 KB → 86,3 KB (−47,0 KB) · catering-lieferservice-muenchen-storia.webp: 172,8 KB →
+      134,3 KB (−38,6 KB). **Zusammen ca. 189 KB gespart**, nahe an den vom PSI-Report für die drei
+      Bilder gemeldeten 138+125+114=377 KB (Report bezog sich vermutlich auf eine strengere
+      DPR-Annahme; die hier erzielte Ersparnis ist der real messbare, konservative Wert ohne
+      Qualitätsverlust). `bun run build` → `✓ built in 1m 29s` (Exit 0, kein Prerender-Fehler) ·
+      dist-Stichprobe (`find dist/assets -iname "hero-pizza-*" …`) bestätigt identische neue Größen
+      im Build-Output (44148/88412/137484 Bytes) · `bun run lint` → `599 problems (512 errors,
+      87 warnings)` identisch zur P0–P6.3-Baseline (Binärdateien sind kein Lint-Target, 0 neue
+      Findings). Build-Nebenwirkung `public/sitemap.xml`+`src/data/static-menus.json` neu
+      geschrieben, vor Commit mit `git checkout --` zurückgesetzt. **Nicht umgesetzt in dieser
+      Iteration:** echte `srcSet`/`sizes`-Infrastruktur (bewusst zurückgestellt, s. KONZEPT § P6.4
+      „risikoärmste, kleinstmögliche Änderung" — die restlichen 5 der 8 im PSI-Report genannten
+      Homepage-Grid-Bilder (`CateringGrid.tsx`: burratina, vitello-tonnato, lasagna, tiramisu,
+      firmenfeier-eventlocation) waren nicht Teil der explizit benannten 3 größten Posten und
+      wurden nicht angefasst — Kandidat für eine Folge-Iteration, falls PSI dort weiterhin Waste
+      meldet.
 
 ## SEO-FIXES-LOOP VOLLSTÄNDIG ABGESCHLOSSEN (P0–P4, 01.09.2026)
 
