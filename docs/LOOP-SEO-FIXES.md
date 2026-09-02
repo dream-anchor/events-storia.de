@@ -329,6 +329,64 @@ dokumentierten Baseline-URLs erneut per `GOOGLE_SEARCH_CONSOLE_INSPECT_URL` prü
 `coverageState` sich von „unknown"/„discovered" zu „indexed" geändert hat — das ist der eigentliche
 Erfolgsnachweis für diesen ganzen Loop.
 
+## P5 — Nachlauf: verbliebene Nebenbefunde aus P1/P2 (freigegeben 02.09.2026)
+
+Zwei bewusst zurückgestellte Punkte aus P1.3 und P2.2, von Antoine am 02.09.2026 zur Umsetzung
+freigegeben.
+
+- [ ] **P5.1** `llm.html:489-490` (Organization-Schema „Events STORIA"): `sameAs`-Array verweist
+      weiterhin auf `https://www.ristorantestoria.de` und einen OpenTable-Link des Restaurants —
+      dieselbe Marken-Konfusion wie das in P1.1 gelöste Homepage-Problem, hier aber in der
+      GEO-Datei `public/llm.html`. Fix: beide Einträge aus dem `sameAs`-Array entfernen (analog
+      P1.2-Prinzip: entfernen statt raten, kein verifizierter Ersatzlink bekannt). JSON-Validität
+      danach wie in P1.3 per `python3 json.loads()` auf allen `<script type="application/ld+json">`-
+      Blöcken in `llm.html` prüfen.
+      Beweis: `grep -n "ristorantestoria.de\|opentable" public/llm.html` vorher/nachher +
+      JSON-Validitätscheck + `bun run build`/`lint` grün.
+      ✓ _ausstehend_
+- [ ] **P5.2** `/catering/` (DE) und `/en/catering/` (EN): liefern aktuell per SPA-Fallback den
+      Homepage-Inhalt mit Selbst-Canonical auf `/` — kein Fehler, aber ein toter Pfad ohne
+      eigenen Content. Es gibt keine „Alle Catering-Kategorien"-Übersichtsseite in `routes.ts`
+      (nur die 5 einzelnen `catering.*`-Unterseiten). Entscheidung (Antoine 02.09.2026 delegiert):
+      **301-Redirect statt neuer Seite** — `/catering/` → `/catering/pizze-napoletane/` (DE) und
+      `/en/catering/` → `/en/catering/pizza-napoletana/` (EN), analog zu den bestehenden
+      `.htaccess`-Redirects für umbenannte Catering-Pfade (Zeilen 62–66). Begründung: die
+      Pizza-Napoletana-Seite hat von den 5 Kulinarik-Unterseiten den vollständigsten Content und
+      bereits das (in P0 reparierte) Merchant-Schema — inhaltlich der plausibelste Landepunkt für
+      eine URL ohne eigenen Zweck. Revidierbar mit einer Zeile, falls Antoine später eine echte
+      Übersichtsseite bauen will.
+      Beweis: `curl -I https://www.events-storia.de/catering/` → `301` auf die neue Ziel-URL,
+      dieselbe Prüfung für `/en/catering/` + `bun run build`/`lint` grün.
+      ✓ _ausstehend_
+
+## P6 — PageSpeed-Insights-Befunde (freigegeben 02.09.2026, Details: KONZEPT § P6)
+
+- [ ] **P6.1** `public/llms.txt`: Sektion mit echten Markdown-Links (`[Text](URL)`) zu
+      `/kontakt/`, `/events/` und den 11 Anlass-/Kulinarik-Cluster-Seiten ergänzen; die zwei
+      bestehenden bloßen URLs (`llm-de.html`/`llm-en.html`) in Markdown-Link-Syntax umwandeln
+      (KONZEPT § P6.1).
+      Beweis: Lighthouse-Audit `llms-txt` lässt sich nicht erneut lokal ausführen (externer PSI-
+      Report) — als Ersatzbeweis: Datei manuell gegen die llms.txt-Spec prüfen (mind. 1 echter
+      Markdown-Link vorhanden) + `bun run build`/`lint` grün.
+      ✓ _ausstehend_
+- [ ] **P6.2** Color-Contrast der 3 identifizierten Elemente auf ≥4.5:1 anheben (Figcaption,
+      „Entdecken Sie mehr"-H2, Footer-Link „Maestro") (KONZEPT § P6.2).
+      Beweis: neue Kontrastwerte rechnerisch nachgewiesen (Formel oder Tool) + `bun run
+      build`/`lint` grün.
+      ✓ _ausstehend_
+- [ ] **P6.3** Zwei ungenutzte `preconnect`-Hints entfernen (`static.elfsight.com`,
+      `iieethejhwfsyzhbweps.supabase.co`) — Vorsicht: nur entfernen, nicht die aktive
+      Supabase-Projekt-ID (`sovlfqncotxcjqseeawp`) anfassen (KONZEPT § P6.3).
+      Beweis: `grep -n "preconnect" index.html` vorher/nachher + `bun run build`/`lint` grün.
+      ✓ _ausstehend_
+- [ ] **P6.4** Homepage-Grid-Bilder responsive ausliefern (`srcSet`/`sizes` oder auf ~2×
+      Anzeigegröße zugeschnittene Quelldateien), mindestens für die 3 größten Posten (`hero-pizza`,
+      `firmenfeier-catering-muenchen-storia`, `catering-lieferservice-muenchen-storia`)
+      (KONZEPT § P6.4).
+      Beweis: `bun run build`/`lint` grün + Dateigrößen-Vergleich vorher/nachher der betroffenen
+      Assets im `dist`-Output.
+      ✓ _ausstehend_
+
 ## SEO-FIXES-LOOP VOLLSTÄNDIG ABGESCHLOSSEN (P0–P4, 01.09.2026)
 
 ---

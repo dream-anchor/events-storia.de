@@ -168,6 +168,76 @@ hartes Gate in `docs/LOOP-SEO-FIXES.md`. Erst NACH P3-Deploy ausführen.
 
 ---
 
+## P5 — Nachlauf verbliebener Nebenbefunde (freigegeben 02.09.2026)
+
+`llm.html` (Organization-Schema) hat dieselbe `ristorantestoria.de`/OpenTable-Konfusion wie das in
+P1.1 gelöste Homepage-Problem — nur außerhalb des damaligen Instagram-Grep-Scopes übersehen. Fix
+analog P1.2: entfernen statt raten.
+
+`/catering/` und `/en/catering/` sind tote Pfade ohne eigenen Content (SPA-Fallback liefert
+Homepage mit Selbst-Canonical). Entscheidung: 301-Redirect auf die inhaltlich vollständigste
+Kulinarik-Unterseite (`pizze-napoletane`/`pizza-napoletana`) statt einer neuen Übersichtsseite —
+letztere wäre eine Content-Entscheidung außerhalb des Loop-Scopes.
+
+## P6 — PageSpeed-Insights-Befunde (Report vom 02.09.2026, Desktop, events-storia.de Homepage)
+
+Lighthouse-Scores: Performance 0.97, Accessibility 0.96, Best Practices 1.0, SEO 1.0,
+**Agentic Browsing 0.67** (schwächste Kategorie — direkt GEO-relevant). Vier Befunde sind konkret
+genug für einen sicheren, minimalen Fix; zwei größere Performance-Posten werden bewusst
+zurückgestellt (siehe „Nicht in diesem Loop" unten).
+
+### P6.1 — `llms.txt` erfüllt die llms.txt-Spec nicht: „Die Datei enthält keine Links"
+
+Ursache verifiziert: `public/llms.txt` endet mit zwei **bloßen URLs**
+(`https://www.events-storia.de/llm-de.html`), nicht mit Markdown-Link-Syntax `[Text](URL)`. Die
+llms.txt-Spec (llmstxt.org) verlangt echte Markdown-Links — Lighthouses Parser erkennt bloße URLs
+nicht als Links. Fix: eine Sektion mit echten Markdown-Links zu den wichtigsten Seiten ergänzen
+(passt inhaltlich zu P3: dieselben Cluster-/Conversion-Ziele, die wir in P3 intern verlinkt haben —
+`/kontakt/`, `/events/`, die 6 Anlass- und 5 Kulinarik-Cluster-Seiten), plus die bestehenden zwei
+Detail-Links in korrekte Markdown-Syntax umwandeln.
+
+### P6.2 — Color-Contrast: 3 Elemente unter dem 4.5:1-Minimum (Homepage)
+
+Alle 3 exakt lokalisiert (Chrome-DevTools-Selektor + Ist/Soll-Kontrast):
+1. `figure.max-w-4xl > figcaption.mt-2` — Bildunterschrift „Lieferung mit eigenen…" — Kontrast 3.66
+   (Text `text-muted-foreground/75` auf `#faf8f5`).
+2. `section.py-10 > div.container > h2.font-display` — „ENTDECKEN SIE MEHR" — Kontrast 2.68 (Text
+   `text-muted-foreground/60`).
+3. Footer-Link „Maestro" (`/admin`) — Kontrast 1.97 (`#b36265` auf `#931f23`, schlechtester Wert).
+
+Fix: Opacity-Modifier bzw. Textfarbe der drei Elemente anheben, bis 4.5:1 erreicht ist (Tailwind:
+z. B. `/75`→`/90` oder dunklerer Farbton je nach Ist-Kontrast — Kontrastrechner nutzen, nicht raten).
+
+### P6.3 — Unused Preconnect-Hints entfernen
+
+`<link rel="preconnect" href="https://static.elfsight.com">` und
+`<link rel="preconnect" href="https://iieethejhwfsyzhbweps.supabase.co" crossorigin>` im `<head>`
+werden laut Lighthouse nie genutzt (falsche/veraltete Supabase-Projekt-ID? Das aktuelle Supabase-
+Projekt ist laut `.github/workflows/deploy-ionos.yml` `sovlfqncotxcjqseeawp`, nicht
+`iieethejhwfsyzhbweps` — vermutlich Altlast). Trivialer, risikofreier Cleanup.
+
+### P6.4 — Homepage-Grid-Bilder ohne responsive Auslieferung (~477 KiB Verschwendung)
+
+8 Bilder auf der Homepage werden in Originalgröße ausgeliefert, aber stark verkleinert angezeigt —
+größte Einzelposten: `hero-pizza-*.webp` (angezeigt 502×282, Datei 1615×1080 → 138 KB verschenkt),
+`firmenfeier-catering-muenchen-storia-*.webp` (506×282 vs. 1609×1071 → 125 KB), `catering-
+lieferservice-muenchen-storia-*.webp` (896×473 vs. 1500×792 → 114 KB). Verstößt gegen die eigene
+Konvention „Bilder: srcSet mit Breakpoint-Varianten" (`~/Developer/Websites/CLAUDE.md`). Fix:
+`srcSet`/`sizes` für die Homepage-Grid-Bilder ergänzen oder die Quelldateien auf ca. 2× Anzeigegröße
+zuschneiden (Retina-Faktor, nicht mehr).
+
+### Nicht in diesem Loop (bewusst zurückgestellt, größere Eingriffe)
+
+- **JS-Bundle `index-*.js` (352 KB, davon 172 KB „unused" laut Coverage):** Netzwerk-Ketten-Analyse
+  zeigt, dass die Homepage beim Laden sequenziell 8+ Supabase-Menu-Queries auslöst (menus →
+  menu_categories → menu_items je Kategorie), längste Kette 1.439 ms — Hauptursache für den
+  LCP-Wert. Ein echter Fix (Route-based Code-Splitting, Menu-Daten nur bei Bedarf laden statt beim
+  initialen Homepage-Render) ist eine Architektur-Entscheidung, kein mechanischer Loop-Schritt —
+  Kandidat für einen eigenen KONZEPT/LOOP, falls Antoine das priorisieren will.
+- **CSS-Bundle `index-*.css` (30 KB „unused" auf dieser Seite):** normales Verhalten bei einer
+  einzigen globalen Tailwind-Datei über eine Multi-Page-App hinweg — echte Reduktion bräuchte
+  CSS-Code-Splitting pro Route, ebenfalls kein Quick-Fix.
+
 ## Deploy-Modell dieses Repos (wichtig für die Loop-Disziplin)
 
 `.github/workflows/deploy-ionos.yml` deployt bei **jedem Push auf `main`** automatisch per SFTP auf
