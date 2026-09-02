@@ -178,7 +178,7 @@ const Index = () => {
                   loading="lazy"
                   decoding="async"
                 />
-                <figcaption className="mt-2 text-sm text-center text-muted-foreground/75 leading-snug">
+                <figcaption className="mt-2 text-sm text-center text-muted-foreground/90 leading-snug">
                   {language === "de"
                     ? "Lieferung mit eigenen und bei Bedarf gemieteten Fahrzeugen. Abbildung dient der symbolischen Darstellung."
                     : "Delivery with own and, if required, rented vehicles. Image is for illustrative purposes."}
@@ -222,7 +222,7 @@ const Index = () => {
           {/* Entdecken Sie mehr — Internal SEO Links Hub */}
           <section className="py-10 md:py-14 border-t border-border/50">
             <div className="container mx-auto px-4 text-center">
-              <h2 className="font-display text-sm md:text-base text-muted-foreground/60 tracking-[0.25em] uppercase mb-5">
+              <h2 className="font-display text-sm md:text-base text-muted-foreground/90 tracking-[0.25em] uppercase mb-5">
                 {language === 'de' ? 'Entdecken Sie mehr' : 'Discover More'}
               </h2>
               <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm md:text-base text-muted-foreground">

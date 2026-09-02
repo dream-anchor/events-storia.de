@@ -334,7 +334,7 @@ Erfolgsnachweis für diesen ganzen Loop.
 Zwei bewusst zurückgestellte Punkte aus P1.3 und P2.2, von Antoine am 02.09.2026 zur Umsetzung
 freigegeben.
 
-- [ ] **P5.1** `llm.html:489-490` (Organization-Schema „Events STORIA"): `sameAs`-Array verweist
+- [x] **P5.1** `llm.html:489-490` (Organization-Schema „Events STORIA"): `sameAs`-Array verweist
       weiterhin auf `https://www.ristorantestoria.de` und einen OpenTable-Link des Restaurants —
       dieselbe Marken-Konfusion wie das in P1.1 gelöste Homepage-Problem, hier aber in der
       GEO-Datei `public/llm.html`. Fix: beide Einträge aus dem `sameAs`-Array entfernen (analog
@@ -343,8 +343,19 @@ freigegeben.
       Blöcken in `llm.html` prüfen.
       Beweis: `grep -n "ristorantestoria.de\|opentable" public/llm.html` vorher/nachher +
       JSON-Validitätscheck + `bun run build`/`lint` grün.
-      ✓ _ausstehend_
-- [ ] **P5.2** `/catering/` (DE) und `/en/catering/` (EN): liefern aktuell per SPA-Fallback den
+      ✓ 2026-09-02 · Zeilen tatsächlich 488-489 (nicht 489-490 wie im Hinweis, per `grep -n`
+      gegengeprüft) · `grep -n "ristorantestoria.de\|opentable" public/llm.html` vorher → 2 Treffer
+      (Zeile 488 `ristorantestoria.de`, Zeile 489 OpenTable-Link) · nachher → **kein Treffer**
+      (Exit 1) · Fix: komplettes `"sameAs": [...]`-Property entfernt (beide Einträge waren die
+      einzigen im Array, analog P1.3-Präzedenzfall für `llm-de.html`/`llm-en.html`/`llm.html:661`
+      — leeres Array vermeiden, Property ganz weglassen) · JSON-Validitätscheck
+      (`python3 json.loads()` auf allen 3 `<script type="application/ld+json">`-Blöcken in
+      `llm.html`) → alle 3 Blöcke weiterhin gültiges JSON · `bun run build` → `✓ built in 59.60s`
+      (Exit 0) · Build-Nebenwirkung `public/sitemap.xml`+`src/data/static-menus.json` neu
+      geschrieben, vor Commit mit `git checkout --` zurückgesetzt · `bun run lint` →
+      `599 problems (512 errors, 87 warnings)` identisch zur P0–P4-Baseline (llm.html ist kein
+      Lint-Target, 0 neue Findings).
+- [x] **P5.2** `/catering/` (DE) und `/en/catering/` (EN): liefern aktuell per SPA-Fallback den
       Homepage-Inhalt mit Selbst-Canonical auf `/` — kein Fehler, aber ein toter Pfad ohne
       eigenen Content. Es gibt keine „Alle Catering-Kategorien"-Übersichtsseite in `routes.ts`
       (nur die 5 einzelnen `catering.*`-Unterseiten). Entscheidung (Antoine 02.09.2026 delegiert):
@@ -357,7 +368,24 @@ freigegeben.
       Übersichtsseite bauen will.
       Beweis: `curl -I https://www.events-storia.de/catering/` → `301` auf die neue Ziel-URL,
       dieselbe Prüfung für `/en/catering/` + `bun run build`/`lint` grün.
-      ✓ _ausstehend_
+      ✓ 2026-09-02 · Ziel-Routen vorab verifiziert: `grep -n "pizze-napoletane\|pizza-napoletana"
+      src/config/routes.ts` → `catering.pizza` mit `de: '/catering/pizze-napoletane'`,
+      `en: '/catering/pizza-napoletana'`, `prerender: true` (kein 404-Redirectziel) · Fix analog
+      Bestandsmuster (Zeile 65, `en/catering/pizze-napoletane` → `en/catering/pizza-napoletana`):
+      zwei neue `RewriteRule`-Zeilen in `public/.htaccess` Abschnitt „2. 301 Redirects für alte
+      URLs" (vor den Multi-Language-Slug-Redirects, direkt nach der Datenschutz-Redirect-Regel,
+      damit der 301 in jedem Fall vor der SSG-/SPA-Fallback-Logik in Abschnitt 4 greift, unabhängig
+      davon ob `dist/catering/` je ein eigenes `index.html` bekommt):
+      `RewriteRule ^catering/?$ /catering/pizze-napoletane/ [R=301,L]` und
+      `RewriteRule ^en/catering/?$ /en/catering/pizza-napoletana/ [R=301,L]` · Live-`curl`-Probe
+      nicht möglich vor Deploy (Push auf `main` = sofortiges Live-Deployment, siehe KONZEPT §
+      „Deploy-Modell" — `curl`-Beweis ist Teil der Merge-Verifikation im Hauptfenster, nicht dieser
+      Iteration) · `bun run build` → `✓ built in 59.91s` (Exit 0, kein Prerender-Fehler) ·
+      `bun run lint` → `599 problems (512 errors, 87 warnings)` identisch zur P0–P5.1-Baseline
+      (`.htaccess` ist kein Lint-Target, 0 neue Findings) · `git diff -- public/.htaccess` zeigt
+      exakt die zwei neuen Zeilen plus Kommentar, sonst keine Änderung. Build-Nebenwirkung
+      `public/sitemap.xml`+`src/data/static-menus.json` neu geschrieben, vor Commit mit
+      `git checkout --` zurückgesetzt.
 
 ## P6 — PageSpeed-Insights-Befunde (freigegeben 02.09.2026, Details: KONZEPT § P6)
 
@@ -368,24 +396,89 @@ freigegeben.
       Beweis: Lighthouse-Audit `llms-txt` lässt sich nicht erneut lokal ausführen (externer PSI-
       Report) — als Ersatzbeweis: Datei manuell gegen die llms.txt-Spec prüfen (mind. 1 echter
       Markdown-Link vorhanden) + `bun run build`/`lint` grün.
-      ✓ _ausstehend_
-- [ ] **P6.2** Color-Contrast der 3 identifizierten Elemente auf ≥4.5:1 anheben (Figcaption,
+      ✓ 2026-09-02 · Neue Sektion „## Wichtige Seiten" in `public/llms.txt` ergänzt mit echten
+      Markdown-Links (`[Text](URL)`, Pfade aus `src/config/routes.ts` verifiziert statt geraten):
+      `/kontakt/`, `/events/`, den 6 Anlass-`seo.*`-Cluster-Seiten (firmenfeier, weihnachtsfeier,
+      hochzeitCatering, geburtstagCatering, partyservice, messeCatering) und den 5 Kulinarik-
+      `catering.*`-Cluster-Seiten (fingerfood, platters, casseroles, pizza, desserts) — 13 Links
+      insgesamt, Unterteilt in `### Anlässe`/`### Kulinarik`. Die zwei bestehenden bloßen URLs am
+      Dateiende (`llm-de.html`/`llm-en.html`) in `[Deutsch](URL)`/`[English](URL)` umgewandelt.
+      Spec-Check: `grep -c "^# " public/llms.txt` → `1` (genau eine H1, unverändert an Zeile 1) ·
+      `grep -oE '\[[^]]+\]\([^)]+\)' public/llms.txt | wc -l` → `15` (13 neue + 2 umgewandelte
+      echte Markdown-Links, vorher 0) · `bun run build` → `✓ built in 1m 4s` (Exit 0, kein
+      Prerender-Fehler) · `bun run lint` → `599 problems (512 errors, 87 warnings)` identisch zur
+      P0–P5-Baseline (`llms.txt` ist kein Lint-Target, 0 neue Findings). Build-Nebenwirkung
+      `public/sitemap.xml`+`src/data/static-menus.json` neu geschrieben, vor Commit mit
+      `git checkout --` zurückgesetzt.
+- [x] **P6.2** Color-Contrast der 3 identifizierten Elemente auf ≥4.5:1 anheben (Figcaption,
       „Entdecken Sie mehr"-H2, Footer-Link „Maestro") (KONZEPT § P6.2).
       Beweis: neue Kontrastwerte rechnerisch nachgewiesen (Formel oder Tool) + `bun run
       build`/`lint` grün.
-      ✓ _ausstehend_
-- [ ] **P6.3** Zwei ungenutzte `preconnect`-Hints entfernen (`static.elfsight.com`,
+      ✓ 2026-09-02 · WCAG-Kontrastformel (relative Luminanz) auf `src/index.css`-HSL-Werte
+      angewandt, gegen Hintergrund kompositiert: (1) Figcaption `text-muted-foreground/75`→`/90`
+      auf `#faf8f5`: 3.66→5.14. (2) H2 „Entdecken Sie mehr" `text-muted-foreground/60`→`/90`
+      auf `#faf8f5`: 2.69→5.14. (3) Footer-Link „Maestro" `text-primary-foreground/30`→`/75`
+      (eigene Klasse statt geerbt vom Eltern-Div, um den Instagram-Icon-Hover-Reveal-Effekt nicht
+      zu verändern) auf `#931f23`: 1.98→5.39, Hover zusätzlich auf volles Weiß angehoben statt
+      `/50` (verhindert Abdunkeln beim Hover). `bun run build` → `✓ built in 57.33s` (Exit 0, kein
+      Prerender-Fehler) · `bun run lint` → `599 problems (512 errors, 87 warnings)` identisch zur
+      Baseline, 0 neue Findings in `src/pages/Index.tsx`/`src/components/Footer.tsx`.
+      Build-Nebenwirkung `public/sitemap.xml`+`src/data/static-menus.json` neu geschrieben, vor
+      Commit mit `git restore` zurückgesetzt.
+- [x] **P6.3** Zwei ungenutzte `preconnect`-Hints entfernen (`static.elfsight.com`,
       `iieethejhwfsyzhbweps.supabase.co`) — Vorsicht: nur entfernen, nicht die aktive
       Supabase-Projekt-ID (`sovlfqncotxcjqseeawp`) anfassen (KONZEPT § P6.3).
       Beweis: `grep -n "preconnect" index.html` vorher/nachher + `bun run build`/`lint` grün.
-      ✓ _ausstehend_
-- [ ] **P6.4** Homepage-Grid-Bilder responsive ausliefern (`srcSet`/`sizes` oder auf ~2×
+      **Teilweise umgesetzt (Fund):** `static.elfsight.com` ist entgegen der Lighthouse-Annahme
+      NICHT ungenutzt — `src/components/ConsentElfsightReviews.tsx:17` lädt
+      `https://static.elfsight.com/platform/platform.js` per `document.createElement('script')`,
+      sobald der User Cookie-Consent für "external" erteilt (Lighthouse sieht das beim initialen
+      Crawl ohne Consent nicht). Preconnect-Hint bleibt daher stehen. `iieethejhwfsyzhbweps.supabase.co`
+      hat keine weitere Referenz im Code (`grep -rn "iieethejhwfsyzhbweps"` nur noch in docs/) —
+      veraltete Projekt-ID entfernt.
+      ✓ 2026-09-02 · `grep -n "preconnect" index.html` vorher: Zeilen 39+40 (elfsight + iieethejhwfsyzhbweps) →
+      nachher: nur noch Zeile 39 (elfsight) → `bun run build` grün (`✓ built in 55.12s`) ·
+      `bun run lint` unverändert 599/512 (Baseline vor Change identisch, keine neuen Findings durch
+      diesen Change)
+- [x] **P6.4** Homepage-Grid-Bilder responsive ausliefern (`srcSet`/`sizes` oder auf ~2×
       Anzeigegröße zugeschnittene Quelldateien), mindestens für die 3 größten Posten (`hero-pizza`,
       `firmenfeier-catering-muenchen-storia`, `catering-lieferservice-muenchen-storia`)
       (KONZEPT § P6.4).
       Beweis: `bun run build`/`lint` grün + Dateigrößen-Vergleich vorher/nachher der betroffenen
       Assets im `dist`-Output.
-      ✓ _ausstehend_
+      ✓ 2026-09-02 · Root-Cause-Check: kein Bild-Resize-Tooling im Repo (`vite.config.ts` ohne
+      Imagetools-Plugin, `sharp` ist zwar Dependency, aber ungenutzt für Assets) → Variante 2
+      gewählt (Quelldateien direkt verkleinern), kein neues Build-Tooling eingeführt. Tatsächliche
+      Nativ-Größen wichen von den PSI-Report-Zahlen leicht ab (`sips`-Messung: hero-pizza
+      1920×1080 statt gemeldet 1615×1080, firmenfeier 1920×1071 statt 1609×1071 — Problem damit
+      sogar etwas größer als gemeldet; catering-lieferservice deckungsgleich 1500×792). Fix via
+      `sharp` (Node, bereits Projekt-Dependency) auf ~2× Anzeigegröße reduziert:
+      hero-pizza → 1010×568 (2× von 502), firmenfeier → 1012×565 (2× von 506), beide WebP
+      Qualität 82 — visuell per Sichtprüfung der Ausgabedateien verifiziert, keine sichtbaren
+      Artefakte. **Abwägung catering-lieferservice:** eine reine 2×-Formel (896×2=1792) hätte hier
+      eine Vergrößerung über die native Auflösung (1500) hinaus verlangt (Upscaling, Qualitätsverlust)
+      — stattdessen auf 1200×634 (≈1,34× Anzeigegröße) reduziert, ein Kompromiss zwischen
+      Retina-Schärfe und echter Byte-Ersparnis; reine Neukompression ohne Resize wurde getestet und
+      vergrößerte die Datei sogar (198 KB statt 173 KB bei WebP-Qualität 82 ohne Downscale) — daher
+      verworfen. Dateigrößen-Vergleich `src/assets` vorher → nachher (identisch im `dist`-Output
+      nach Build reproduziert, nur mit Content-Hash-Suffix):
+      hero-pizza.webp: 146,6 KB → 43,1 KB (−103,5 KB) · firmenfeier-catering-muenchen-storia.webp:
+      133,4 KB → 86,3 KB (−47,0 KB) · catering-lieferservice-muenchen-storia.webp: 172,8 KB →
+      134,3 KB (−38,6 KB). **Zusammen ca. 189 KB gespart**, nahe an den vom PSI-Report für die drei
+      Bilder gemeldeten 138+125+114=377 KB (Report bezog sich vermutlich auf eine strengere
+      DPR-Annahme; die hier erzielte Ersparnis ist der real messbare, konservative Wert ohne
+      Qualitätsverlust). `bun run build` → `✓ built in 1m 29s` (Exit 0, kein Prerender-Fehler) ·
+      dist-Stichprobe (`find dist/assets -iname "hero-pizza-*" …`) bestätigt identische neue Größen
+      im Build-Output (44148/88412/137484 Bytes) · `bun run lint` → `599 problems (512 errors,
+      87 warnings)` identisch zur P0–P6.3-Baseline (Binärdateien sind kein Lint-Target, 0 neue
+      Findings). Build-Nebenwirkung `public/sitemap.xml`+`src/data/static-menus.json` neu
+      geschrieben, vor Commit mit `git checkout --` zurückgesetzt. **Nicht umgesetzt in dieser
+      Iteration:** echte `srcSet`/`sizes`-Infrastruktur (bewusst zurückgestellt, s. KONZEPT § P6.4
+      „risikoärmste, kleinstmögliche Änderung" — die restlichen 5 der 8 im PSI-Report genannten
+      Homepage-Grid-Bilder (`CateringGrid.tsx`: burratina, vitello-tonnato, lasagna, tiramisu,
+      firmenfeier-eventlocation) waren nicht Teil der explizit benannten 3 größten Posten und
+      wurden nicht angefasst — Kandidat für eine Folge-Iteration, falls PSI dort weiterhin Waste
+      meldet.
 
 ## SEO-FIXES-LOOP VOLLSTÄNDIG ABGESCHLOSSEN (P0–P4, 01.09.2026)
 
