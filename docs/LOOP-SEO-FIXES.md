@@ -410,11 +410,21 @@ freigegeben.
       P0–P5-Baseline (`llms.txt` ist kein Lint-Target, 0 neue Findings). Build-Nebenwirkung
       `public/sitemap.xml`+`src/data/static-menus.json` neu geschrieben, vor Commit mit
       `git checkout --` zurückgesetzt.
-- [ ] **P6.2** Color-Contrast der 3 identifizierten Elemente auf ≥4.5:1 anheben (Figcaption,
+- [x] **P6.2** Color-Contrast der 3 identifizierten Elemente auf ≥4.5:1 anheben (Figcaption,
       „Entdecken Sie mehr"-H2, Footer-Link „Maestro") (KONZEPT § P6.2).
       Beweis: neue Kontrastwerte rechnerisch nachgewiesen (Formel oder Tool) + `bun run
       build`/`lint` grün.
-      ✓ _ausstehend_
+      ✓ 2026-09-02 · WCAG-Kontrastformel (relative Luminanz) auf `src/index.css`-HSL-Werte
+      angewandt, gegen Hintergrund kompositiert: (1) Figcaption `text-muted-foreground/75`→`/90`
+      auf `#faf8f5`: 3.66→5.14. (2) H2 „Entdecken Sie mehr" `text-muted-foreground/60`→`/90`
+      auf `#faf8f5`: 2.69→5.14. (3) Footer-Link „Maestro" `text-primary-foreground/30`→`/75`
+      (eigene Klasse statt geerbt vom Eltern-Div, um den Instagram-Icon-Hover-Reveal-Effekt nicht
+      zu verändern) auf `#931f23`: 1.98→5.39, Hover zusätzlich auf volles Weiß angehoben statt
+      `/50` (verhindert Abdunkeln beim Hover). `bun run build` → `✓ built in 57.33s` (Exit 0, kein
+      Prerender-Fehler) · `bun run lint` → `599 problems (512 errors, 87 warnings)` identisch zur
+      Baseline, 0 neue Findings in `src/pages/Index.tsx`/`src/components/Footer.tsx`.
+      Build-Nebenwirkung `public/sitemap.xml`+`src/data/static-menus.json` neu geschrieben, vor
+      Commit mit `git restore` zurückgesetzt.
 - [ ] **P6.3** Zwei ungenutzte `preconnect`-Hints entfernen (`static.elfsight.com`,
       `iieethejhwfsyzhbweps.supabase.co`) — Vorsicht: nur entfernen, nicht die aktive
       Supabase-Projekt-ID (`sovlfqncotxcjqseeawp`) anfassen (KONZEPT § P6.3).
