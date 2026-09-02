@@ -339,6 +339,7 @@ Erfolgsnachweis für diesen ganzen Loop.
 
 - 2026-09-01 · P4.1 · `scripts/service-account.json` fehlt lokal, gitignored, kein Zugriff ohne
   Antoines Bereitstellung · benötigt: Datei am genannten Pfad oder `GOOGLE_APPLICATION_CREDENTIALS`.
+  **Aufgelöst 2026-09-01:** Antoine hat einen neuen Key aus der GCP Console bereitgestellt, s. P4.1c.
 
 ## Abschluss
 
