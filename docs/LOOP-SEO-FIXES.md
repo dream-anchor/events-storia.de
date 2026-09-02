@@ -334,7 +334,7 @@ Erfolgsnachweis für diesen ganzen Loop.
 Zwei bewusst zurückgestellte Punkte aus P1.3 und P2.2, von Antoine am 02.09.2026 zur Umsetzung
 freigegeben.
 
-- [ ] **P5.1** `llm.html:489-490` (Organization-Schema „Events STORIA"): `sameAs`-Array verweist
+- [x] **P5.1** `llm.html:489-490` (Organization-Schema „Events STORIA"): `sameAs`-Array verweist
       weiterhin auf `https://www.ristorantestoria.de` und einen OpenTable-Link des Restaurants —
       dieselbe Marken-Konfusion wie das in P1.1 gelöste Homepage-Problem, hier aber in der
       GEO-Datei `public/llm.html`. Fix: beide Einträge aus dem `sameAs`-Array entfernen (analog
@@ -343,7 +343,18 @@ freigegeben.
       Blöcken in `llm.html` prüfen.
       Beweis: `grep -n "ristorantestoria.de\|opentable" public/llm.html` vorher/nachher +
       JSON-Validitätscheck + `bun run build`/`lint` grün.
-      ✓ _ausstehend_
+      ✓ 2026-09-02 · Zeilen tatsächlich 488-489 (nicht 489-490 wie im Hinweis, per `grep -n`
+      gegengeprüft) · `grep -n "ristorantestoria.de\|opentable" public/llm.html` vorher → 2 Treffer
+      (Zeile 488 `ristorantestoria.de`, Zeile 489 OpenTable-Link) · nachher → **kein Treffer**
+      (Exit 1) · Fix: komplettes `"sameAs": [...]`-Property entfernt (beide Einträge waren die
+      einzigen im Array, analog P1.3-Präzedenzfall für `llm-de.html`/`llm-en.html`/`llm.html:661`
+      — leeres Array vermeiden, Property ganz weglassen) · JSON-Validitätscheck
+      (`python3 json.loads()` auf allen 3 `<script type="application/ld+json">`-Blöcken in
+      `llm.html`) → alle 3 Blöcke weiterhin gültiges JSON · `bun run build` → `✓ built in 59.60s`
+      (Exit 0) · Build-Nebenwirkung `public/sitemap.xml`+`src/data/static-menus.json` neu
+      geschrieben, vor Commit mit `git checkout --` zurückgesetzt · `bun run lint` →
+      `599 problems (512 errors, 87 warnings)` identisch zur P0–P4-Baseline (llm.html ist kein
+      Lint-Target, 0 neue Findings).
 - [ ] **P5.2** `/catering/` (DE) und `/en/catering/` (EN): liefern aktuell per SPA-Fallback den
       Homepage-Inhalt mit Selbst-Canonical auf `/` — kein Fehler, aber ein toter Pfad ohne
       eigenen Content. Es gibt keine „Alle Catering-Kategorien"-Übersichtsseite in `routes.ts`
