@@ -396,7 +396,20 @@ freigegeben.
       Beweis: Lighthouse-Audit `llms-txt` lässt sich nicht erneut lokal ausführen (externer PSI-
       Report) — als Ersatzbeweis: Datei manuell gegen die llms.txt-Spec prüfen (mind. 1 echter
       Markdown-Link vorhanden) + `bun run build`/`lint` grün.
-      ✓ _ausstehend_
+      ✓ 2026-09-02 · Neue Sektion „## Wichtige Seiten" in `public/llms.txt` ergänzt mit echten
+      Markdown-Links (`[Text](URL)`, Pfade aus `src/config/routes.ts` verifiziert statt geraten):
+      `/kontakt/`, `/events/`, den 6 Anlass-`seo.*`-Cluster-Seiten (firmenfeier, weihnachtsfeier,
+      hochzeitCatering, geburtstagCatering, partyservice, messeCatering) und den 5 Kulinarik-
+      `catering.*`-Cluster-Seiten (fingerfood, platters, casseroles, pizza, desserts) — 13 Links
+      insgesamt, Unterteilt in `### Anlässe`/`### Kulinarik`. Die zwei bestehenden bloßen URLs am
+      Dateiende (`llm-de.html`/`llm-en.html`) in `[Deutsch](URL)`/`[English](URL)` umgewandelt.
+      Spec-Check: `grep -c "^# " public/llms.txt` → `1` (genau eine H1, unverändert an Zeile 1) ·
+      `grep -oE '\[[^]]+\]\([^)]+\)' public/llms.txt | wc -l` → `15` (13 neue + 2 umgewandelte
+      echte Markdown-Links, vorher 0) · `bun run build` → `✓ built in 1m 4s` (Exit 0, kein
+      Prerender-Fehler) · `bun run lint` → `599 problems (512 errors, 87 warnings)` identisch zur
+      P0–P5-Baseline (`llms.txt` ist kein Lint-Target, 0 neue Findings). Build-Nebenwirkung
+      `public/sitemap.xml`+`src/data/static-menus.json` neu geschrieben, vor Commit mit
+      `git checkout --` zurückgesetzt.
 - [ ] **P6.2** Color-Contrast der 3 identifizierten Elemente auf ≥4.5:1 anheben (Figcaption,
       „Entdecken Sie mehr"-H2, Footer-Link „Maestro") (KONZEPT § P6.2).
       Beweis: neue Kontrastwerte rechnerisch nachgewiesen (Formel oder Tool) + `bun run
