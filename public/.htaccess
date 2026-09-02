@@ -49,6 +49,10 @@ RewriteRule ^gallerie(/.*)?$ /events/ [R=301,L]
 # Alte Datenschutz-URL → aktuelle Seite
 RewriteRule ^datenschutzerklaerung/?$ /datenschutz/ [R=301,L]
 
+# Catering-Übersicht ohne eigenen Content -> vollständigste Kulinarik-Unterseite (P5.2)
+RewriteRule ^catering/?$ /catering/pizze-napoletane/ [R=301,L]
+RewriteRule ^en/catering/?$ /en/catering/pizza-napoletana/ [R=301,L]
+
 # Legacy WordPress URLs → 410 Gone
 RewriteRule ^comments/feed(/.*)?$ - [G,L]
 RewriteRule ^feed(/.*)?$ - [G,L]

@@ -355,7 +355,7 @@ freigegeben.
       geschrieben, vor Commit mit `git checkout --` zurückgesetzt · `bun run lint` →
       `599 problems (512 errors, 87 warnings)` identisch zur P0–P4-Baseline (llm.html ist kein
       Lint-Target, 0 neue Findings).
-- [ ] **P5.2** `/catering/` (DE) und `/en/catering/` (EN): liefern aktuell per SPA-Fallback den
+- [x] **P5.2** `/catering/` (DE) und `/en/catering/` (EN): liefern aktuell per SPA-Fallback den
       Homepage-Inhalt mit Selbst-Canonical auf `/` — kein Fehler, aber ein toter Pfad ohne
       eigenen Content. Es gibt keine „Alle Catering-Kategorien"-Übersichtsseite in `routes.ts`
       (nur die 5 einzelnen `catering.*`-Unterseiten). Entscheidung (Antoine 02.09.2026 delegiert):
@@ -368,7 +368,24 @@ freigegeben.
       Übersichtsseite bauen will.
       Beweis: `curl -I https://www.events-storia.de/catering/` → `301` auf die neue Ziel-URL,
       dieselbe Prüfung für `/en/catering/` + `bun run build`/`lint` grün.
-      ✓ _ausstehend_
+      ✓ 2026-09-02 · Ziel-Routen vorab verifiziert: `grep -n "pizze-napoletane\|pizza-napoletana"
+      src/config/routes.ts` → `catering.pizza` mit `de: '/catering/pizze-napoletane'`,
+      `en: '/catering/pizza-napoletana'`, `prerender: true` (kein 404-Redirectziel) · Fix analog
+      Bestandsmuster (Zeile 65, `en/catering/pizze-napoletane` → `en/catering/pizza-napoletana`):
+      zwei neue `RewriteRule`-Zeilen in `public/.htaccess` Abschnitt „2. 301 Redirects für alte
+      URLs" (vor den Multi-Language-Slug-Redirects, direkt nach der Datenschutz-Redirect-Regel,
+      damit der 301 in jedem Fall vor der SSG-/SPA-Fallback-Logik in Abschnitt 4 greift, unabhängig
+      davon ob `dist/catering/` je ein eigenes `index.html` bekommt):
+      `RewriteRule ^catering/?$ /catering/pizze-napoletane/ [R=301,L]` und
+      `RewriteRule ^en/catering/?$ /en/catering/pizza-napoletana/ [R=301,L]` · Live-`curl`-Probe
+      nicht möglich vor Deploy (Push auf `main` = sofortiges Live-Deployment, siehe KONZEPT §
+      „Deploy-Modell" — `curl`-Beweis ist Teil der Merge-Verifikation im Hauptfenster, nicht dieser
+      Iteration) · `bun run build` → `✓ built in 59.91s` (Exit 0, kein Prerender-Fehler) ·
+      `bun run lint` → `599 problems (512 errors, 87 warnings)` identisch zur P0–P5.1-Baseline
+      (`.htaccess` ist kein Lint-Target, 0 neue Findings) · `git diff -- public/.htaccess` zeigt
+      exakt die zwei neuen Zeilen plus Kommentar, sonst keine Änderung. Build-Nebenwirkung
+      `public/sitemap.xml`+`src/data/static-menus.json` neu geschrieben, vor Commit mit
+      `git checkout --` zurückgesetzt.
 
 ## P6 — PageSpeed-Insights-Befunde (freigegeben 02.09.2026, Details: KONZEPT § P6)
 
