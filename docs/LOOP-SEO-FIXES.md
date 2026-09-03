@@ -521,7 +521,23 @@ dreifach im Repo, P6.4 hat nur eine der drei Kopien verkleinert:
         Aufwand**.
       Beweis: `bun run build`/`lint` grün + Dateigrößen-Vergleich vorher/nachher aller
       angefassten Assets, Seitenverhältnis-Check (kein Crop/keine Verzerrung) wie in P6.4.
-      ✓ _ausstehend_
+      ✓ 2026-09-03 · `bun run build` → grün (69s, dist erzeugt) · `bun run lint` → 599 Probleme,
+      identisch zur Baseline auf `main` vor diesem Commit (bestätigt per `git stash` +
+      erneutem Lint-Lauf), keine neuen Fehler durch diese Änderung · Dateigrößen (sips-Dimension
+      vorher/nachher, Format via node+sharp, `quality`/`effort:6`, kein Crop):
+      `firmenfeier-eventlocation-storia-muenchen.webp` 1920×1071/136.558B →
+      1012×565/79.776B (−41,6%); `firmenfeier-eventlocation-storia-muenchen-2.webp` identisch
+      136.558B → 79.776B (−41,6%); `vitello-tonnato.webp` 768×768/63.112B → 768×768/28.372B
+      (−55,0%, nur Kompression, kein Resize da Quelle bereits ≤2× Retina-Ziel); `lasagna.webp`
+      579×579/59.722B → 579×579/26.162B (−56,2%); `burratina.webp` 768×768/34.724B →
+      768×768/30.524B (−12,1%); `tiramisu.webp` 768×768/28.346B → 768×768/23.964B (−15,5%);
+      `catering-lieferservice-muenchen-storia.webp` 1200×634/137.484B → 1200×634/110.002B
+      (−20,0%, reine Nachkompression wie im Kriterium vorgegeben); `hero-pizza.webp`
+      1010×568/44.148B → 1010×568/31.770B (−28,0%, niedrige Priorität, leicht mit erledigt).
+      `storia-logo.webp` bewusst **unverändert gelassen**: Resize auf 400×322 bei jeder getesteten
+      Quality-Stufe (60–90, inkl. lossless/near-lossless) ergab größere Dateien als das Original
+      (15.180B) — Original ist für dieses flache Logo-Motiv bereits optimal komprimiert, kein
+      Gewinn erzielbar. Summe der 8 gefixten Assets: 640.652B → 470.346B (−170.306B / −26,6%).
 
 ## SEO-FIXES-LOOP VOLLSTÄNDIG ABGESCHLOSSEN (P0–P4, 01.09.2026)
 
