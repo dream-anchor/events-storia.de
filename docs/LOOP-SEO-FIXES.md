@@ -480,6 +480,49 @@ freigegeben.
       wurden nicht angefasst — Kandidat für eine Folge-Iteration, falls PSI dort weiterhin Waste
       meldet.
 
+## P6.5 — Follow-up-PageSpeed-Check (03.09.2026) und verbleibende Bilder
+
+Neuer PSI-Report vom 03.09.2026 (Homepage) bestätigt P6.1–P6.3: **Agentic Browsing 0.67→1.0**,
+**Accessibility 0.96→1.0**. Performance-Score 0.97→0.95 ist kein Regressions-Signal — Bild-Waste
+ist real von 477 KiB auf 327 KiB gesunken (deckt sich mit den 3 in P6.4 gefixten Bildern), die
+Score-Differenz ist Lauf-zu-Lauf-Varianz bei FCP/LCP nahe der Bewertungsschwelle.
+
+**Root Cause für den größten verbleibenden Posten gefunden:** dasselbe Firmenfeier-Foto liegt
+dreifach im Repo, P6.4 hat nur eine der drei Kopien verkleinert:
+- `src/assets/events/firmenfeier-catering-muenchen-storia.webp` — **bereits gefixt** (P6.4,
+  88.412 Bytes), genutzt in `EventPackageShopCard.tsx` + `EventsImStoria.tsx` (`firmenfeierImg`).
+- `src/assets/events/firmenfeier-eventlocation-storia-muenchen.webp` — **noch Original-Größe**
+  (136.558 Bytes), genutzt in `CateringGrid.tsx` (`eventsImg`) — **das ist die Komponente, die auf
+  der Homepage den PSI-Befund auslöst** (`Index.tsx` rendert `<CateringGrid />`).
+  Größter Einzelposten: 125 KB Verschwendung.
+- `src/assets/events/firmenfeier-eventlocation-storia-muenchen-2.webp` — ebenfalls noch
+  Original-Größe (136.558 Bytes), genutzt in `EventsImStoria.tsx` (`heroImg`) — nicht auf der
+  Homepage, aber dieselbe Foto-Familie, gleiches Muster, sinnvoll mitzunehmen.
+
+- [ ] **P6.5** Alle verbleibenden oversized/unkomprimierten Bilder aus dem PSI-Report vom
+      03.09.2026 fixen, gleiches Muster wie P6.4 (Quelldatei auf ~2× Anzeigegröße zuschneiden,
+      WebP-Format beibehalten, kein Crop/keine Verzerrung):
+      - `firmenfeier-eventlocation-storia-muenchen.webp` → analog zum bereits gefixten
+        `firmenfeier-catering-muenchen-storia.webp` auf ~1000-1050px Breite (angezeigt 506×282).
+      - `firmenfeier-eventlocation-storia-muenchen-2.webp` → gleiche Zielgröße (dieselbe Foto-
+        Familie, keine explizite Anzeigegröße im aktuellen Report bekannt — am bereits gefixten
+        Pendant orientieren).
+      - `src/assets/catering/platten/vitello-tonnato.webp`, `src/assets/catering/auflauf/
+        lasagna.webp`, `src/assets/catering/fingerfood/burratina.webp`, `src/assets/catering/
+        fingerfood/tiramisu.webp` → angezeigt je 424×424 auf der Homepage, Quellen aktuell
+        768×511–768×514 → auf ~850×850 zuschneiden (2× Retina).
+      - `src/assets/storia-logo.webp` → angezeigt 199×160, Quelle 500×403 → auf ~400×320.
+      - `catering-lieferservice-muenchen-storia.webp` (bereits in P6.4 dimensional gefixt) →
+        verbleibender Befund ist jetzt reine Kompression („höhere Bildkomprimierung könnte die
+        Downloadgröße verbessern"), kein Resize mehr nötig — WebP-Qualität moderat nachschärfen.
+      - `hero-pizza.webp` (bereits in P6.4 gefixt) → nur noch 31 KB Rest-Waste bei bereits
+        akzeptabler Größe (849×568 für 502×282 Anzeige, ca. 1,7×) — **niedrige Priorität,
+        nur anfassen falls die anderen Fixes leicht miterledigt werden können, kein eigener
+        Aufwand**.
+      Beweis: `bun run build`/`lint` grün + Dateigrößen-Vergleich vorher/nachher aller
+      angefassten Assets, Seitenverhältnis-Check (kein Crop/keine Verzerrung) wie in P6.4.
+      ✓ _ausstehend_
+
 ## SEO-FIXES-LOOP VOLLSTÄNDIG ABGESCHLOSSEN (P0–P4, 01.09.2026)
 
 ---
