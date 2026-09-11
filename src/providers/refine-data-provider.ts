@@ -23,7 +23,7 @@ const mapResource = (resource: string): SupabaseTable => {
   return mapping[resource] || resource as SupabaseTable;
 };
 
-type FilterOperator = 'eq' | 'ne' | 'lt' | 'gt' | 'lte' | 'gte' | 'contains' | 'containss' | 'in';
+type FilterOperator = 'eq' | 'ne' | 'lt' | 'gt' | 'lte' | 'gte' | 'contains' | 'containss' | 'in' | 'null';
 
 interface CrudFilter {
   field: string;
@@ -78,6 +78,8 @@ const buildLogicalExpression = (filters: any[]): string =>
           return `${f.field}.neq.${v}`;
         case 'in':
           return `${f.field}.in.(${(f.value as unknown[]).map(sanitizeValue).join(',')})`;
+        case 'null':
+          return `${f.field}.is.null`;
         default:
           return `${f.field}.${f.operator}.${v}`;
       }

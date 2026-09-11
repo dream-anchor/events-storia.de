@@ -32,7 +32,7 @@ export const useEventInquiries = (statusFilter?: InquiryStatus | 'all') => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!showTestData) query = query.neq('is_test', true);
+      if (!showTestData) query = query.or('is_test.is.null,is_test.eq.false');
       if (statusFilter && statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       }
@@ -109,7 +109,7 @@ export const useNewInquiriesCount = () => {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'new');
 
-      if (!showTestData) query = query.neq('is_test', true);
+      if (!showTestData) query = query.or('is_test.is.null,is_test.eq.false');
 
       const { count, error } = await query;
       if (error) throw error;
