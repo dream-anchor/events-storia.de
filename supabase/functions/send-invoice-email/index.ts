@@ -333,7 +333,7 @@ serve(async (req) => {
 
     const { data: inquiry, error: invErr } = await supabase
       .from('v2_events')
-      .select('id, tenant_id, customer_id, company_name, customer_language, date, guest_count, amount_total, invoice_lexoffice_id, invoice_lexoffice_number, final_lexoffice_invoice_id, final_lexoffice_invoice_number, is_test, customer:v2_customers!v2_events_customer_id_fkey(email, name, company)')
+      .select('id, tenant_id, customer_id, company_name, customer_language, date, guest_count, amount_total, invoice_lexoffice_id, invoice_lexoffice_number, lexoffice_document_type, lexoffice_quotation_id, final_lexoffice_invoice_id, final_lexoffice_invoice_number, is_test, customer:v2_customers!v2_events_customer_id_fkey(email, name, company)')
       .eq('id', body.inquiry_id)
       .single();
     if (invErr || !inquiry) {
