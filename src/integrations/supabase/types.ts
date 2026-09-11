@@ -7309,6 +7309,10 @@ export type Database = {
       }
       current_tenant_id: { Args: never; Returns: string }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      enqueue_v2_event_handoff_by_id: {
+        Args: { p_event_id: string }
+        Returns: string
+      }
       generate_booking_number: { Args: never; Returns: string }
       get_balance_payment_link_by_slug: {
         Args: { p_slug: string }
