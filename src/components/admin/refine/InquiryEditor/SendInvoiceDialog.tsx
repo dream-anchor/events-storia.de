@@ -252,8 +252,8 @@ export const SendInvoiceDialog = ({
   }, [open, language, extraNote, inquiryId, activeInvoiceId, pdfError]);
 
   const canSend = useMemo(() =>
-    !sending && !balanceOnSite && invoiceExists && !pdfError && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
-  [sending, balanceOnSite, invoiceExists, pdfError, recipient, preview.html]);
+    !sending && (!balanceOnSite || onSiteOverride) && invoiceExists && !pdfError && recipient.trim().length > 3 && recipient.includes("@") && !!preview.html,
+  [sending, balanceOnSite, onSiteOverride, invoiceExists, pdfError, recipient, preview.html]);
 
   const handleSend = async () => {
     setSending(true);
