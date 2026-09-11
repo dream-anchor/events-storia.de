@@ -306,7 +306,7 @@ export const SendInvoiceDialog = ({
                 <div className="mt-1 text-xs text-muted-foreground">
                   {activeInvoiceNumber ? `Rechnung ${activeInvoiceNumber}` : "Die verknüpfte Rechnung"} wird angezeigt und versendet. Es wird keine neue Rechnung erzeugt.
                 </div>
-                {!balanceOnSite && (
+                {(!balanceOnSite || onSiteOverride) && (
                   <Button
                     type="button"
                     variant="ghost"
