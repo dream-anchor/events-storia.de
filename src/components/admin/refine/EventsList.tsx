@@ -209,7 +209,13 @@ export const EventsList = () => {
     sorters: [{ field: "created_at", order: "desc" }],
     filters: showTestData
       ? []
-      : [{ field: "is_test", operator: "ne", value: true }],
+      : [{
+          operator: "or",
+          value: [
+            { field: "is_test", operator: "null", value: true },
+            { field: "is_test", operator: "eq", value: false },
+          ],
+        }],
     queryOptions: {
       queryKey: ["events-list", showTestData, serverPageSize] as unknown as readonly unknown[],
     },
@@ -244,10 +250,10 @@ export const EventsList = () => {
         ].join(","))
         .order("created_at", { ascending: false })
         .limit(200);
+      if (!showTestData) query = query.or("is_test.is.null,is_test.eq.false");
       const { data, error } = await query;
       if (error) throw error;
-      const rows = (data ?? []) as unknown as EventInquiry[];
-      return showTestData ? rows : rows.filter((event) => event.is_test !== true);
+      return (data ?? []) as unknown as EventInquiry[];
     },
   });
 
@@ -258,7 +264,7 @@ export const EventsList = () => {
   const bookingsQuery = useQuery({
     queryKey: ["events-list-bookings", showTestData],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("event_bookings")
         .select(
           "id, booking_number, customer_name, company_name, customer_email, phone, guest_count, event_date, event_time, status, payment_status, total_amount, source_inquiry_id, menu_confirmed, created_at, updated_at, is_test"
@@ -266,9 +272,10 @@ export const EventsList = () => {
         .is("source_inquiry_id", null)
         .not("status", "in", "(cancelled,refunded)")
         .limit(200);
+      if (!showTestData) query = query.or("is_test.is.null,is_test.eq.false");
+      const { data, error } = await query;
       if (error) throw error;
-      const rows = (data || []) as any[];
-      return showTestData ? rows : rows.filter(r => r.is_test !== true);
+      return (data || []) as any[];
     },
   });
 
