@@ -65,6 +65,7 @@ export const SendInvoiceDialog = ({
   const [createError, setCreateError] = useState<string | null>(null);
   const [confirmAdditionalInvoice, setConfirmAdditionalInvoice] = useState(false);
   const [balanceOnSite, setBalanceOnSite] = useState(false);
+  const [onSiteOverride, setOnSiteOverride] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => { setInvoiceExists(!!hasInvoiceProp); }, [hasInvoiceProp]);
