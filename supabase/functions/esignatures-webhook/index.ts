@@ -141,6 +141,28 @@ Deno.serve(async (req) => {
           offer_phase: "confirmed",
         })
         .eq("id", existing.inquiry_id);
+
+      // Unterschriebene Kostenübernahme = verbindlicher Auftrag.
+      // Best-effort Übergabe an MAESTRO (idempotent, ON CONFLICT DO NOTHING).
+      try {
+        const { data: handoff, error: handoffErr } = await supabase.rpc(
+          "enqueue_v2_event_handoff_by_id",
+          { p_event_id: existing.inquiry_id },
+        );
+        if (handoffErr) {
+          console.error(
+            "[esignatures-webhook] maestro handoff failed:",
+            String(handoffErr.message ?? "unknown").slice(0, 300),
+          );
+        } else {
+          console.log("[esignatures-webhook] maestro handoff:", handoff);
+        }
+      } catch (e) {
+        console.error(
+          "[esignatures-webhook] maestro handoff threw:",
+          String((e as Error)?.message ?? "unknown").slice(0, 300),
+        );
+      }
     };
 
     const truncateErr = (e: unknown) =>
