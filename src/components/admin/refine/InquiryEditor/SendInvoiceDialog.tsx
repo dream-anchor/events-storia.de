@@ -504,8 +504,8 @@ export const SendInvoiceDialog = ({
             disabled={!canSend}
             className="gap-2"
             title={
-              balanceOnSite
-                ? "Restzahlung erfolgt vor Ort — keine Schlussrechnung erlaubt"
+              balanceOnSite && !onSiteOverride
+                ? "Restzahlung erfolgt vor Ort — Rechnung nur nach bewusster Freigabe im Tab „Rechnung PDF“"
                 : !invoiceExists
                   ? "Bitte zuerst Endrechnung erzeugen"
                   : undefined
