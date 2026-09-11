@@ -78,6 +78,7 @@ export const SendInvoiceDialog = ({
       setExtraNote("");
       setCreateError(null);
       setBalanceOnSite(false);
+      setOnSiteOverride(false);
       setActiveInvoiceNumber(invoiceNumber ?? null);
       setConfirmAdditionalInvoice(false);
       // Re-check live ob eine Rechnung verknuepft ist. Eine vorhandene Rechnung
