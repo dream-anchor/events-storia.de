@@ -1648,7 +1648,7 @@ serve(async (req) => {
 
     // Bei Überweisung muss die Bankverbindung auf dem Dokument stehen.
     const BANK_DETAILS_LINE =
-      'Bankverbindung: Domenico Speranza · Deutsche Bank · IBAN DE47 7007 0024 0095 6946 00';
+      'Bankverbindung: Domenico Speranza · Deutsche Bank · IBAN DE47 7007 0024 0095 6946 00 · BIC DEUTDEDBMUC';
     const usesBankTransfer =
       [balanceMethod, depositMethod, paymentMethod].some(
         (m) => m === 'invoice' || m === 'invoice_before' || m === 'invoice_after' || m === 'bank_transfer',
