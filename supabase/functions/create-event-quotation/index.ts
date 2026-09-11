@@ -1365,6 +1365,7 @@ serve(async (req) => {
             if (!totalsMatch) driftReasons.push('price');
             if (!remarkMatches) driftReasons.push('remark');
             if (!taxTypeMatches) driftReasons.push('tax_type');
+            if (!paymentLabelMatches) driftReasons.push('payment_terms');
             const driftReason = `${driftReasons.join('_and_')}_drift_detected`;
             await supabase.from('activity_logs').insert({
               entity_type: 'event_inquiry',
