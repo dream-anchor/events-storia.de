@@ -411,28 +411,31 @@ export const SendInvoiceDialog = ({
 
               <TabsContent value="pdf" className="flex-1 m-0 mt-3 mx-6 mb-6 min-h-0">
                 <div className="h-full rounded-2xl border border-border/60 bg-muted/30 overflow-hidden relative">
-                  {balanceOnSite ? (
+                  {balanceOnSite && !onSiteOverride ? (
                     <div className="h-full flex flex-col items-center justify-center gap-4 p-8 text-center">
                       <div className="h-12 w-12 rounded-2xl bg-background border border-border/60 flex items-center justify-center">
                         <AlertCircle className="h-6 w-6 text-muted-foreground" />
                       </div>
                       <div className="space-y-2 max-w-md">
-                        <p className="text-sm font-medium">Keine Schlussrechnung – Restzahlung erfolgt vor Ort</p>
+                        <p className="text-sm font-medium">Restzahlung ist auf „vor Ort“ gesetzt</p>
                         <p className="text-xs text-muted-foreground">
-                          Die Restzahlung wird vor Ort beim Event über das Kassensystem abgewickelt und dort separat quittiert.
-                          Es darf <strong>keine</strong> zusätzliche LexOffice-Schlussrechnung über den Gesamtbetrag erstellt werden,
-                          um eine doppelte Rechnungsstellung zu vermeiden.
+                          Normalerweise quittiert das Kassensystem vor Ort. Erstelle hier nur dann eine LexOffice-Rechnung,
+                          wenn der Kunde ausdrücklich eine Rechnung benötigt — sonst droht doppelte Rechnungsstellung.
                         </p>
-                        {invoiceExists ? (
+                        {invoiceExists && (
                           <p className="text-xs text-muted-foreground">
-                            Die bereits ausgestellte <strong>Anzahlungsrechnung</strong> dient als finaler LexOffice-Beleg.
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Es wurde noch keine Anzahlung gebucht — die komplette Zahlung läuft vor Ort über das Kassensystem.
+                            Es ist bereits ein LexOffice-Beleg verknüpft{activeInvoiceNumber ? ` (${activeInvoiceNumber})` : ""}.
                           </p>
                         )}
                       </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setOnSiteOverride(true)}
+                        className="gap-2"
+                      >
+                        <FilePlus2 className="h-4 w-4" />
+                        Trotzdem Rechnung erstellen
+                      </Button>
                     </div>
                   ) : !invoiceExists ? (
                     <div className="h-full flex flex-col items-center justify-center gap-4 p-8 text-center">
