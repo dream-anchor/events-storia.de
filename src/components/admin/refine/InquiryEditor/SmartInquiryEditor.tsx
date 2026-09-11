@@ -1133,9 +1133,9 @@ export const SmartInquiryEditor = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="gap-2 px-2 sm:px-3 opacity-60 cursor-not-allowed"
-                    disabled
-                    title="Restzahlung vor Ort: keine LexOffice-Rechnung. Anzahlung erhält nur Stripe-Quittung, finalen Bewirtungsbeleg inkl. Abzug der Anzahlung erstellt das POS vor Ort."
+                    className="gap-2 px-2 sm:px-3"
+                    onClick={() => setInvoiceDialogOpen(true)}
+                    title="Restzahlung vor Ort: normalerweise erstellt das POS den finalen Beleg. Falls doch eine LexOffice-Rechnung nötig ist, kann sie hier bewusst erstellt und versendet werden."
                   >
                     <MailIcon className="h-4 w-4" />
                     <span className="hidden sm:inline">
