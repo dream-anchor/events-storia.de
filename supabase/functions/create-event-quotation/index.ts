@@ -1646,6 +1646,23 @@ serve(async (req) => {
       };
     }
 
+    // Bei Überweisung muss die Bankverbindung auf dem Dokument stehen.
+    const BANK_DETAILS_LINE =
+      'Bankverbindung: Domenico Speranza · Deutsche Bank · IBAN DE47 7007 0024 0095 6946 00';
+    const usesBankTransfer =
+      [balanceMethod, depositMethod, paymentMethod].some(
+        (m) => m === 'invoice' || m === 'invoice_before' || m === 'invoice_after' || m === 'bank_transfer',
+      ) || /Überweisung/.test(remarkText);
+    if (usesBankTransfer && !remarkText.includes('IBAN')) {
+      remarkText = `${remarkText}\n\n${BANK_DETAILS_LINE}`;
+      if (paymentConditions.paymentTermLabel.includes('Überweisung') && !isInvoiceMode) {
+        paymentConditions = {
+          ...paymentConditions,
+          paymentTermLabel: `${paymentConditions.paymentTermLabel}\n${BANK_DETAILS_LINE}`,
+        };
+      }
+    }
+
     // 7. LexOffice Dokument aufbauen — Empfänger aus resolved billing
     const addressBlock = {
       name: billingAddr.name || inquiry.contact_name,
