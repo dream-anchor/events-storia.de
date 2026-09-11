@@ -1325,7 +1325,23 @@ serve(async (req) => {
           const remarkMatches = lexRemark === expectedRemark;
           const lexTaxType = String(doc?.taxConditions?.taxType ?? '');
           const taxTypeMatches = lexTaxType === 'gross';
-          if (totalsMatch && remarkMatches && taxTypeMatches) {
+          // Die eigentlichen Zahlungsbedingungen stehen im paymentTermLabel —
+          // ohne diesen Vergleich bleibt ein Wechsel der Zahlungsart (z. B.
+          // "vor Ort" → "Rechnung nach Event") im alten PDF stehen.
+          const expectedPaymentLabelBase = buildOfferRemark({
+            depositMethod: dMethodEarly,
+            balanceMethod: bMethodEarly,
+            depositPercent: dpEarly ?? 0,
+            depositAmount: (inqEarly.deposit_amount as number | null) ?? null,
+            depositDueDays: ddEarly ?? 5,
+            balanceDueDaysBeforeEvent: (inqEarly.balance_due_days_before_event as number | null) ?? 10,
+            invoiceDueDays: (inqEarly.invoice_due_days as number | null) ?? 14,
+            offerValidityDays: ovEarly ?? 14,
+          });
+          const lexPaymentLabel = String(doc?.paymentConditions?.paymentTermLabel ?? '').trim();
+          const paymentLabelMatches =
+            lexPaymentLabel.split('\n')[0].trim() === expectedPaymentLabelBase.trim();
+          if (totalsMatch && remarkMatches && taxTypeMatches && paymentLabelMatches) {
             // PDF in LexOffice ist aktuell — nichts neu erzeugen
             return new Response(
               JSON.stringify({ success: true, quotationId: existingQuotationId, documentType: 'quotations', reused: true }),
