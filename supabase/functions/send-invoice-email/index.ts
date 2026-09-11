@@ -345,18 +345,29 @@ serve(async (req) => {
     const contactName: string | null = customer.name || null;
     const customerEmail: string | null = customer.email || null;
 
+    // invoice_lexoffice_id kann bei Altdaten ein ANGEBOT enthalten. Dann darf es
+    // nicht als Rechnung versendet werden (sonst LexOffice-404).
+    const standardIsInvoice =
+      (inquiry as any).invoice_lexoffice_id
+      && (inquiry as any).invoice_lexoffice_id !== (inquiry as any).lexoffice_quotation_id
+      && (inquiry as any).lexoffice_document_type !== 'quotation';
+
     const lexofficeInvoiceId: string | null =
       body.lexoffice_invoice_id
       || (inquiry as any).final_lexoffice_invoice_id
-      || (inquiry as any).invoice_lexoffice_id
+      || (standardIsInvoice ? (inquiry as any).invoice_lexoffice_id : null)
       || null;
     const invoiceNumber: string | null =
       body.invoice_number
       || (inquiry as any).final_lexoffice_invoice_number
-      || (inquiry as any).invoice_lexoffice_number
+      || (standardIsInvoice ? (inquiry as any).invoice_lexoffice_number : null)
       || null;
 
-    if (!lexofficeInvoiceId) throw new Error('Keine LexOffice-Rechnung mit dieser Buchung verknüpft');
+    if (!lexofficeInvoiceId) {
+      throw new Error(
+        'Für diesen Auftrag existiert bisher nur ein Angebot, keine Rechnung. Bitte zuerst die Rechnung erstellen und dann erneut versenden.',
+      );
+    }
 
     const recipient = body.recipient_email?.trim() || customerEmail;
     if (!recipient) throw new Error('Keine Empfänger-Adresse vorhanden');
