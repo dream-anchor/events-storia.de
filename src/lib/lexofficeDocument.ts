@@ -26,9 +26,14 @@ export async function fetchLatestInquiryDocument(inquiryId: string): Promise<Inq
     return { documentId: row.final_lexoffice_invoice_id, documentType: "invoice" };
   }
   if (row?.invoice_lexoffice_id) {
+    // Ältere Datensätze haben keinen lexoffice_document_type. Wenn die ID mit
+    // der Angebots-ID identisch ist, handelt es sich um ein Angebot — sonst
+    // schlägt der PDF-Abruf gegen /invoices fehl.
+    const fallbackType: "invoice" | "quotation" =
+      row.invoice_lexoffice_id === row.lexoffice_quotation_id ? "quotation" : "invoice";
     return {
       documentId: row.invoice_lexoffice_id,
-      documentType: (row.lexoffice_document_type as "invoice" | "quotation") || "invoice",
+      documentType: (row.lexoffice_document_type as "invoice" | "quotation") || fallbackType,
     };
   }
   if (row?.lexoffice_quotation_id) {

@@ -1779,14 +1779,21 @@ serve(async (req) => {
           })
           .eq('id', inquiryId);
       } else {
+        // WICHTIG: lexoffice_document_type mitschreiben. Sonst wird ein Angebot
+        // später als Rechnung interpretiert und der PDF-/Versand-Abruf läuft
+        // gegen /v1/invoices/<id> → 404 "Dokument nicht verfügbar".
+        const voucherNumber = (result?.voucherNumber || result?.invoiceNumber || null) as string | null;
         const updateFields: Record<string, unknown> = {
-          lexoffice_invoice_id: result.id,
+          invoice_lexoffice_id: result.id,
+          invoice_lexoffice_number: voucherNumber,
+          lexoffice_document_type: isInvoiceMode ? 'invoice' : 'quotation',
+          updated_at: new Date().toISOString(),
         };
         if (!isInvoiceMode) {
           updateFields.lexoffice_quotation_id = result.id;
         }
         await supabase
-          .from('event_inquiries')
+          .from('v2_events')
           .update(updateFields)
           .eq('id', inquiryId);
       }
