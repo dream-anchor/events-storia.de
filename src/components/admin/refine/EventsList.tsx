@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from "react";
-import { useList } from "@refinedev/core";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
@@ -203,33 +202,36 @@ export const EventsList = () => {
     });
   }, []);
 
-  const eventsQuery = useList<EventInquiry>({
-    resource: "events",
-    pagination: { pageSize: serverPageSize },
-    sorters: [{ field: "created_at", order: "desc" }],
-    filters: showTestData
-      ? []
-      : [{
-          operator: "or",
-          value: [
-            { field: "is_test", operator: "null", value: true },
-            { field: "is_test", operator: "eq", value: false },
-          ],
-        }],
-    queryOptions: {
-      queryKey: ["events-list", showTestData, serverPageSize] as unknown as readonly unknown[],
+  const eventsQuery = useQuery({
+    queryKey: ["events-list", showTestData, serverPageSize],
+    queryFn: async () => {
+      let query = supabase
+        .from("event_inquiries")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .limit(serverPageSize);
+      if (!showTestData) query = query.or("is_test.is.null,is_test.eq.false");
+      const { data, count, error } = await query;
+      if (error) throw error;
+      return {
+        rows: (data ?? []) as unknown as EventInquiry[],
+        total: count ?? 0,
+      };
     },
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    refetchOnWindowFocus: true,
   });
 
-  const allEvents = eventsQuery.result?.data || [];
-  const totalEvents = eventsQuery.result?.total ?? 0;
-  const isLoadingMore = !eventsQuery.query.isLoading && totalEvents > serverPageSize;
+  const allEvents = eventsQuery.data?.rows || [];
+  const totalEvents = eventsQuery.data?.total ?? 0;
+  const isLoadingMore = !eventsQuery.isLoading && totalEvents > serverPageSize;
 
   useEffect(() => {
-    if (!eventsQuery.query.isLoading && totalEvents > serverPageSize) {
+    if (!eventsQuery.isLoading && totalEvents > serverPageSize) {
       setServerPageSize(totalEvents + 50);
     }
-  }, [eventsQuery.query.isLoading, totalEvents, serverPageSize]);
+  }, [eventsQuery.isLoading, totalEvents, serverPageSize]);
 
   const safeListSearch = debouncedListSearch.replace(/[,()*"\\]/g, " ").trim();
   const isServerSearching = safeListSearch.length >= 2;
@@ -258,7 +260,7 @@ export const EventsList = () => {
   });
 
   const visibleEvents = isServerSearching ? (listSearchQuery.data ?? []) : allEvents;
-  const isLoading = eventsQuery.query.isLoading || (isServerSearching && listSearchQuery.isFetching);
+  const isLoading = eventsQuery.isLoading || (isServerSearching && listSearchQuery.isFetching);
 
   // Bookings ohne Quell-Inquiry → eigenständige „Gebucht"-Karten im Kanban
   const bookingsQuery = useQuery({
@@ -848,7 +850,7 @@ export const EventsList = () => {
               onSearchChange={setListSearch}
               filterPills={filterPills}
               onFilterChange={handleFilterChange}
-              onRefresh={() => eventsQuery.query.refetch()}
+              onRefresh={() => eventsQuery.refetch()}
               onRowClick={handleRowClick}
               isLoading={isLoading}
               pageSize={tablePageSize}
@@ -922,14 +924,14 @@ export const EventsList = () => {
             <BulkActionBar
               selectedIds={selectedIds}
               onClearSelection={() => setSelectedIds([])}
-              onActionComplete={() => eventsQuery.query.refetch()}
+              onActionComplete={() => eventsQuery.refetch()}
               showRestoreAction={currentFilter === 'archived'}
             />
           </>
         ) : (
           <KanbanView
             events={activeEvents}
-            onRefresh={() => eventsQuery.query.refetch()}
+            onRefresh={() => eventsQuery.refetch()}
             columnPageSize={tablePageSize}
           />
         )}
