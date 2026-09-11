@@ -65,6 +65,7 @@ Die Kostenübernahme umfasst die gemäß Angebot vereinbarten Leistungen. Grundl
 Kontoinhaber: Domenico Speranza
 Bank: Deutsche Bank
 IBAN: DE47 7007 0024 0095 6946 00
+BIC: DEUTDEDBMUC
 
 ---
 
@@ -173,7 +174,7 @@ export function buildPaymentTerms(
   input: PaymentTermsInput,
 ): { payment_terms: string; deposit_terms: string } {
   const bank =
-    "Kontoinhaber: Domenico Speranza · Deutsche Bank · IBAN DE47 7007 0024 0095 6946 00";
+    "Kontoinhaber: Domenico Speranza · Deutsche Bank · IBAN DE47 7007 0024 0095 6946 00 · BIC DEUTDEDBMUC";
 
   const method = (input.balance_method ?? "").toString();
   const days =
@@ -260,11 +261,12 @@ export function buildPaymentTermLabel(input: PaymentTermsInput): string {
   }
 }
 
-/** Konstante Kontoverbindung Speranza GmbH */
+/** Konstante Kontoverbindung Domenico Speranza */
 export const BANK_DETAILS = {
-  bank_holder: "Speranza GmbH",
+  bank_holder: "Domenico Speranza",
   bank_name: "Deutsche Bank",
   bank_iban: "DE47 7007 0024 0095 6946 00",
+  bank_bic: "DEUTDEDBMUC",
 } as const;
 
 /** Stable hash for template-version diffing. */
