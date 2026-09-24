@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { reportEdgeError } from "../_shared/reportError.ts";
 
 const ALLOWED_ORIGINS = [
   "https://ristorantestoria.de",
@@ -32,7 +33,30 @@ interface GroupInquiryRequest {
   message?: string;
   language?: string;
   source?: string;
+  // Sendet GroupInquiryForm (ristorantestoria.de) schon immer mit — wurde bisher nirgends verwendet.
+  travelPlanBase64?: string | null;
+  travelPlanFilename?: string | null;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
 }
+
+const MAESTRO_BASE = "https://storia.schrittmacher.ai/api/public/inquiries";
+
+// MAESTRO lehnt zu lange Felder mit 422 ab — dann ginge die ganze Anfrage dort verloren.
+// Das Formular begrenzt nur im Browser; hier auf die MAESTRO-Grenzen kappen statt zu riskieren.
+const cut = (v: string | null | undefined, max: number): string | undefined => {
+  const s = typeof v === "string" ? v.trim() : "";
+  return s ? s.slice(0, max) : undefined;
+};
+
+// Menü-Schlüssel aus dem Formular; nur die beiden festen Sonderwerte sind ohne Kontext unlesbar.
+const MENU_LABELS: Record<string, string> = {
+  advice: "Beratung gewünscht",
+  custom: "Individuelles Menü",
+};
 
 interface SendResult {
   sent: boolean;
@@ -292,35 +316,93 @@ const handler = async (req: Request): Promise<Response> => {
     // blockiert die Antwort nicht. EdgeRuntime.waitUntil (wie in send-offer-email/index.ts),
     // weil ein nicht-awaiteter fetch() sonst von der Deno-Runtime abgebrochen werden kann,
     // sobald die Response zurueckgegeben ist - vermutliche Ursache verlorener Leads.
+    // Punkt 102 (24.09.2026): vollständige Weiterleitung — Menüwunsch, „Datum flexibel“,
+    // Ankunftszeit, UTM über `details`, Reiseplan-PDF über POST /api/public/inquiries/upload
+    // (+ `attachments`), Sprache wie im Anlass-Formular (de bleibt de, alles andere → en).
+    // Ablehnungen landen zusätzlich in system_errors (reportEdgeError, wie receive-event-inquiry).
     {
       const isoDate = data.preferredDate
         ? (/^\d{4}-\d{2}-\d{2}$/.test(data.preferredDate) ? `${data.preferredDate}T00:00:00.000Z` : data.preferredDate)
         : undefined;
+      const guests = Number.isInteger(data.groupSize) && data.groupSize <= 100_000 ? data.groupSize : undefined;
+      const arrival = cut(data.arrivalTime, 20);
+      const menu = cut(data.preferredMenu ? (MENU_LABELS[data.preferredMenu] ?? data.preferredMenu) : undefined, 500);
+      const details = {
+        ...(typeof data.preferredDateFlexible === 'boolean' ? { dateFlexible: data.preferredDateFlexible } : {}),
+        arrivalTime: arrival,
+        preferredMenu: menu,
+        groupSize: guests,
+        utmSource: cut(data.utm_source, 200),
+        utmMedium: cut(data.utm_medium, 200),
+        utmCampaign: cut(data.utm_campaign, 200),
+        utmTerm: cut(data.utm_term, 200),
+        utmContent: cut(data.utm_content, 200),
+      };
+      const melde = async (schritt: string, status: number | null, antwort: string, severity: 'error' | 'critical') => {
+        const message = `MAESTRO-Weiterleitung (${schritt}) fehlgeschlagen, v2_event ${inquiry.id}: ${status ? `HTTP ${status}` : 'Netzwerkfehler'}`;
+        console.error(`${message} — ${antwort}`);
+        await reportEdgeError({
+          source: 'edge:receive-group-inquiry',
+          severity,
+          message,
+          payload: {
+            v2EventId: inquiry.id,
+            schritt,
+            status,
+            antwort: antwort.slice(0, 1000),
+            ...(data.travelPlanFilename ? { travelPlanFilename: data.travelPlanFilename } : {}),
+          },
+        });
+      };
       const forwardToMaestro = async () => {
+        // 1) Reiseplan-PDF vorab hochladen. Scheitert das, geht die Anfrage trotzdem raus (ohne Anhang).
+        let attachments: { uploadId: string; claimToken: string }[] | undefined;
+        if (data.travelPlanBase64) {
+          try {
+            const up = await fetch(`${MAESTRO_BASE}/upload`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mediaType: 'application/pdf', dataBase64: data.travelPlanBase64 }),
+            });
+            const text = await up.text().catch(() => '<unlesbar>');
+            let ref: { uploadId?: string; claimToken?: string } | undefined;
+            try { ref = JSON.parse(text)?.data; } catch { /* unten gemeldet */ }
+            if (up.ok && ref?.uploadId && ref?.claimToken) {
+              attachments = [{ uploadId: ref.uploadId, claimToken: ref.claimToken }];
+            } else {
+              await melde('pdf-upload', up.status, text, 'error');
+            }
+          } catch (e) {
+            await melde('pdf-upload', null, e instanceof Error ? e.message : String(e), 'error');
+          }
+        }
+
+        // 2) Anfrage selbst.
         try {
-          const res = await fetch('https://storia.schrittmacher.ai/api/public/inquiries', {
+          const res = await fetch(MAESTRO_BASE, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              customerName: data.contactName,
-              customerEmail: data.email,
-              ...(data.companyName ? { company: data.companyName } : {}),
-              ...(data.phone ? { phone: data.phone } : {}),
+              customerName: cut(data.contactName, 200),
+              customerEmail: data.email.trim(),
+              company: cut(data.companyName, 200),
+              phone: cut(data.phone, 60),
               ...(isoDate ? { eventDate: isoDate } : {}),
-              ...(data.arrivalTime ? { eventTime: data.arrivalTime } : {}),
+              eventTime: arrival,
               eventType: 'Reisegruppe',
-              guests: data.groupSize,
-              ...(data.message ? { message: data.message } : {}),
-              ...(data.language === 'de' || data.language === 'en' ? { language: data.language } : {}),
+              guests,
+              message: cut(data.message, 5000),
+              ...(data.language ? { language: data.language === 'de' ? 'de' : 'en' } : {}),
               sourceDetail: 'ristorantestoria-reisegruppen',
+              details,
+              ...(attachments ? { attachments } : {}),
             }),
           });
           if (!res.ok) {
-            const body = await res.text().catch(() => '<unlesbar>');
-            console.error(`MAESTRO forward abgelehnt (inquiry ${inquiry.id}): HTTP ${res.status} — ${body}`);
+            await melde('anfrage', res.status, await res.text().catch(() => '<unlesbar>'), 'critical');
           }
         } catch (e) {
-          console.error(`MAESTRO forward error (inquiry ${inquiry.id}):`, e instanceof Error ? e.message : e);
+          await melde('anfrage', null, e instanceof Error ? e.message : String(e), 'critical');
         }
       };
       // @ts-ignore — EdgeRuntime ist in Supabase Deno verfügbar
