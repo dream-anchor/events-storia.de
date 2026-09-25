@@ -387,7 +387,7 @@ const handler = async (req: Request): Promise<Response> => {
               ...(data.eventType ? { eventType: data.eventType } : {}),
               ...(Number.isFinite(guests) && guests > 0 ? { guests } : {}),
               ...(data.message ? { message: data.message } : {}),
-              sourceDetail: 'events-storia-inquiry',
+              sourceDetail: data.source === 'filmfest-landingpage' ? 'ristorantestoria-filmfest' : 'events-storia-inquiry',
             }),
           });
           if (!res.ok) {
