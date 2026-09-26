@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { reportEdgeError } from "../_shared/reportError.ts";
 
+// Eingangsbestätigung an den Gast verschickt MAESTRO (storia.schrittmacher.ai). Auf true setzen = alte Gast-Mail wieder an.
+const SEND_CUSTOMER_CONFIRMATION = false;
+
 const ALLOWED_ORIGINS = [
   "https://ristorantestoria.de",
   "https://www.ristorantestoria.de",
@@ -419,20 +422,25 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey2 = supabaseServiceKey;
     try {
       const custSubject = "Ihre Reisegruppen-Anfrage bei STORIA";
-      const custResult = await sendEmail([email], custSubject, customerText(data), "STORIA Reisegruppen");
-      await supabase.from("email_delivery_logs").insert({
-        entity_type: "v2_event",
-        entity_id: inquiry.id,
-        recipient_email: email,
-        recipient_name: data.contactName,
-        subject: custSubject,
-        provider: custResult.provider || "none",
-        provider_message_id: custResult.messageId,
-        status: custResult.sent ? "sent" : "failed",
-        error_message: custResult.errorMessage,
-        sent_by: "system",
-        metadata: { email_type: "group_inquiry_confirmation_customer" },
-      });
+      let custResult: Awaited<ReturnType<typeof sendEmail>>;
+      if (SEND_CUSTOMER_CONFIRMATION) {
+        custResult = await sendEmail([email], custSubject, customerText(data), "STORIA Reisegruppen");
+        await supabase.from("email_delivery_logs").insert({
+          entity_type: "v2_event",
+          entity_id: inquiry.id,
+          recipient_email: email,
+          recipient_name: data.contactName,
+          subject: custSubject,
+          provider: custResult.provider || "none",
+          provider_message_id: custResult.messageId,
+          status: custResult.sent ? "sent" : "failed",
+          error_message: custResult.errorMessage,
+          sent_by: "system",
+          metadata: { email_type: "group_inquiry_confirmation_customer" },
+        });
+      } else {
+        custResult = { sent: true, provider: "maestro", messageId: null, errorMessage: null } as Awaited<ReturnType<typeof sendEmail>>;
+      }
 
       const restSubject = `Neue Reisegruppen-Anfrage: ${data.companyName || data.contactName} (${data.groupSize} Pers.)`;
       const restResult = await sendEmail(
