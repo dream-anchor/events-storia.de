@@ -4,6 +4,9 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { getSafeRecipientEmail, getSafeSubject } from '../_shared/test-safety.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
 
+// Eingangsbestätigung an den Gast verschickt MAESTRO (storia.schrittmacher.ai). Auf true setzen = alte Gast-Mail wieder an.
+const SEND_CUSTOMER_CONFIRMATION = false;
+
 
 
 interface EventInquiryRequest {
@@ -303,31 +306,36 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
     const isTest = inquiryRow?.is_test === true;
 
-    // Kunden-Bestätigung senden
-    const customerEmailText = generateCustomerEmailText(data);
-    const safeEmail = getSafeRecipientEmail(data.email, isTest);
-    const safeSubject = getSafeSubject("Ihre Event-Anfrage bei STORIA", isTest);
-    const customerResult = await sendEmail(
-      [safeEmail],
-      safeSubject,
-      customerEmailText,
-      "STORIA Events"
-    );
+    let customerResult: SendResult;
+    if (SEND_CUSTOMER_CONFIRMATION || data.skipInsert) {
+      // Kunden-Bestätigung senden
+      const customerEmailText = generateCustomerEmailText(data);
+      const safeEmail = getSafeRecipientEmail(data.email, isTest);
+      const safeSubject = getSafeSubject("Ihre Event-Anfrage bei STORIA", isTest);
+      customerResult = await sendEmail(
+        [safeEmail],
+        safeSubject,
+        customerEmailText,
+        "STORIA Events"
+      );
 
-    // Kunden-Email loggen
-    await supabase.from('email_delivery_logs').insert({
-      entity_type: 'event_inquiry',
-      entity_id: inquiryId,
-      recipient_email: data.email,
-      recipient_name: data.contactName,
-      subject: "Ihre Event-Anfrage bei STORIA",
-      provider: customerResult.provider || 'none',
-      provider_message_id: customerResult.messageId,
-      status: customerResult.sent ? 'sent' : 'failed',
-      error_message: customerResult.errorMessage,
-      sent_by: 'system',
-      metadata: { email_type: 'inquiry_confirmation_customer' },
-    });
+      // Kunden-Email loggen
+      await supabase.from('email_delivery_logs').insert({
+        entity_type: 'event_inquiry',
+        entity_id: inquiryId,
+        recipient_email: data.email,
+        recipient_name: data.contactName,
+        subject: "Ihre Event-Anfrage bei STORIA",
+        provider: customerResult.provider || 'none',
+        provider_message_id: customerResult.messageId,
+        status: customerResult.sent ? 'sent' : 'failed',
+        error_message: customerResult.errorMessage,
+        sent_by: 'system',
+        metadata: { email_type: 'inquiry_confirmation_customer' },
+      });
+    } else {
+      customerResult = { sent: true, provider: "maestro", messageId: null, errorMessage: null };
+    }
 
     // Restaurant-Benachrichtigung senden
     const restaurantEmailText = generateRestaurantEmailText(data);

@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { reportEdgeError } from "../_shared/reportError.ts";
 
+// Eingangsbestätigung an den Gast verschickt MAESTRO (storia.schrittmacher.ai). Auf true setzen = alte Gast-Mail wieder an.
+const SEND_CUSTOMER_CONFIRMATION = false;
+
 const ALLOWED_ORIGINS = [
   "https://ristorantestoria.de",
   "https://www.ristorantestoria.de",
