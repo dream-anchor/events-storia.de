@@ -1,0 +1,679 @@
+[
+ {
+  "title": "Teil A – Allgemeine Bestimmungen",
+  "sections": [
+   {
+    "title": "§ 1 Vertragspartner und Geltungsbereich",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Vertragspartner ist die Speranza GmbH, Karlstraße 47a, 80333 München, vertreten durch die Geschäftsführerin Agnese Lettieri (nachfolgend „STORIA“ oder „wir“). Die vollständigen Anbieterangaben stehen in § 29.",
+        "sub": []
+       },
+       {
+        "text": "Diese AGB gelten für alle Verträge, die Kunden über events-storia.de, ristorantestoria.de, per E-Mail, telefonisch oder vor Ort mit uns schließen, und zwar für:",
+        "sub": [
+         "Veranstaltungen in unserem Restaurant sowie Catering und Veranstaltungsleistungen an einem Ort des Kunden aufgrund eines individuellen Angebots (Teil B),",
+         "Bestellungen über unseren Online-Shop für Catering, Pizza und Lieferung (Teil C),",
+         "Tischreservierungen im Restaurant (Teil D)."
+        ]
+       },
+       {
+        "text": "Teil A und Teil E gelten für alle Verträge. Für Gutscheine gelten die gesonderten AGB Gutscheine.",
+        "sub": []
+       },
+       {
+        "text": "Kunden können Verbraucher (§ 13 BGB) oder Unternehmer (§ 14 BGB) sein. Regelungen, die nur für eine dieser Gruppen gelten, sind ausdrücklich gekennzeichnet.",
+        "sub": []
+       },
+       {
+        "text": "Abweichende oder ergänzende Geschäftsbedingungen des Kunden gelten nicht, auch wenn wir ihnen nicht ausdrücklich widersprechen. Individuelle Vereinbarungen, insbesondere im Angebot oder in der Auftragsbestätigung, haben Vorrang vor diesen AGB.",
+        "sub": []
+       },
+       {
+        "text": "Es gilt die Fassung dieser AGB, die bei Vertragsschluss gültig ist. Vertragssprache ist Deutsch; Übersetzungen dienen nur der Information.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 2 Vertragsschluss",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Darstellungen auf unseren Websites, Speisekarten, Paketbeschreibungen und „ab“-Preise sind unverbindlich und kein Angebot im Rechtssinn.",
+        "sub": []
+       },
+       {
+        "text": "Individuelles Angebot. Auf eine Anfrage erhält der Kunde ein Angebot in Textform, in der Regel als Link zu einer Angebotsseite. An dieses Angebot halten wir uns bis zu dem darin genannten Datum („gültig bis“) gebunden, ohne Datumsangabe 14 Tage ab Versand. Der Vertrag kommt zustande, wenn der Kunde das Angebot innerhalb dieser Frist annimmt, und zwar",
+        "sub": [
+         "auf der Angebotsseite durch Bestätigen der Annahmeerklärung und Klick auf die Schaltfläche zur verbindlichen Annahme,",
+         "durch elektronische Unterzeichnung einer Kostenübernahme- bzw. Auftragserklärung oder",
+         "durch eine Annahmeerklärung in Textform (z. B. E-Mail)."
+        ]
+       },
+       {
+        "text": "Nimmt der Kunde ein Angebot nach Ablauf der Frist oder mit Änderungen an, gilt das als neues Angebot des Kunden. Der Vertrag kommt dann mit unserer Bestätigung in Textform zustande.",
+        "sub": []
+       },
+       {
+        "text": "Für Bestellungen im Online-Shop gilt § 19, für Tischreservierungen § 26.",
+        "sub": []
+       },
+       {
+        "text": "Wir speichern den Vertragstext. Der Kunde erhält die wesentlichen Vertragsdaten und einen Link auf diese AGB mit der Bestätigung in Textform; über die Website ist der Vertragstext nach Vertragsschluss nicht zwingend abrufbar.",
+        "sub": []
+       },
+       {
+        "text": "Wer im Namen eines Dritten bucht, zum Beispiel für seinen Arbeitgeber, versichert, dazu bevollmächtigt zu sein. Fehlt die Vollmacht, haftet er nach § 179 BGB.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 3 Preise",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Gegenüber Verbrauchern nennen wir Gesamtpreise einschließlich der gesetzlichen Umsatzsteuer. Liefer- und sonstige Zusatzkosten weisen wir vor Vertragsschluss gesondert aus.",
+        "sub": []
+       },
+       {
+        "text": "Gegenüber Unternehmern können wir Nettopreise angeben. Die gesetzliche Umsatzsteuer kommt dann hinzu; das ist im Angebot gekennzeichnet.",
+        "sub": []
+       },
+       {
+        "text": "Der Umsatzsteuersatz richtet sich nach der Art der Leistung (z. B. Speisen, Getränke, Personal, Raumüberlassung, Lieferung) und wird in Angebot und Rechnung ausgewiesen. Ändert sich der gesetzliche Steuersatz nach Vertragsschluss, berechnen wir den Satz, der zum Zeitpunkt der Leistung gilt. Gegenüber Verbrauchern gilt das nur, wenn zwischen Vertragsschluss und Leistung mehr als vier Monate liegen.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 4 Zahlung",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Welche Zahlungsarten zur Verfügung stehen, zeigen der Bestellprozess im Online-Shop bzw. das Angebot. Online-Zahlungen (z. B. Kreditkarte, SEPA-Lastschrift, Apple Pay, Google Pay, Klarna) wickelt der Zahlungsdienstleister Stripe Payments Europe Ltd. ab.",
+        "sub": []
+       },
+       {
+        "text": "Unternehmer können, soweit angeboten, über Stripe auf Rechnung mit der Billie GmbH zahlen. Billie prüft dafür die Bonität; es gelten die Bedingungen und das Zahlungsziel, die Billie im Bestellprozess anzeigt.",
+        "sub": []
+       },
+       {
+        "text": "Höhe und Fälligkeit von Anzahlung, Vorauszahlung und Restzahlung ergeben sich aus dem Angebot, der Auftragsbestätigung oder der Rechnung. Ist nichts bestimmt, sind Rechnungen innerhalb von 14 Tagen nach Zugang ohne Abzug zu zahlen.",
+        "sub": []
+       },
+       {
+        "text": "Bei Zahlungsverzug gelten die gesetzlichen Vorschriften. Die Verzugszinsen betragen gegenüber Verbrauchern 5 Prozentpunkte, gegenüber Unternehmern 9 Prozentpunkte über dem Basiszinssatz (§ 288 BGB).",
+        "sub": []
+       },
+       {
+        "text": "Der Kunde kann nur mit unbestrittenen oder rechtskräftig festgestellten Forderungen aufrechnen. Das gilt nicht für Gegenansprüche aus demselben Vertrag, insbesondere wegen Mängeln.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 5 Allergien und Mitwirkung des Kunden",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Allergene und Zusatzstoffe (LMIV) finden sich im Online-Shop bei den Produkten und in unseren Lebensmittelhinweisen, bei individuellen Angeboten im Angebot oder auf Nachfrage. Da in unserer Küche alle Allergene verarbeitet werden, können wir Spuren nicht ausschließen.",
+        "sub": []
+       },
+       {
+        "text": "Allergien, Unverträglichkeiten und besondere Ernährungsformen seiner Gäste teilt der Kunde uns bitte spätestens fünf Werktage vor der Leistung in Textform mit. Er gibt unsere Allergeninformationen an seine Gäste weiter.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 6 Haftung",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Wir haften unbeschränkt bei Vorsatz und grober Fahrlässigkeit, für Schäden aus der Verletzung des Lebens, des Körpers oder der Gesundheit, bei Übernahme einer Garantie und nach dem Produkthaftungsgesetz.",
+        "sub": []
+       },
+       {
+        "text": "Bei leichter Fahrlässigkeit haften wir nur für die Verletzung wesentlicher Vertragspflichten, also solcher Pflichten, deren Erfüllung die Durchführung des Vertrags erst ermöglicht und auf deren Einhaltung der Kunde vertrauen darf. Die Haftung ist dann auf den vertragstypischen, vorhersehbaren Schaden begrenzt.",
+        "sub": []
+       },
+       {
+        "text": "Diese Regeln gelten auch für unsere gesetzlichen Vertreter, Mitarbeiter und Erfüllungsgehilfen.",
+        "sub": []
+       },
+       {
+        "text": "Garderobe und mitgebrachte Gegenstände verwahren wir nur, wenn das ausdrücklich vereinbart ist. Im Übrigen haften wir für sie nach den Absätzen 1 bis 3.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 7 Höhere Gewalt",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Können wir oder der Kunde eine Leistung wegen höherer Gewalt oder behördlicher Anordnungen nicht erbringen, die keiner der Parteien zuzurechnen sind, werden beide Seiten von ihren Leistungspflichten frei.",
+        "sub": []
+       },
+       {
+        "text": "Bereits geleistete Zahlungen erstatten wir dann, abzüglich der Leistungen, die bereits erbracht wurden und für den Kunden von Nutzen sind. Die Parteien bemühen sich vorrangig um einen Ersatztermin.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 8 Kein Widerrufsrecht",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Verbrauchern steht bei Verträgen über die Lieferung von Speisen und Getränken sowie über Veranstaltungsleistungen, die zu einem bestimmten Termin erbracht werden, kein Widerrufsrecht zu (§ 312g Abs. 2 Nr. 9 BGB, bei schnell verderblichen Speisen zusätzlich Nr. 2). Für Absagen gelten stattdessen § 13 (Veranstaltungen), § 23 (Online-Shop) und § 27 (Reservierungen)."
+     }
+    ]
+   },
+   {
+    "title": "§ 9 Datenschutz",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Wir verarbeiten personenbezogene Daten nach unserer Datenschutzerklärung. Anfragen, Angebote und Buchungen verwalten wir in einer Buchungssoftware, deren Anbieter als Auftragsverarbeiter (Art. 28 DSGVO) für uns tätig ist. Zahlungsdaten verarbeitet Stripe, beim Kauf auf Rechnung die Billie GmbH einschließlich einer Bonitätsprüfung."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Teil B – Veranstaltungen und individuelle Catering-Angebote",
+  "sections": [
+   {
+    "title": "§ 10 Leistungsumfang",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Teil B gilt für Veranstaltungen in unserem Restaurant (einzelne Bereiche oder exklusive Nutzung), für Catering an einem Ort des Kunden sowie für Eventpakete, die im Online-Shop gebucht werden.",
+        "sub": []
+       },
+       {
+        "text": "Art und Umfang der Leistungen, Termin, Uhrzeit, Bereich, Personenzahl und Preise ergeben sich aus dem angenommenen Angebot.",
+        "sub": []
+       },
+       {
+        "text": "Wir dürfen einen gleichwertigen anderen Bereich zuweisen, wenn das für den Kunden zumutbar ist, insbesondere bei einer deutlichen Änderung der Personenzahl.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 11 Anzahlung und Zahlungsplan",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Wir können eine Anzahlung und Vorauszahlungen verlangen. Höhe und Fälligkeit stehen im Angebot. Die Anzahlung wird mit dem Gesamtpreis verrechnet.",
+        "sub": []
+       },
+       {
+        "text": "Eine unterzeichnete Kostenübernahmeerklärung ersetzt eine vereinbarte Anzahlung nicht.",
+        "sub": []
+       },
+       {
+        "text": "Zahlt der Kunde eine fällige Anzahlung oder Vorauszahlung nicht, setzen wir ihm in Textform eine Nachfrist von mindestens sieben Tagen. Verstreicht sie ohne Zahlung, können wir vom Vertrag zurücktreten und Schadensersatz nach den gesetzlichen Vorschriften verlangen; § 13 Abs. 1, 2, 4 und 5 gelten entsprechend.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 12 Personenzahl und Menüauswahl",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Änderungen der Personenzahl um mehr als 5 % teilt der Kunde uns spätestens fünf Werktage vor der Veranstaltung mit.",
+        "sub": []
+       },
+       {
+        "text": "Eine Verringerung um bis zu 5 % erkennen wir bei der Abrechnung an. Bei einer größeren Verringerung berechnen wir die ursprünglich gebuchte Personenzahl abzüglich 5 %. Der Kunde kann den Preis um die von ihm nachzuweisenden ersparten Aufwendungen mindern. Diese Regel gilt für Verringerungen, die uns später als acht Wochen vor der Veranstaltung zugehen; frühere Verringerungen sind kostenfrei.",
+        "sub": []
+       },
+       {
+        "text": "Erscheinen mehr Gäste als gebucht, berechnen wir die tatsächliche Personenzahl. Wir bewirten zusätzliche Gäste im Rahmen unserer Möglichkeiten.",
+        "sub": []
+       },
+       {
+        "text": "Die Menü- und Getränkeauswahl legt der Kunde bis zu dem im Angebot genannten Termin fest, sonst spätestens fünf Werktage vor der Veranstaltung.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 13 Absage durch den Kunden",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Bis zur 8. Woche vor der Veranstaltung ist eine Absage kostenfrei, sofern nichts anderes vereinbart ist. Bei einer Absage zwischen der 8. und der 4. Woche vor der Veranstaltung berechnen wir 35 %, bei jeder späteren Absage 70 % des entgangenen Speisenumsatzes. Der Speisenumsatz ergibt sich aus dem vereinbarten Preis pro Person multipliziert mit der gebuchten Personenzahl.",
+        "sub": []
+       },
+       {
+        "text": "Leistungen, die wir für den Kunden bei Dritten beauftragt haben (z. B. Mietmobiliar, Technik, Personal), sind zu bezahlen, soweit sie nicht mehr kostenfrei storniert werden können.",
+        "sub": []
+       },
+       {
+        "text": "Maßgeblich ist der Zugang der Absage in Textform (z. B. per E-Mail) bei uns. Die Verschiebung auf einen anderen Termin gilt als Absage, wenn wir dem neuen Termin nicht in Textform zustimmen.",
+        "sub": []
+       },
+       {
+        "text": "Ersparte Aufwendungen sind in den Prozentsätzen bereits berücksichtigt. Dem Kunden steht der Nachweis frei, dass uns kein oder ein geringerer Schaden entstanden ist; uns steht der Nachweis eines höheren Schadens frei.",
+        "sub": []
+       },
+       {
+        "text": "Bereits geleistete Anzahlungen verrechnen wir mit den Stornokosten; ein Überschuss wird erstattet.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 14 Rücktritt durch STORIA",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Wir können aus sachlich gerechtfertigtem Grund vom Vertrag zurücktreten, insbesondere wenn",
+        "sub": [
+         "die Veranstaltung unter irreführenden oder falschen Angaben zu wesentlichen Tatsachen gebucht wurde, etwa zur Person des Veranstalters oder zum Zweck,",
+         "Tatsachen die Annahme rechtfertigen, dass die Veranstaltung die Sicherheit, den Betrieb oder das Ansehen von STORIA gefährdet, und dies in den Verantwortungsbereich des Kunden fällt,",
+         "die Voraussetzungen des § 11 Abs. 3 vorliegen."
+        ]
+       },
+       {
+        "text": "Wir informieren den Kunden unverzüglich in Textform. Hat der Kunde den Rücktrittsgrund nicht zu vertreten, erstatten wir bereits geleistete Zahlungen. Schadensersatzansprüche des Kunden bestehen nur, wenn wir den Rücktrittsgrund zu vertreten haben; § 6 gilt.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 15 Ablauf im Restaurant",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Die Veranstaltung beginnt und endet zu den im Angebot genannten Zeiten, spätestens aber zum Betriebsschluss um 01:00 Uhr. Eine Verlängerung ist nach Absprache möglich; Mehrkosten (z. B. für Personal) richten sich nach dem Angebot oder werden vorher genannt.",
+        "sub": []
+       },
+       {
+        "text": "Mitgebrachte Speisen und Getränke sind nur nach vorheriger Vereinbarung erlaubt. Für mitgebrachte Getränke können wir ein im Angebot genanntes Korkgeld berechnen. Geburtstags- und Hochzeitstorten sind nach Absprache willkommen.",
+        "sub": []
+       },
+       {
+        "text": "Dekoration stimmt der Kunde vorher mit uns ab. Sie darf keine Schäden verursachen und muss den Brandschutzvorschriften entsprechen; Konfetti, offenes Feuer und Pyrotechnik sind nicht erlaubt. Der Kunde entfernt eigene Dekoration bis zum Ende der Veranstaltung, sofern nichts anderes vereinbart ist.",
+        "sub": []
+       },
+       {
+        "text": "Beauftragt der Kunde eigene Musiker, DJs oder andere Dienstleister, stimmt er das vorher mit uns ab und ist für erforderliche Anmeldungen und Gebühren (z. B. GEMA) selbst verantwortlich. Die Lautstärke richtet sich nach den Vorgaben unseres Personals und dem Schutz der Nachbarschaft.",
+        "sub": []
+       },
+       {
+        "text": "Die Vorschriften des Jugendschutzgesetzes gelten auch auf privaten Veranstaltungen. Unser Personal übt das Hausrecht aus.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 16 Catering an einem Ort des Kunden",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Der Kunde sorgt für einen geeigneten Zugang, Stellflächen, Strom- und Wasseranschlüsse, soweit im Angebot vorgesehen, und für eventuell nötige Genehmigungen des Veranstaltungsorts.",
+        "sub": []
+       },
+       {
+        "text": "Geliehenes Geschirr, Besteck und Equipment bleibt unser Eigentum. Der Kunde hält es zur vereinbarten Abholung bereit. Für Verlust oder Beschädigung während der Überlassung, die der Kunde zu vertreten hat, berechnen wir die Reparaturkosten, höchstens den Wiederbeschaffungswert; dem Kunden steht der Nachweis eines geringeren Schadens frei.",
+        "sub": []
+       },
+       {
+        "text": "Liefer-, Auf- und Abbau- sowie Personalkosten richten sich nach dem Angebot.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 17 Haftung des Kunden",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Der Kunde haftet für Beschädigungen an Räumen, Einrichtung und Inventar, die er, seine Gäste oder von ihm beauftragte Dienstleister schuldhaft verursachen."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Teil C – Online-Shop: Catering, Pizza und Lieferung",
+  "sections": [
+   {
+    "title": "§ 18 Geltung",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Teil C gilt für Bestellungen über den Online-Shop auf events-storia.de (z. B. Platten, Buffets, Aufläufe, warme Gerichte, Fingerfood, Pizza, Desserts), die wir liefern oder die der Kunde abholt. Für im Shop gebuchte Eventpakete gilt Teil B."
+     }
+    ]
+   },
+   {
+    "title": "§ 19 Vertragsschluss im Online-Shop",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Der Kunde legt Produkte in den Warenkorb, wählt Lieferung oder Abholung, Termin und Zahlungsart und kann alle Angaben vor dem Absenden prüfen und korrigieren.",
+        "sub": []
+       },
+       {
+        "text": "Mit Klick auf die Schaltfläche „Sofort kaufen“ gibt der Kunde ein verbindliches Angebot ab. Die automatische Eingangsmeldung ist noch keine Annahme.",
+        "sub": []
+       },
+       {
+        "text": "Der Vertrag kommt mit unserer Bestellbestätigung per E-Mail zustande. Bei Sofortzahlung versenden wir sie nach erfolgreichem Zahlungsabschluss, beim Kauf auf Rechnung nach Freigabe durch Billie. Können wir eine Bestellung nicht annehmen, informieren wir den Kunden unverzüglich und erstatten bereits gezahlte Beträge.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 20 Liefergebiet, Lieferkosten und Mindestbestellwert",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Wir liefern in München und Umgebung. Ob eine Adresse beliefert wird, zeigt der Bestellprozess.",
+        "sub": []
+       },
+       {
+        "text": "Die Lieferkosten hängen von der Entfernung und der Art der Bestellung ab. Bei Catering mit Mehrweggeschirr berechnen wir Hin- und Rückfahrt, weil wir das Geschirr wieder abholen; bei Pizza in Einwegverpackung nur eine Fahrt.",
+        "sub": []
+       },
+       {
+        "text": "Lieferkosten und den von der Entfernung abhängigen Mindestbestellwert zeigen wir vor Abgabe der Bestellung im Warenkorb in Euro einschließlich Umsatzsteuer an. Liegt der Warenwert unter dem Mindestbestellwert, kann der Kunde trotzdem bestellen; wir berechnen dann einen Mindermengenzuschlag in Höhe der Differenz, der ebenfalls vorher angezeigt wird.",
+        "sub": []
+       },
+       {
+        "text": "Bei Selbstabholung in der Karlstraße 47a, 80333 München, fallen keine Lieferkosten an.",
+        "sub": []
+       },
+       {
+        "text": "Welche Liefer- und Abholzeiten möglich sind, zeigt der Bestellprozess. Catering benötigt in der Regel mindestens 24 Stunden Vorlauf, Lieferungen am Wochenende müssen bis Donnerstag, 23:59 Uhr, bestellt sein. Pizza liefern wir von 12:00 bis 14:30 Uhr und von 18:00 bis 22:30 Uhr mit mindestens einer Stunde Vorlauf.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 21 Übergabe",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Der Kunde oder eine von ihm benannte Person nimmt die Lieferung im vereinbarten Zeitfenster entgegen.",
+        "sub": []
+       },
+       {
+        "text": "Treffen wir niemanden an, versuchen wir den Kunden telefonisch zu erreichen. Hat der Kunde die Verzögerung zu vertreten, berechnen wir Wartezeiten von mehr als 15 Minuten mit 41,65 € einschließlich Umsatzsteuer je angefangene Stunde und eine erneute Anfahrt wie die ursprüngliche Lieferung. Dem Kunden steht der Nachweis frei, dass uns kein oder ein geringerer Schaden entstanden ist.",
+        "sub": []
+       },
+       {
+        "text": "Speisen sind zum baldigen Verzehr bestimmt. Nach der Übergabe ist der Kunde für die richtige Kühlung, Warmhaltung und Lagerung verantwortlich.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 22 Geschirr und Leihgeräte",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Die Reinigung des mitgelieferten Mehrweggeschirrs ist im Preis enthalten; es darf ungereinigt zurückgegeben werden.",
+        "sub": []
+       },
+       {
+        "text": "Wir holen Geschirr und Leihgeräte (z. B. Chafing Dishes) am Folgetag oder zu einem vereinbarten Termin ab. Der Kunde hält sie vollständig bereit.",
+        "sub": []
+       },
+       {
+        "text": "Für beschädigte oder nicht zurückgegebene Teile berechnen wir, soweit der Kunde dies zu vertreten hat, die Reparaturkosten, höchstens den Wiederbeschaffungswert; dem Kunden steht der Nachweis eines geringeren Schadens frei.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 23 Stornierung und Terminänderung",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Stornierungen und Änderungen teilt der Kunde uns in Textform oder telefonisch mit. Maßgeblich ist der Zugang bei uns.",
+        "sub": []
+       },
+       {
+        "text": "Catering (Platten, Buffets, Aufläufe, warme Gerichte): bis 48 Stunden vor dem Liefertermin kostenfrei; zwischen 48 und 24 Stunden 50 %, danach 100 % des Warenwerts abzüglich ersparter Aufwendungen.",
+        "sub": []
+       },
+       {
+        "text": "Pizza: bis 2 Stunden vor dem Liefertermin kostenfrei, danach 100 % des Warenwerts abzüglich ersparter Aufwendungen.",
+        "sub": []
+       },
+       {
+        "text": "Bei den Stufen mit 50 % sind ersparte Aufwendungen bereits berücksichtigt. Dem Kunden steht der Nachweis frei, dass uns kein oder ein geringerer Schaden entstanden ist. Lieferkosten berechnen wir nur, wenn die Fahrt bereits angetreten war.",
+        "sub": []
+       },
+       {
+        "text": "Terminverschiebungen sind nach Verfügbarkeit möglich. Mengenänderungen nehmen wir bis 48 Stunden vor dem Liefertermin an.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 24 Mängel",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Es gelten die gesetzlichen Mängelrechte.",
+        "sub": []
+       },
+       {
+        "text": "Der Kunde prüft die Lieferung bitte bei Übergabe und meldet erkennbare Mängel oder fehlende Positionen möglichst sofort, am besten telefonisch. So können wir noch am selben Tag Abhilfe schaffen. Seine gesetzlichen Rechte bleiben davon unberührt.",
+        "sub": []
+       },
+       {
+        "text": "Für Kaufleute gilt die Untersuchungs- und Rügepflicht nach § 377 HGB.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Teil D – Tischreservierungen im Restaurant",
+  "sections": [
+   {
+    "title": "§ 25 Geltung",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Teil D gilt für Tischreservierungen über OpenTable, telefonisch, per E-Mail oder vor Ort. Buchungen mit Gruppenmenü, Menüvorauswahl, Anzahlung oder eigenem Bereich schließen wir über ein Angebot ab; für sie gilt Teil B."
+     }
+    ]
+   },
+   {
+    "title": "§ 26 Reservierung",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Die Reservierung wird mit unserer Bestätigung verbindlich (bei OpenTable: Buchungsbestätigung per E-Mail).",
+        "sub": []
+       },
+       {
+        "text": "Wir halten den Tisch 15 Minuten ab der reservierten Uhrzeit frei. Kommen die Gäste später und haben sie uns nicht informiert, können wir den Tisch anderweitig vergeben.",
+        "sub": []
+       },
+       {
+        "text": "Der Tisch steht, sofern bei der Reservierung nicht anders angegeben, für die dort genannte Dauer zur Verfügung.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 27 Absage und Nichterscheinen",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Reservierungen können bis 24 Stunden vor der reservierten Uhrzeit kostenfrei abgesagt oder geändert werden.",
+        "sub": []
+       },
+       {
+        "text": "Wurde bei der Reservierung ausdrücklich auf eine Ausfallpauschale hingewiesen, berechnen wir bei späterer Absage oder Nichterscheinen 25 € pro angemeldeter Person, die nicht erscheint. Dem Kunden steht der Nachweis frei, dass uns kein oder ein geringerer Schaden entstanden ist, etwa weil wir den Tisch neu vergeben konnten.",
+        "sub": []
+       },
+       {
+        "text": "Für besondere Anlässe mit eigenem Menü (z. B. Silvester) gelten die bei der Buchung genannten Bedingungen.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Teil E – Schlussbestimmungen",
+  "sections": [
+   {
+    "title": "§ 28 Recht, Gerichtsstand, Streitbeilegung",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Es gilt das Recht der Bundesrepublik Deutschland unter Ausschluss des UN-Kaufrechts. Bei Verbrauchern gilt diese Rechtswahl nur, soweit dadurch nicht zwingende Schutzvorschriften des Staates entzogen werden, in dem der Verbraucher seinen gewöhnlichen Aufenthalt hat.",
+        "sub": []
+       },
+       {
+        "text": "Ist der Kunde Kaufmann, juristische Person des öffentlichen Rechts oder öffentlich-rechtliches Sondervermögen, ist München ausschließlicher Gerichtsstand.",
+        "sub": []
+       },
+       {
+        "text": "Wir sind nicht bereit und nicht verpflichtet, an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen (§ 36 VSBG).",
+        "sub": []
+       },
+       {
+        "text": "Sollte eine Bestimmung dieser AGB unwirksam sein, bleiben die übrigen Bestimmungen wirksam. An die Stelle der unwirksamen Bestimmung tritt die gesetzliche Regelung.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 29 Anbieterangaben",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Speranza GmbH, Karlstraße 47a, 80333 München"
+     },
+     {
+      "type": "p",
+      "text": "Geschäftsführerin: Agnese Lettieri · Amtsgericht München, HRB 209637 · USt-IdNr. DE296024880"
+     },
+     {
+      "type": "p",
+      "text": "Telefon +49 89 51519696 · E-Mail info@events-storia.de"
+     },
+     {
+      "type": "p",
+      "text": "Diese AGB sind die einheitlichen AGB für www.events-storia.de und www.ristorantestoria.de."
+     },
+     {
+      "type": "p",
+      "text": "Stand: 28. September 2026 · Version AGB-2026-10"
+     }
+    ]
+   }
+  ]
+ }
+]

@@ -90,7 +90,7 @@ const faqCategories: FAQCategory[] = [
       },
       {
         question: "Gibt es einen Mindestbestellwert?",
-        answer: "Ja, der Mindestbestellwert für Catering-Lieferungen beträgt 150 €. Dies ermöglicht uns, die gewohnte Qualität und Frische zu gewährleisten."
+        answer: "Ja. Der Mindestbestellwert für Lieferungen hängt von der Entfernung ab und wird Ihnen im Warenkorb angezeigt. Liegt der Warenwert darunter, können Sie trotzdem bestellen – wir berechnen dann die Differenz als Mindermengenzuschlag, der ebenfalls vorher angezeigt wird. Bei Selbstabholung fallen keine Lieferkosten an."
       },
       {
         question: "Sind die Preise inkl. oder exkl. MwSt.?",
@@ -102,7 +102,7 @@ const faqCategories: FAQCategory[] = [
       },
       {
         question: "Was kostet die Lieferung?",
-        answer: "Die Lieferkosten hängen von der Entfernung und dem Bestellwert ab. Innerhalb Münchens (Stadtgebiet) liegen die Lieferkosten zwischen 15-35 €. Ab einem bestimmten Bestellwert ist die Lieferung kostenfrei – fragen Sie nach den aktuellen Konditionen."
+        answer: "Die Lieferkosten hängen von der Entfernung ab und werden Ihnen vor der Bestellung im Warenkorb in Euro inklusive Umsatzsteuer angezeigt. Catering mit Mehrweggeschirr berechnen wir mit Hin- und Rückfahrt, weil wir das Geschirr wieder abholen; Pizza nur mit einer Fahrt. Bei Selbstabholung in der Karlstraße 47a fallen keine Lieferkosten an."
       }
     ]
   },
@@ -115,11 +115,11 @@ const faqCategories: FAQCategory[] = [
       },
       {
         question: "Wie viel Vorlaufzeit braucht ihr für eine Bestellung?",
-        answer: "Für Standardbestellungen benötigen wir mindestens 48 Stunden Vorlaufzeit. Für größere Events, individuelle Menüs oder Wochenendlieferungen empfehlen wir eine Buchung mindestens 1-2 Wochen im Voraus."
+        answer: "Catering im Online-Shop benötigt in der Regel mindestens 24 Stunden Vorlauf; Lieferungen am Wochenende müssen bis Donnerstag, 23:59 Uhr, bestellt sein. Pizza liefern wir mit mindestens einer Stunde Vorlauf. Für größere Events und individuelle Menüs empfehlen wir eine Anfrage mindestens 1–2 Wochen im Voraus."
       },
       {
         question: "Kann ich eine Bestellung ändern oder stornieren?",
-        answer: "Änderungen sind bis 48 Stunden vor dem Liefertermin kostenlos möglich. Stornierungen bis 48 Stunden vorher: kostenfrei. Bei späteren Stornierungen können Gebühren anfallen. Details finden Sie in unseren AGB."
+        answer: "Ja. Catering-Bestellungen (Platten, Buffets, Aufläufe, warme Gerichte) können bis 48 Stunden vor dem Liefertermin kostenfrei storniert werden; zwischen 48 und 24 Stunden berechnen wir 50 %, danach 100 % des Warenwerts abzüglich ersparter Aufwendungen. Pizza ist bis 2 Stunden vor dem Liefertermin kostenfrei stornierbar, danach 100 % abzüglich ersparter Aufwendungen. Mengenänderungen nehmen wir bis 48 Stunden vor dem Liefertermin an. Details: AGB § 23."
       },
       {
         question: "Bekomme ich eine Auftragsbestätigung?",
@@ -183,15 +183,15 @@ const faqCategories: FAQCategory[] = [
     questions: [
       {
         question: "Welche Zahlungsmethoden werden akzeptiert?",
-        answer: "Sie können per Kreditkarte, PayPal, Überweisung oder bei Abholung/Lieferung bar bezahlen. Für Firmenkunden bieten wir auch Rechnungskauf nach vorheriger Vereinbarung."
+        answer: "Online bezahlen Sie über unseren Zahlungsdienstleister Stripe – per Kreditkarte, Apple Pay, Google Pay, Klarna oder SEPA-Lastschrift. Firmenkunden können, soweit angeboten, über Billie auf Rechnung zahlen; es gilt das von Billie im Bestellprozess angezeigte Zahlungsziel. Welche Zahlungsarten zur Verfügung stehen, sehen Sie im Bestellprozess bzw. im Angebot. Vor Ort im Restaurant akzeptieren wir außerdem Bargeld und Karte."
       },
       {
         question: "Benötigt ihr eine Anzahlung?",
-        answer: "Für größere Events oder individuelle Bestellungen kann eine Anzahlung von 30-50% erforderlich sein. Dies wird vorab mit Ihnen abgestimmt und in der Auftragsbestätigung festgehalten."
+        answer: "Für Veranstaltungen und individuelle Catering-Angebote kann eine Anzahlung anfallen. Höhe und Fälligkeit stehen im jeweiligen Angebot; die Anzahlung wird mit dem Gesamtpreis verrechnet."
       },
       {
         question: "Welche Stornobedingungen gelten für Veranstaltungen?",
-        answer: "Bei Absage oder Reduzierung der Teilnehmerzahl gelten folgende Regelungen:\n\n• Bis 30 Tage vor der Veranstaltung: kostenlose Stornierung\n• 14–30 Tage vorher: 25 % des vereinbarten Gesamtbetrags\n• 7–14 Tage vorher: 50 % des vereinbarten Gesamtbetrags\n• 2–7 Tage vorher: 80 % des vereinbarten Gesamtbetrags\n• Unter 48 Stunden / Nichterscheinen: 100 % abzüglich ersparter Aufwendungen\n\nDie verbindliche Teilnehmerzahl ist spätestens 48 Stunden vor der Veranstaltung mitzuteilen. Andernfalls gilt die bei Buchung angegebene Personenzahl.\n\nDem Kunden steht der Nachweis frei, dass ein geringerer oder kein Schaden entstanden ist (§ 309 Nr. 5b BGB)."
+        answer: "Bis 8 Wochen vor der Veranstaltung kostenfrei · zwischen der 8. und 4. Woche 35 % · danach 70 % des vereinbarten Speisenumsatzes (Preis pro Person × gebuchte Personen). Bereits bei Dritten beauftragte Leistungen, die nicht mehr kostenfrei stornierbar sind, werden berechnet. Anzahlungen verrechnen wir. Der Nachweis eines geringeren Schadens bleibt Ihnen unbenommen. Vollständige Bedingungen: AGB § 13.\n\nÄnderungen der Personenzahl um mehr als 5 % teilen Sie uns bitte spätestens fünf Werktage vor der Veranstaltung mit."
       }
     ]
   },

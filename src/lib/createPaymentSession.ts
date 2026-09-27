@@ -16,6 +16,10 @@ export interface PaymentSessionRequest {
   optionId?: string | null;
   paymentType: 'full' | 'deposit';
   optionQuantities?: Array<{ optionId: string; quantity: number }>;
+  /** Pflicht-Checkbox vor der Online-Zahlung (Angebotsannahme + AGB inkl. Stornobedingungen). */
+  agbAccepted?: boolean;
+  /** Version der akzeptierten AGB, z. B. 'AGB-2026-10'. */
+  termsVersion?: string;
 }
 
 export interface PaymentSessionResponse {

@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
 import SEO from "@/components/SEO";
+import { LocalizedLink } from "@/components/LocalizedLink";
 import { CreditCard, Banknote, Smartphone, Gift } from "lucide-react";
 
 const Zahlungsinformationen = () => {
@@ -43,12 +44,23 @@ const Zahlungsinformationen = () => {
                 <Smartphone className="h-5 w-5 text-primary" />
                 Online-Zahlungen
               </h2>
-              <p>Für Online-Bestellungen (z.B. Gutscheinkauf) akzeptieren wir:</p>
+              <p>
+                Online-Zahlungen (Catering-Shop, Angebote für Veranstaltungen, Gutscheine) wickelt der
+                Zahlungsdienstleister Stripe Payments Europe Ltd. ab. Welche Zahlungsarten zur Verfügung
+                stehen, zeigt der jeweilige Bestellprozess, zum Beispiel:
+              </p>
               <ul className="list-disc pl-6 space-y-2">
-                <li><strong>Kreditkarte</strong> (Visa, Mastercard, American Express)</li>
-                <li><strong>PayPal</strong></li>
-                <li><strong>Sofortüberweisung</strong> (Klarna)</li>
+                <li><strong>Kreditkarte</strong> (z. B. Visa, Mastercard, American Express)</li>
+                <li><strong>Apple Pay</strong> und <strong>Google Pay</strong></li>
+                <li><strong>Klarna</strong></li>
+                <li><strong>SEPA-Lastschrift</strong></li>
+                <li><strong>Kauf auf Rechnung für Unternehmen</strong> über die Billie GmbH (nach Bonitätsprüfung, mit dem von Billie angezeigten Zahlungsziel)</li>
               </ul>
+              <p className="mt-4">
+                Höhe und Fälligkeit von Anzahlungen bei Veranstaltungen stehen im jeweiligen Angebot.
+                Es gelten unsere{" "}
+                <LocalizedLink to="legal.terms" className="text-primary hover:underline">AGB</LocalizedLink>.
+              </p>
             </section>
 
             <section>
@@ -128,7 +140,7 @@ const Zahlungsinformationen = () => {
 
             <section className="mt-12 pt-8 border-t border-border">
               <p className="text-sm text-muted-foreground">
-                Stand: Dezember 2024
+                Stand: 28. September 2026
               </p>
             </section>
           </div>

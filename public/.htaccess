@@ -46,6 +46,16 @@ RewriteRule ^ristorantestoria-de/?$ / [R=301,L]
 RewriteRule ^veranstaltung(/.*)?$ /events/ [R=301,L]
 RewriteRule ^gallerie(/.*)?$ /events/ [R=301,L]
 
+# Einheitliche AGB (AGB-2026-10, 28.09.2026): frühere Einzel-AGB → /agb/ bzw. /en/terms/
+RewriteRule ^agb-catering/?$ /agb/ [R=301,L]
+RewriteRule ^agb-veranstaltungen/?$ /agb/ [R=301,L]
+RewriteRule ^agb-restaurant/?$ /agb/ [R=301,L]
+RewriteRule ^en/agb-catering/?$ /en/terms/ [R=301,L]
+RewriteRule ^en/agb-veranstaltungen/?$ /en/terms/ [R=301,L]
+RewriteRule ^en/agb-restaurant/?$ /en/terms/ [R=301,L]
+RewriteRule ^en/catering-terms/?$ /en/terms/ [R=301,L]
+RewriteRule ^en/restaurant-terms/?$ /en/terms/ [R=301,L]
+
 # Alte Datenschutz-URL → aktuelle Seite
 RewriteRule ^datenschutzerklaerung/?$ /datenschutz/ [R=301,L]
 
@@ -71,8 +81,7 @@ RewriteRule ^en/faq-catering-muenchen/?$ /en/catering-faq-munich/ [R=301,L]
 RewriteRule ^en/impressum/?$ /en/imprint/ [R=301,L]
 RewriteRule ^en/datenschutz/?$ /en/privacy/ [R=301,L]
 RewriteRule ^en/cookie-richtlinie/?$ /en/cookie-policy/ [R=301,L]
-RewriteRule ^en/agb-catering/?$ /en/catering-terms/ [R=301,L]
-RewriteRule ^en/agb-restaurant/?$ /en/restaurant-terms/ [R=301,L]
+RewriteRule ^en/agb/?$ /en/terms/ [R=301,L]
 RewriteRule ^en/agb-gutscheine/?$ /en/voucher-terms/ [R=301,L]
 RewriteRule ^en/widerrufsbelehrung/?$ /en/cancellation-policy/ [R=301,L]
 RewriteRule ^en/zahlungsinformationen/?$ /en/payment-information/ [R=301,L]

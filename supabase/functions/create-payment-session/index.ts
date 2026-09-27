@@ -9,6 +9,10 @@ interface CreatePaymentSessionRequest {
   optionId?: string;
   paymentType: 'full' | 'deposit';
   optionQuantities?: Array<{ optionId: string; quantity: number }>;
+  /** Kunde hat vor der Zahlung die Checkbox „Angebot verbindlich annehmen + AGB inkl. Stornobedingungen“ bestätigt. */
+  agbAccepted?: boolean;
+  /** Version der akzeptierten AGB, z. B. 'AGB-2026-10'. */
+  termsVersion?: string;
 }
 
 function effectiveTotalForOption(opt: { total_amount: number; menu_selection: Record<string, unknown> | null }): number {
@@ -90,6 +94,11 @@ serve(async (req) => {
   try {
     const body = await req.json() as CreatePaymentSessionRequest;
     const { inquiryId, optionId, paymentType, optionQuantities } = body;
+    // Nur zur Beweissicherung in den Stripe-Metadaten — beeinflusst keine Beträge.
+    const termsMetadata = {
+      agb_accepted: body.agbAccepted === true ? 'true' : 'false',
+      terms_version: typeof body.termsVersion === 'string' ? body.termsVersion.slice(0, 40) : '',
+    };
 
     if (!inquiryId || !paymentType) {
       throw new Error('inquiryId und paymentType sind erforderlich');
@@ -279,6 +288,7 @@ serve(async (req) => {
           deposit_percent: String(depositPercent),
           deposit_amount: isFixedDeposit ? String(fixedDeposit) : '',
           option_quantities: JSON.stringify(filtered),
+          ...termsMetadata,
         },
       });
 
@@ -427,6 +437,7 @@ serve(async (req) => {
         total_amount: String(totalAmount),
         deposit_percent: String(depositPercent),
         deposit_amount: isFixedDeposit ? String(fixedDeposit) : '',
+        ...termsMetadata,
       },
     });
 

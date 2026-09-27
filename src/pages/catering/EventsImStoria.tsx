@@ -361,8 +361,8 @@ const EventsImStoria = () => {
                   <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-4 py-2 rounded-full">
                     <Clock className="h-4 w-4" />
                     {language === 'de' 
-                      ? '100% Anzahlung · Keine versteckten Kosten · Kostenlose Stornierung bis 14 Tage vorher'
-                      : '100% Deposit · No hidden costs · Free cancellation up to 14 days before'}
+                      ? '100% Anzahlung · Keine versteckten Kosten · Kostenfreie Stornierung bis 8 Wochen vorher'
+                      : '100% Deposit · No hidden costs · Free cancellation up to 8 weeks before'}
                   </div>
                 </div>
             </div>

@@ -52,8 +52,9 @@ const AGBGutscheine = () => {
               </h2>
               <ul className="list-disc pl-6 space-y-2">
                 <li>
-                  <strong>Gültigkeit:</strong> Gutscheine sind 3 Jahre ab Ausstellungsdatum gültig 
-                  (§ 195 BGB). Das Ausstellungsdatum ist auf dem Gutschein vermerkt.
+                  <strong>Gültigkeit:</strong> Gutscheine sind bis zum 31. Dezember des dritten Jahres
+                  nach dem Kauf gültig (z. B. Kauf im Jahr 2026: gültig bis 31.12.2029). Das
+                  Gültigkeitsdatum ist auf dem Gutschein vermerkt.
                 </li>
                 <li>
                   <strong>Keine Barauszahlung:</strong> Eine Auszahlung des Gutscheinwertes in bar 
@@ -77,18 +78,10 @@ const AGBGutscheine = () => {
               <h2 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
                 4. Versand
               </h2>
-              <p><strong>Digitale Gutscheine:</strong></p>
               <ul className="list-disc pl-6 space-y-2">
-                <li>Werden per E-Mail als PDF-Datei versendet</li>
-                <li>Versand erfolgt in der Regel innerhalb von 24 Stunden nach Zahlungseingang</li>
-                <li>Keine Versandkosten</li>
-              </ul>
-              
-              <p className="mt-4"><strong>Postalischer Versand:</strong></p>
-              <ul className="list-disc pl-6 space-y-2">
-                <li>Auf Wunsch versenden wir Gutscheine per Post</li>
-                <li>Versandkosten: 2,50 € (Standardversand)</li>
-                <li>Lieferzeit: 3-5 Werktage</li>
+                <li>Gutscheine werden per E-Mail als PDF-Datei versendet, in der Regel wenige Minuten nach erfolgreicher Zahlung.</li>
+                <li>Es fallen keine Versandkosten an.</li>
+                <li>Ein postalischer Versand findet nicht statt.</li>
               </ul>
             </section>
 
@@ -100,14 +93,11 @@ const AGBGutscheine = () => {
                 Es gelten die zum Zeitpunkt der Bestellung auf unserer Website bzw. im Restaurant 
                 angegebenen Preise. Alle Preise verstehen sich inklusive der gesetzlichen Mehrwertsteuer.
               </p>
-              <p className="mt-4">Akzeptierte Zahlungsarten:</p>
-              <ul className="list-disc pl-6 space-y-1">
-                <li>Kreditkarte (Visa, Mastercard, American Express)</li>
-                <li>PayPal</li>
-                <li>Sofortüberweisung</li>
-                <li>Karte (bei Kauf im Restaurant)</li>
-                <li>Barzahlung (bei Kauf im Restaurant)</li>
-              </ul>
+              <p className="mt-4">
+                Die Zahlung erfolgt online über den Zahlungsdienstleister Stripe Payments Europe Ltd.
+                Welche Zahlungsarten zur Verfügung stehen (z. B. Kreditkarte, Apple Pay, Google Pay),
+                zeigt der Bestellprozess.
+              </p>
             </section>
 
             <section>
@@ -115,8 +105,9 @@ const AGBGutscheine = () => {
                 6. Widerrufsrecht
               </h2>
               <p>
-                Für digitale Gutscheine gilt ein 14-tägiges Widerrufsrecht. Weitere Informationen 
-                finden Sie in unserer{" "}
+                Verbrauchern steht beim Kauf von Gutscheinen ein 14-tägiges Widerrufsrecht zu. Es
+                erlischt nicht bereits mit der Erstellung oder dem Versand des Gutscheins. Weitere
+                Informationen finden Sie in unserer{" "}
                 <LocalizedLink to="legal.withdrawal" className="text-primary hover:underline">
                   Widerrufsbelehrung
                 </LocalizedLink>.
@@ -129,8 +120,7 @@ const AGBGutscheine = () => {
               </h2>
               <p>
                 Bei Verlust eines Gutscheins kann kein Ersatz ausgestellt werden. 
-                Wir empfehlen, digitale Gutscheine sicher zu speichern und physische 
-                Gutscheine sorgfältig aufzubewahren.
+                Wir empfehlen, den Gutschein (PDF) sicher zu speichern.
               </p>
             </section>
 
@@ -146,7 +136,7 @@ const AGBGutscheine = () => {
 
             <section className="mt-12 pt-8 border-t border-border">
               <p className="text-sm text-muted-foreground">
-                Stand: Dezember 2024
+                Stand: 28. September 2026
               </p>
             </section>
           </div>

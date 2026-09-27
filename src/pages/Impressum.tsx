@@ -100,25 +100,14 @@ const Impressum = () => {
               <p>Gewerbebetrieb Gastronomie (nach § 14 GewO angemeldet)</p>
             </section>
 
-            {/* EU-Streitschlichtung */}
+            {/* Verbraucherstreitbeilegung (OS-Plattform der EU zum 20.07.2025 eingestellt) */}
             <section>
               <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                EU-Streitschlichtung
+                Verbraucherstreitbeilegung
               </h2>
               <p>
-                Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit:{" "}
-                <a 
-                  href="https://ec.europa.eu/consumers/odr/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline break-all"
-                >
-                  https://ec.europa.eu/consumers/odr/
-                </a>
-              </p>
-              <p className="mt-4">
-                Wir sind nicht verpflichtet und nicht bereit, an Streitbeilegungsverfahren 
-                vor einer Verbraucherschlichtungsstelle teilzunehmen.
+                Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren
+                vor einer Verbraucherschlichtungsstelle teilzunehmen (§ 36 VSBG).
               </p>
             </section>
           </div>

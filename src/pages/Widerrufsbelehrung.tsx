@@ -2,13 +2,14 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
 import SEO from "@/components/SEO";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 const Widerrufsbelehrung = () => {
   return (
     <>
       <SEO 
         title="Widerrufsbelehrung"
-        description="Widerrufsbelehrung für Online-Bestellungen bei STORIA Catering München: Ihr 14-tägiges Widerrufsrecht nach BGB."
+        description="Widerrufsbelehrung der Speranza GmbH (STORIA München): 14-tägiges Widerrufsrecht, Ausschluss bei Speisenlieferungen und Veranstaltungen zu einem festen Termin."
         noIndex={true}
       />
       <div className="min-h-screen bg-background">
@@ -61,22 +62,29 @@ const Widerrufsbelehrung = () => {
               </p>
               <ul className="list-disc pl-6 space-y-2">
                 <li>
-                  <strong>Lebensmittel und Catering:</strong> Bei der Lieferung von Lebensmitteln, 
-                  die schnell verderben können oder deren Verfallsdatum schnell überschritten 
-                  würde, besteht gemäß § 312g Abs. 2 Nr. 2 BGB kein Widerrufsrecht. 
-                  Dies gilt für alle Catering-Bestellungen und Speiselieferungen.
+                  <strong>Veranstaltungen und Speisenlieferungen zu einem festen Termin:</strong> Bei
+                  Verträgen über die Lieferung von Speisen und Getränken sowie über Veranstaltungs- und
+                  Catering-Leistungen, die zu einem bestimmten Termin oder in einem bestimmten Zeitraum
+                  erbracht werden, besteht gemäß § 312g Abs. 2 Nr. 9 BGB kein Widerrufsrecht. Dies gilt
+                  für Veranstaltungen im Restaurant, individuelle Catering-Angebote, Eventpakete sowie
+                  Catering- und Pizza-Bestellungen im Online-Shop.
                 </li>
                 <li>
-                  Gutscheine, die bereits ganz oder teilweise eingelöst wurden
-                </li>
-                <li>
-                  Personalisierte Gutscheine, die auf eine bestimmte Person ausgestellt und 
-                  bereits erstellt wurden
-                </li>
-                <li>
-                  Reservierungen und gastronomische Dienstleistungen, die bereits erbracht wurden
+                  <strong>Schnell verderbliche Lebensmittel:</strong> Bei der Lieferung von Waren, die
+                  schnell verderben können oder deren Verfallsdatum schnell überschritten würde, besteht
+                  zusätzlich gemäß § 312g Abs. 2 Nr. 2 BGB kein Widerrufsrecht.
                 </li>
               </ul>
+              <p className="mt-4">
+                Für Absagen und Stornierungen gelten stattdessen die Regelungen unserer{" "}
+                <LocalizedLink to="legal.terms" className="text-primary hover:underline">AGB</LocalizedLink>{" "}
+                (§ 13 Veranstaltungen, § 23 Online-Shop, § 27 Reservierungen).
+              </p>
+              <p className="mt-4">
+                <strong>Gutscheine:</strong> Beim Kauf von Gutscheinen steht Verbrauchern das oben
+                beschriebene 14-tägige Widerrufsrecht zu. Es erlischt nicht bereits mit der Erstellung
+                oder dem Versand des Gutscheins.
+              </p>
             </section>
 
             <section>
@@ -132,7 +140,7 @@ const Widerrufsbelehrung = () => {
 
             <section className="mt-12 pt-8 border-t border-border">
               <p className="text-sm text-muted-foreground">
-                Stand: Dezember 2024
+                Stand: 28. September 2026
               </p>
             </section>
           </div>

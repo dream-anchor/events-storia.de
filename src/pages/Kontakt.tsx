@@ -31,7 +31,7 @@ const Kontakt = () => {
     },
     {
       question: 'Kann ich Catering-Bestellungen abholen?',
-      answer: 'Ja, Selbstabholung ist täglich während unserer Öffnungszeiten (Mo-Fr 9-1 Uhr, Sa-So 12-1 Uhr) in der Karlstraße 47a möglich. Bitte 30 Minuten vorher telefonisch bestätigen: +49 89 54043770.'
+      answer: 'Ja, Selbstabholung ist täglich während unserer Öffnungszeiten (Mo-Fr 9-1 Uhr, Sa-So 12-1 Uhr) in der Karlstraße 47a möglich. Bitte 30 Minuten vorher telefonisch bestätigen: +49 89 51519696.'
     }
   ] : [
     {
@@ -48,7 +48,7 @@ const Kontakt = () => {
     },
     {
       question: 'Can I pick up catering orders myself?',
-      answer: 'Yes, self-pickup is available daily during our opening hours (Mon-Fri 9am-1am, Sat-Sun 12pm-1am) at Karlstraße 47a. Please confirm by phone 30 minutes in advance: +49 89 54043770.'
+      answer: 'Yes, self-pickup is available daily during our opening hours (Mon-Fri 9am-1am, Sat-Sun 12pm-1am) at Karlstraße 47a. Please confirm by phone 30 minutes in advance: +49 89 51519696.'
     }
   ];
 
@@ -122,12 +122,12 @@ const Kontakt = () => {
                     <div>
                       <p className="font-medium">{t.contact.phone}</p>
                       <a
-                        href="tel:+498954043770"
+                        href="tel:+498951519696"
                         itemProp="telephone"
-                        aria-label={language === 'de' ? 'STORIA Catering München anrufen: +49 89 54043770' : 'Call STORIA Catering Munich: +49 89 54043770'}
+                        aria-label={language === 'de' ? 'STORIA Catering München anrufen: +49 89 51519696' : 'Call STORIA Catering Munich: +49 89 51519696'}
                         className="text-muted-foreground hover:text-primary transition-colors"
                       >
-                        +49 89 54043770
+                        +49 89 51519696
                       </a>
                     </div>
                   </div>

@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -47,10 +47,8 @@ const Danke = lazy(() => import("./pages/Danke"));
 const Impressum = lazy(() => import("./pages/Impressum"));
 const Datenschutz = lazy(() => import("./pages/Datenschutz"));
 const CookieRichtlinie = lazy(() => import("./pages/CookieRichtlinie"));
-const AGBRestaurant = lazy(() => import("./pages/AGBRestaurant"));
+const AGB = lazy(() => import("./pages/AGB"));
 const AGBGutscheine = lazy(() => import("./pages/AGBGutscheine"));
-const AGBCatering = lazy(() => import("./pages/AGBCatering"));
-const AGBVeranstaltungen = lazy(() => import("./pages/AGBVeranstaltungen"));
 const Widerrufsbelehrung = lazy(() => import("./pages/Widerrufsbelehrung"));
 const Zahlungsinformationen = lazy(() => import("./pages/Zahlungsinformationen"));
 const Lebensmittelhinweise = lazy(() => import("./pages/Lebensmittelhinweise"));
@@ -212,10 +210,12 @@ const App = () => {
                     <Route path="/impressum" element={<Impressum />} />
                     <Route path="/datenschutz" element={<Datenschutz />} />
                     <Route path="/cookie-richtlinie" element={<CookieRichtlinie />} />
-                    <Route path="/agb-restaurant" element={<AGBRestaurant />} />
+                    <Route path="/agb" element={<AGB />} />
                     <Route path="/agb-gutscheine" element={<AGBGutscheine />} />
-                    <Route path="/agb-catering" element={<AGBCatering />} />
-                    <Route path="/agb-veranstaltungen" element={<AGBVeranstaltungen />} />
+                    {/* Frühere Einzel-AGB → einheitliche AGB (Server-301 in public/.htaccess) */}
+                    <Route path="/agb-restaurant" element={<Navigate to="/agb/" replace />} />
+                    <Route path="/agb-catering" element={<Navigate to="/agb/" replace />} />
+                    <Route path="/agb-veranstaltungen" element={<Navigate to="/agb/" replace />} />
                     <Route path="/widerrufsbelehrung" element={<Widerrufsbelehrung />} />
                     <Route path="/zahlungsinformationen" element={<Zahlungsinformationen />} />
                     <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />
@@ -263,9 +263,10 @@ const App = () => {
                     <Route path="/en/imprint" element={<Impressum />} />
                     <Route path="/en/privacy" element={<Datenschutz />} />
                     <Route path="/en/cookie-policy" element={<CookieRichtlinie />} />
-                    <Route path="/en/restaurant-terms" element={<AGBRestaurant />} />
+                    <Route path="/en/terms" element={<AGB />} />
                     <Route path="/en/voucher-terms" element={<AGBGutscheine />} />
-                    <Route path="/en/catering-terms" element={<AGBCatering />} />
+                    <Route path="/en/restaurant-terms" element={<Navigate to="/en/terms/" replace />} />
+                    <Route path="/en/catering-terms" element={<Navigate to="/en/terms/" replace />} />
                     <Route path="/en/cancellation-policy" element={<Widerrufsbelehrung />} />
                     <Route path="/en/payment-information" element={<Zahlungsinformationen />} />
                     <Route path="/en/food-information" element={<Lebensmittelhinweise />} />

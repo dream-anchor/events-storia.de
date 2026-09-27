@@ -9,7 +9,7 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
 };
 
-const TERMS_VERSION = 'AGB-EVENTS-2026-05';
+const TERMS_VERSION = 'AGB-2026-10';
 
 interface Body {
   inquiry_id: string;

@@ -8,7 +8,7 @@ const Haftungsausschluss = () => {
     <>
       <SEO 
         title="Haftungsausschluss (Disclaimer)"
-        description="Haftungsausschluss (Disclaimer) für die Website ristorantestoria.de – Rechtliche Hinweise zu Inhalten und Links."
+        description="Haftungsausschluss (Disclaimer) für die Website events-storia.de – Rechtliche Hinweise zu Inhalten und Links."
         noIndex={true}
       />
       <div className="min-h-screen bg-background">
@@ -27,8 +27,8 @@ const Haftungsausschluss = () => {
                 1. Haftung für Inhalte
               </h2>
               <p>
-                Als Diensteanbieter sind wir gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen 
-                Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind 
+                Als Diensteanbieter sind wir gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen 
+                Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 DDG sind 
                 wir als Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte 
                 fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine 
                 rechtswidrige Tätigkeit hinweisen.
@@ -133,7 +133,7 @@ const Haftungsausschluss = () => {
 
             <section className="mt-12 pt-8 border-t border-border">
               <p className="text-sm text-muted-foreground">
-                Stand: Dezember 2024
+                Stand: 28. September 2026
               </p>
               <p className="mt-4">
                 Speranza GmbH<br />

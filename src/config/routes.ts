@@ -34,9 +34,8 @@ export type RouteKey =
   | 'legal.imprint'
   | 'legal.privacy'
   | 'legal.cookies'
-  | 'legal.termsRestaurant'
+  | 'legal.terms'
   | 'legal.termsVouchers'
-  | 'legal.termsCatering'
   | 'legal.withdrawal'
   | 'legal.payment'
   | 'legal.foodInfo'
@@ -96,8 +95,8 @@ export const ROUTES: RouteConfig[] = [
   { key: 'legal.imprint', de: '/impressum', en: '/imprint', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly' },
   { key: 'legal.privacy', de: '/datenschutz', en: '/privacy', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly', noIndex: true },
   { key: 'legal.cookies', de: '/cookie-richtlinie', en: '/cookie-policy', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly', noIndex: true },
-  { key: 'legal.termsCatering', de: '/agb-catering', en: '/catering-terms', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly', noIndex: true },
-  { key: 'legal.termsRestaurant', de: '/agb-restaurant', en: '/restaurant-terms', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly', noIndex: true },
+  // Einheitliche AGB (AGB-2026-10) — ersetzt AGB Catering/Veranstaltungen/Restaurant (301 in public/.htaccess)
+  { key: 'legal.terms', de: '/agb', en: '/terms', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly', noIndex: true },
   { key: 'legal.termsVouchers', de: '/agb-gutscheine', en: '/voucher-terms', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly', noIndex: true },
   { key: 'legal.withdrawal', de: '/widerrufsbelehrung', en: '/cancellation-policy', languages: ['de', 'en'], prerender: true, priority: 0.3, changefreq: 'yearly', noIndex: true },
   { key: 'legal.payment', de: '/zahlungsinformationen', en: '/payment-information', languages: ['de', 'en'], prerender: true, priority: 0.2, changefreq: 'yearly', noIndex: true },
