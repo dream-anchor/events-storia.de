@@ -315,11 +315,11 @@ const COPY = {
     faqTitle: "Häufige Fragen",
     faq: [
       { q: "Wann kommt der Gutschein an?", a: "Sofort nach erfolgreicher Zahlung wird der Gutschein als PDF per E-Mail versendet — in der Regel innerhalb weniger Minuten." },
-      { q: "Wie lange ist der Gutschein gültig?", a: "Drei volle Kalenderjahre, jeweils zum Jahresende (gesetzliche Verjährungsfrist nach § 195 BGB)." },
+      { q: "Wie lange ist der Gutschein gültig?", a: "Bis zum 31. Dezember des dritten Jahres nach dem Kauf (gesetzliche Verjährungsfrist nach § 195 BGB)." },
       { q: "Kann ich den Gutschein online einlösen?", a: "Nein. Der Gutschein wird ausschließlich vor Ort im Restaurant STORIA in der Karlstraße 47a, München, eingelöst." },
       { q: "Was passiert mit dem Restbetrag?", a: "Ein nicht vollständig genutzter Betrag bleibt bis zum Gültigkeitsende auf dem Code erhalten und kann beim nächsten Besuch verwendet werden." },
       { q: "Erhalte ich eine Rechnung?", a: "Ja, die Rechnung wird automatisch per E-Mail zugestellt." },
-      { q: "Gilt das Widerrufsrecht?", a: "Bei digital zugestellten Gutscheinen erlischt das Widerrufsrecht mit der Erstellung — siehe AGB für Gutscheine." },
+      { q: "Gilt das Widerrufsrecht?", a: "Ja. Als Verbraucher kannst du den Gutscheinkauf innerhalb von 14 Tagen widerrufen — das Widerrufsrecht erlischt nicht mit der Erstellung des Gutscheins. Details: AGB für Gutscheine und Widerrufsbelehrung." },
     ],
   },
   en: {
@@ -364,11 +364,11 @@ const COPY = {
     faqTitle: "Frequently asked questions",
     faq: [
       { q: "When does the voucher arrive?", a: "Right after successful payment — usually within a few minutes — as a PDF by email." },
-      { q: "How long is the voucher valid?", a: "Three full calendar years, each to year-end (statutory limitation period under § 195 BGB)." },
+      { q: "How long is the voucher valid?", a: "Until 31 December of the third year after purchase (statutory limitation period under § 195 BGB)." },
       { q: "Can I redeem the voucher online?", a: "No. The voucher can only be redeemed in person at STORIA, Karlstraße 47a, Munich." },
       { q: "What happens to a remaining balance?", a: "Any unused balance remains on the code until the expiry date and can be used on your next visit." },
       { q: "Do I get an invoice?", a: "Yes, the invoice is sent automatically by email." },
-      { q: "Does the right of withdrawal apply?", a: "For vouchers delivered digitally the right of withdrawal expires upon creation — see voucher terms." },
+      { q: "Does the right of withdrawal apply?", a: "Yes. As a consumer you can withdraw from the voucher purchase within 14 days — the right of withdrawal does not expire when the voucher is created. Details: voucher terms and cancellation policy." },
     ],
   },
 };

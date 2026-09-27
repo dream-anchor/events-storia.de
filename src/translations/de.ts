@@ -202,7 +202,7 @@ export const de = {
     },
     contact: {
       title: 'Kontakt & Anfahrt – Catering München Maxvorstadt',
-      description: 'STORIA Catering München: Karlstraße 47a, Maxvorstadt. Nähe Hauptbahnhof, Königsplatz & TU München. Öffnungszeiten Mo-Fr 9-1 Uhr, Sa-So 12-1 Uhr. Jetzt anrufen: +49 89 54043770!',
+      description: 'STORIA Catering München: Karlstraße 47a, Maxvorstadt. Nähe Hauptbahnhof, Königsplatz & TU München. Öffnungszeiten Mo-Fr 9-1 Uhr, Sa-So 12-1 Uhr. Jetzt anrufen: +49 89 51519696!',
     },
     events: {
       title: 'Events & Firmenfeiern im STORIA Restaurant München',
@@ -351,7 +351,7 @@ export const de = {
         { question: 'Gibt es vegetarisches/veganes Fingerfood?', answer: 'Ja, wir bieten eine große Auswahl: Bruschette, Grillgemüse, Caponata, Frittata und mehr. Komplett veganes Fingerfood ist auf Anfrage möglich.' },
         { question: 'Wird das Fingerfood kalt oder warm geliefert?', answer: 'Beides — kalte Häppchen servierfertig, warme Optionen in Chafing Dishes oder zum Aufwärmen.' },
         { question: 'Ist Selbstabholung möglich?', answer: 'Ja, Sie können jederzeit in unserem Restaurant in der Karlstraße 47a abholen.' },
-        { question: 'Wie weit im Voraus muss ich bestellen?', answer: 'Mindestens 5–7 Werktage. Für große Events (50+ Gäste) empfehlen wir 2–4 Wochen Vorlauf.' },
+        { question: 'Wie weit im Voraus muss ich bestellen?', answer: 'Catering im Online-Shop benötigt mindestens 24 Stunden Vorlauf; Lieferungen am Wochenende müssen bis Donnerstag, 23:59 Uhr, bestellt sein. Für große Events empfehlen wir 2–4 Wochen Vorlauf.' },
         { question: 'Liefern Sie auch den Aufbau?', answer: 'Ja, auf Wunsch liefern wir, bauen auf und räumen ab. Service-Personal ist optional buchbar.' },
         { question: 'Gibt es auch ganze Platten statt Einzelportionen?', answer: 'Ja, wir bieten auch Sharing-Platten an — perfekt für lockere Events. Siehe unsere Platten & Sharing Auswahl.' },
       ],
@@ -365,8 +365,8 @@ export const de = {
         { question: 'Sind Getränke im Preis enthalten?', answer: 'Getränke sind in den meisten Paketen nicht enthalten, können aber dazu gebucht werden.' },
         { question: 'Gibt es eine Mindestbestellmenge?', answer: 'Unser Catering ist ab 5 Personen verfügbar. Der Mindestbestellwert ist in unserem Online-Shop hinterlegt.' },
         { question: 'Netto oder Brutto?', answer: 'Alle Preise auf der Website sind Endpreise inkl. MwSt. Für Geschäftskunden erstellen wir Netto-Rechnungen.' },
-        { question: 'Ist Lieferung im Preis enthalten?', answer: 'Die Lieferkosten hängen von der Entfernung ab. Im Münchner Stadtgebiet berechnen wir eine Lieferpauschale. Bei Selbstabholung entfallen die Lieferkosten.' },
-        { question: 'Kann ich die Menge nachträglich ändern?', answer: 'Änderungen sind bis 3 Werktage vor Lieferung möglich. Kontaktieren Sie uns rechtzeitig.' },
+        { question: 'Ist Lieferung im Preis enthalten?', answer: 'Die Lieferkosten hängen von der Entfernung ab und werden im Warenkorb vor der Bestellung in Euro inklusive Umsatzsteuer angezeigt. Catering mit Mehrweggeschirr berechnen wir mit Hin- und Rückfahrt, Pizza nur mit einer Fahrt. Bei Selbstabholung fallen keine Lieferkosten an.' },
+        { question: 'Kann ich die Menge nachträglich ändern?', answer: 'Mengenänderungen nehmen wir bis 48 Stunden vor dem Liefertermin an. Details: AGB § 23.' },
       ],
     },
     hochzeitCatering: {
@@ -406,7 +406,7 @@ export const de = {
         { question: 'Was kostet der Partyservice pro Person?', answer: 'Fingerfood ab ca. 8 € p.P., Pizza-Party ab ca. 12 € p.P., Antipasti-Buffet ab ca. 18 € p.P. und Komplett-Paket ab ca. 25 € p.P.' },
         { question: 'Kann ich auch nur Pizza bestellen?', answer: 'Ja, unsere Pizza-Party ist einer der beliebtesten Partyservice-Optionen: Echte neapolitanische Steinofen-Pizza in über 25 Sorten.' },
         { question: 'Ist Selbstabholung möglich?', answer: 'Ja, Sie können jederzeit in unserem Restaurant in der Karlstraße 47a abholen — das spart Lieferkosten.' },
-        { question: 'Wie weit im Voraus muss ich bestellen?', answer: 'Für kleine Bestellungen reichen 2–3 Werktage. Für größere Events empfehlen wir 5–7 Werktage Vorlauf.' },
+        { question: 'Wie weit im Voraus muss ich bestellen?', answer: 'Catering im Online-Shop benötigt mindestens 24 Stunden Vorlauf; Lieferungen am Wochenende müssen bis Donnerstag, 23:59 Uhr, bestellt sein. Für große Events empfehlen wir 2–4 Wochen Vorlauf.' },
         { question: 'Liefern Sie auch am Wochenende?', answer: 'Ja, wir liefern auch samstags und sonntags. Bestellungen für das Wochenende sollten bis Donnerstag eingehen.' },
         { question: 'Kann ich verschiedene Gerichte kombinieren?', answer: 'Natürlich! Stellen Sie Ihre Wunsch-Kombination aus Pizza, Antipasti, Fingerfood und warmen Gerichten zusammen — ganz flexibel.' },
       ],
@@ -417,8 +417,8 @@ export const de = {
       faqTitle: 'Häufige Fragen zum Lieferservice',
       faq: [
         { question: 'In welchem Gebiet liefern Sie?', answer: 'Wir liefern in ganz München und Umgebung, einschließlich Messe München/Riem, Grünwald, Pullach und weitere Gemeinden. Kontaktieren Sie uns für Lieferungen außerhalb Münchens.' },
-        { question: 'Was kostet die Lieferung?', answer: 'Die Lieferkosten hängen von der Entfernung ab. Im Münchner Stadtgebiet berechnen wir eine Pauschale. Bei Selbstabholung entfallen die Kosten.' },
-        { question: 'Gibt es einen Mindestbestellwert?', answer: 'Ja, der Mindestbestellwert ist abhängig von der Lieferzone und in unserem Online-Shop hinterlegt. Für Selbstabholung gilt ein niedrigerer Mindestbestellwert.' },
+        { question: 'Was kostet die Lieferung?', answer: 'Die Lieferkosten hängen von der Entfernung ab und werden im Warenkorb vor der Bestellung in Euro inklusive Umsatzsteuer angezeigt. Catering mit Mehrweggeschirr berechnen wir mit Hin- und Rückfahrt, Pizza nur mit einer Fahrt. Bei Selbstabholung fallen keine Lieferkosten an.' },
+        { question: 'Gibt es einen Mindestbestellwert?', answer: 'Ja, der Mindestbestellwert hängt von der Entfernung ab und wird im Warenkorb angezeigt. Liegt der Warenwert darunter, können Sie trotzdem bestellen — wir berechnen dann die Differenz als Mindermengenzuschlag. Bei Selbstabholung fallen keine Lieferkosten an.' },
         { question: 'Kann ich auch über Lieferando oder Wolt bestellen?', answer: 'Ja, für Einzelbestellungen sind wir auch auf Lieferando und Wolt verfügbar. Für Catering-Bestellungen ab 5 Personen empfehlen wir unseren eigenen Shop.' },
         { question: 'Wie sind die Lieferzeiten?', answer: 'Catering-Bestellungen werden zum vereinbarten Termin geliefert. Für kurzfristige Bestellungen kontaktieren Sie uns telefonisch oder per WhatsApp.' },
         { question: 'Ist Selbstabholung möglich?', answer: 'Ja, Selbstabholung ist jederzeit möglich in unserem Restaurant in der Karlstraße 47a, München Maxvorstadt.' },

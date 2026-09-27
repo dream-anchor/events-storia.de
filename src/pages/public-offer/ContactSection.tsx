@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Phone, Mail, Info, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { cn } from "@/lib/utils";
 import { tOffer } from "./i18n";
@@ -39,30 +40,67 @@ export function CancellationTermsAccordion({ lang = 'de' }: { lang?: OfferLang }
             </li>
             <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
               <span className="text-foreground">{tOffer(lang, 'cancelRow2')}</span>
-              <span className="font-semibold text-foreground whitespace-nowrap">{tOffer(lang, 'cancelPct25')}</span>
-            </li>
-            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
-              <span className="text-foreground">{tOffer(lang, 'cancelRow3')}</span>
-              <span className="font-semibold text-foreground whitespace-nowrap">{tOffer(lang, 'cancelPct50')}</span>
-            </li>
-            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
-              <span className="text-foreground">{tOffer(lang, 'cancelRow4')}</span>
-              <span className="font-semibold text-foreground whitespace-nowrap">{tOffer(lang, 'cancelPct80')}</span>
+              <span className="font-semibold text-foreground whitespace-nowrap">{tOffer(lang, 'cancelPct35')}</span>
             </li>
             <li className="flex items-baseline justify-between gap-4 py-1.5">
-              <span className="text-foreground">{tOffer(lang, 'cancelRow5')}</span>
-              <span className="font-semibold text-foreground whitespace-nowrap">{tOffer(lang, 'cancelPct100')}</span>
+              <span className="text-foreground">{tOffer(lang, 'cancelRow3')}</span>
+              <span className="font-semibold text-foreground whitespace-nowrap">{tOffer(lang, 'cancelPct70')}</span>
             </li>
           </ul>
 
           <p className="pt-2 text-xs text-muted-foreground leading-relaxed">
             {tOffer(lang, 'cancelDetailedFooter')}{" "}
-            <LocalizedLink to="/agb-veranstaltungen/" className="underline hover:text-foreground">
+            <LocalizedLink
+              to="legal.terms"
+              lang={lang === 'de' ? 'de' : 'en'}
+              target="_blank"
+              className="underline hover:text-foreground"
+            >
               {tOffer(lang, 'cancelTermsLink')}
             </LocalizedLink>.
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Pflicht-Checkbox vor der Online-Zahlung eines Angebots (Angebotsannahme + AGB inkl. Stornobedingungen).
+ * Die Zahlungs-Schaltflächen bleiben deaktiviert, bis `checked` true ist.
+ */
+export function OfferTermsAcceptance({
+  lang = 'de',
+  checked,
+  onCheckedChange,
+  id = 'offer-agb-accept',
+}: {
+  lang?: OfferLang;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  id?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 mb-4 text-left">
+      <Checkbox
+        id={id}
+        checked={checked}
+        onCheckedChange={(v) => onCheckedChange(v === true)}
+        className="mt-0.5"
+        aria-required="true"
+      />
+      <label htmlFor={id} className="text-sm font-sans leading-relaxed text-foreground/85 cursor-pointer">
+        {tOffer(lang, 'payAcceptPrefix')}{" "}
+        <LocalizedLink
+          to="legal.terms"
+          lang={lang === 'de' ? 'de' : 'en'}
+          target="_blank"
+          className="underline hover:text-foreground"
+        >
+          {tOffer(lang, 'payAcceptLink')}
+        </LocalizedLink>{" "}
+        {tOffer(lang, 'payAcceptSuffix')} *
+      </label>
     </div>
   );
 }

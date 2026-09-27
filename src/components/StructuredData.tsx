@@ -61,7 +61,7 @@ const StructuredData = ({
   const baseBusinessInfo = {
     name: 'STORIA Catering & Events München',
     alternateName: ['STORIA Catering', 'STORIA Events', 'Ristorante STORIA'],
-    telephone: '+49-89-54043770',
+    telephone: '+49-89-51519696',
     email: 'info@events-storia.de',
     url: 'https://events-storia.de',
     logo: 'https://events-storia.de/storia-logo.webp',
@@ -98,7 +98,7 @@ const StructuredData = ({
     // Local SEO: hasMap for Google Maps integration
     hasMap: 'https://www.google.com/maps/place/Karlstra%C3%9Fe+47a,+80333+M%C3%BCnchen',
     // Local SEO: Payment methods
-    paymentAccepted: ['Cash', 'Credit Card', 'EC Card', 'PayPal', 'Bank Transfer', 'Invoice'],
+    paymentAccepted: ['Cash', 'Credit Card', 'EC Card', 'Bank Transfer', 'Invoice'],
     currenciesAccepted: 'EUR',
     // Local SEO: Accessibility
     isAccessibleForFree: false,
@@ -197,7 +197,7 @@ const StructuredData = ({
     contactPoint: [
       {
         '@type': 'ContactPoint',
-        telephone: '+49-89-54043770',
+        telephone: '+49-89-51519696',
         contactType: 'customer service',
         availableLanguage: ['German', 'English', 'Italian'],
         areaServed: 'DE',
@@ -501,18 +501,19 @@ const StructuredData = ({
         maxValue: 3,
         unitCode: 'DAY',
       },
-      // Widerrufsrecht entfällt gem. § 312g Abs. 2 Nr. 2 BGB für leicht verderbliche Speiselieferungen (AGBCatering § 10)
+      // Kein Widerrufsrecht für Speisenlieferungen zu einem festen Termin (§ 312g Abs. 2 Nr. 9, zusätzlich Nr. 2 BGB) — AGB § 8
       hasMerchantReturnPolicy: {
         '@type': 'MerchantReturnPolicy',
         returnPolicyCategory: 'https://schema.org/MerchantReturnNotPermitted',
         applicableCountry: 'DE',
       },
-      // Lieferkosten/-zeiten gespiegelt aus AGBCatering § 4 (Münchner Stadtgebiet, Regelfall)
+      // Lieferkosten gespiegelt aus supabase/functions/calculate-delivery (AGB § 20): Catering 1–8 km,
+      // Hin- und Rückfahrt = 2 × 50 € netto = 119,00 € brutto (Regelfall Münchner Stadtgebiet)
       shippingDetails: {
         '@type': 'OfferShippingDetails',
         shippingRate: {
           '@type': 'MonetaryAmount',
-          value: '25.00',
+          value: '119.00',
           currency: 'EUR',
         },
         shippingDestination: {

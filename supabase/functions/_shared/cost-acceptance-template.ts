@@ -7,7 +7,7 @@
  * bestehende Kostenübernahmen weiterhin an ihren Originaltext gebunden bleiben.
  */
 
-export const TEMPLATE_VERSION = "1.1.0";
+export const TEMPLATE_VERSION = "1.2.0"; // 1.2.0 (28.09.2026): USt-IdNr. korrigiert (DE296024880 laut Impressum), AGB-Verweis ergänzt
 export const REFERENCE_PDF_NAME = "KOSTENÜBERNAHME.pdf";
 
 export const COST_ACCEPTANCE_TEMPLATE_TITLE =
@@ -25,7 +25,7 @@ export const COST_ACCEPTANCE_TEMPLATE_MARKDOWN = `# KOSTENÜBERNAHME
 **Speranza GmbH – Ristorante Pizzeria STORIA**
 Karlstraße 47a · 80333 München
 Telefon 089 51519696 · info@ristorantestoria.de · www.ristorantestoria.de
-Amtsgericht München HRB 209637 · USt-IdNr. DE14318200980
+Amtsgericht München HRB 209637 · USt-IdNr. DE296024880
 
 ---
 
@@ -76,6 +76,8 @@ Nicht im Angebot enthaltene Zusatzleistungen sowie nachträgliche Änderungen, E
 Die tatsächlich in Anspruch genommenen Leistungen sowie vor Ort zusätzlich bestellte Speisen, Getränke oder Dienstleistungen werden gesondert berechnet und dem Auftraggeber in Rechnung gestellt.
 
 {{additional_terms}}
+
+Es gelten die AGB der Speranza GmbH: www.events-storia.de/agb
 
 ---
 

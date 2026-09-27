@@ -146,7 +146,7 @@ serve(async (req) => {
           <strong>${t(lng, 'cancellationTermsTitle')}</strong><br/>
           ${t(lng, 'cancellationTermsBody')}<br/>
           <span style="font-size:13px;color:#666666;">${t(lng, 'cancellationTermsFootnote')}
-            <a href="https://www.events-storia.de/agb-veranstaltungen" style="color:#b45309;">events-storia.de/agb-veranstaltungen</a>
+            <a href="https://www.events-storia.de/agb" style="color:#b45309;">events-storia.de/agb</a>
           </span>
         </p>
         <p style="color:#333333;font-size:15px;line-height:1.6;margin:24px 0 0;">

@@ -77,7 +77,7 @@ export const RIGSHOSPITALET_HTML = `<!DOCTYPE html>
     2&ndash;7 Tage: 80&nbsp;% &middot; Unter 48&nbsp;Std./No-Show: 100&nbsp;% abzgl. ersparter Aufwendungen.<br/>
     <span style="font-size:13px;color:#666666;">
       Vollständige AGB:
-      <a href="https://www.events-storia.de/agb-veranstaltungen" style="color:#b45309;">events-storia.de/agb-veranstaltungen</a>
+      <a href="https://www.events-storia.de/agb" style="color:#b45309;">events-storia.de/agb</a>
     </span>
   </p>
 
@@ -169,7 +169,7 @@ export const RIGSHOSPITALET_HTML = `<!DOCTYPE html>
     Less than 48&nbsp;hours / no-show: 100&nbsp;%, less any saved costs.<br/>
     <span style="font-size:13px;color:#666666;">
       Full terms &amp; conditions:
-      <a href="https://www.events-storia.de/agb-veranstaltungen" style="color:#b45309;">events-storia.de/agb-veranstaltungen</a>
+      <a href="https://www.events-storia.de/agb" style="color:#b45309;">events-storia.de/agb</a>
     </span>
   </p>
 

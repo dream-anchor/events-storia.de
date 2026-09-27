@@ -25,8 +25,6 @@ import {
   Copy,
   Download,
   FileText,
-  Info,
-  ChevronDown,
   Lock,
   ShieldCheck,
 } from "lucide-react";
@@ -39,6 +37,8 @@ import { buildDrinkRows } from "@/pages/public-offer/types";
 import { CostAcceptanceSection } from "@/pages/public-offer/CostAcceptanceSection";
 import { evaluateCostAcceptanceRequirement } from "@/lib/costAcceptanceRequirement";
 import { FreeformProgramSection } from "@/pages/public-offer/FreeformProgramSection";
+import { CancellationTermsAccordion, OfferTermsAcceptance } from "@/pages/public-offer/ContactSection";
+import { AGB_VERSION } from "@/config/legal";
 
 // --- Types ---
 
@@ -1032,6 +1032,7 @@ function ProposalView({
   const [wantsCopy, setWantsCopy] = useState(false);
   const [copyEmail, setCopyEmail] = useState(inquiry.email || "");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [agbAccepted, setAgbAccepted] = useState(false);
 
   const selectedOption = options.find(o => o.id === selectedOptionId) || null;
   const totalAmount = effectiveTotalForOption(selectedOption);
@@ -1041,12 +1042,18 @@ function ProposalView({
   // ACTION: Zahlung — leitet zu Stripe Checkout weiter
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
     if (!selectedOptionId) return;
+    if (!agbAccepted) {
+      toast.error(tOffer(lang, 'payAcceptRequired'));
+      return;
+    }
     setIsPaying(paymentType);
     try {
       const { checkoutUrl } = await createPaymentSession({
         inquiryId: inquiry.id,
         optionId: selectedOptionId,
         paymentType,
+        agbAccepted: true,
+        termsVersion: AGB_VERSION,
       });
       trackEvent("offer_payment_initiated", {
         payment_type: paymentType,
@@ -1185,6 +1192,13 @@ function ProposalView({
                   </p>
                 </div>
 
+                <OfferTermsAcceptance
+                  lang={lang}
+                  checked={agbAccepted}
+                  onCheckedChange={setAgbAccepted}
+                  id="offer-agb-accept-proposal"
+                />
+
                 <div className={cn(
                   "grid grid-cols-1 gap-3",
                   payDisplay.showStripeDeposit && payDisplay.showStripeFull && "md:grid-cols-2"
@@ -1192,7 +1206,7 @@ function ProposalView({
                   {payDisplay.showStripeFull && (
                     <Button
                       onClick={() => handlePayment('full')}
-                      disabled={busy}
+                      disabled={busy || !agbAccepted}
                       className="h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all"
                     >
                       <span className="flex items-center gap-2 w-full justify-between">
@@ -1208,7 +1222,7 @@ function ProposalView({
                   {payDisplay.showStripeDeposit && (
                     <Button
                       onClick={() => handlePayment('deposit')}
-                      disabled={busy}
+                      disabled={busy || !agbAccepted}
                       variant={payDisplay.showStripeFull ? 'outline' : 'default'}
                       className={cn(
                         "h-auto py-4 px-5 rounded-xl font-sans font-semibold flex flex-col items-start gap-0.5 transition-all",
@@ -1259,7 +1273,7 @@ function ProposalView({
           {/* Stornobedingungen — direkt unter der Buchen-Box (nur wenn buchbar) */}
           {selectedOption && totalAmount > 0 && (
             <div className="max-w-2xl mb-10 px-2">
-              <CancellationTermsAccordion />
+              <CancellationTermsAccordion lang={lang} />
             </div>
           )}
 
@@ -1694,6 +1708,7 @@ function FinalOptionCard({
 }) {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [agbAccepted, setAgbAccepted] = useState(false);
   const menu = option.menu_selection;
   const courses = menu?.courses?.filter((c) => c.itemName) || [];
   // Filter: Drinks mit Inhalt ODER "inkl."-Einträge (Wasser/Kaffee) mit quantityLabel
@@ -1735,12 +1750,18 @@ function FinalOptionCard({
   const offlineTiming = payDisplay.offlineTiming;
 
   const handlePayment = async (paymentType: 'full' | 'deposit') => {
+    if (!agbAccepted) {
+      toast.error(tOffer(lang, 'payAcceptRequired'));
+      return;
+    }
     setIsRedirecting(true);
     try {
       const { checkoutUrl } = await createPaymentSession({
         inquiryId,
         optionId: option.id,
         paymentType,
+        agbAccepted: true,
+        termsVersion: AGB_VERSION,
       });
       window.location.href = checkoutUrl;
     } catch (err) {
@@ -1891,12 +1912,20 @@ function FinalOptionCard({
 
       {/* Payment */}
       <div className="px-6 py-4 bg-muted/30 border-t border-border/10">
+        {totalAmount > 0 && (payDisplay.showStripeFull || payDisplay.showStripeDeposit) && (
+          <OfferTermsAcceptance
+            lang={lang}
+            checked={agbAccepted}
+            onCheckedChange={setAgbAccepted}
+            id={`offer-agb-accept-${option.id}`}
+          />
+        )}
         {option.offer_mode === 'paket' && payDisplay.showStripeFull ? (
           /* Paket-Modus: nur Gesamtzahlung */
           <Button
             className="w-full h-12 gap-2 rounded-full font-sans font-semibold text-base shadow-[0_4px_15px_rgba(139,0,0,0.25)] hover:shadow-[0_8px_25px_rgba(139,0,0,0.35)] hover:-translate-y-0.5 transition-all disabled:opacity-80 disabled:hover:translate-y-0"
             onClick={() => handlePayment('full')}
-            disabled={isRedirecting}
+            disabled={isRedirecting || !agbAccepted}
           >
             {isRedirecting ? (
               <>
@@ -1923,7 +1952,7 @@ function FinalOptionCard({
               {payDisplay.showStripeFull && (
                 <button
                   onClick={() => handlePayment('full')}
-                  disabled={isRedirecting}
+                  disabled={isRedirecting || !agbAccepted}
                   className="p-4 rounded-xl border-2 border-primary text-center hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isRedirecting ? (
@@ -1939,7 +1968,7 @@ function FinalOptionCard({
               {payDisplay.showStripeDeposit && (
                 <button
                   onClick={() => handlePayment('deposit')}
-                  disabled={isRedirecting}
+                  disabled={isRedirecting || !agbAccepted}
                   className={cn(
                     "p-4 rounded-xl text-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                     payDisplay.showStripeFull
@@ -1969,7 +1998,7 @@ function FinalOptionCard({
         )}
 
         {/* Stornobedingungen — kompakter Accordion unter Zahlungs-Button */}
-        {totalAmount > 0 && <CancellationTermsAccordion />}
+        {totalAmount > 0 && <CancellationTermsAccordion lang={lang} />}
 
         {offlineTiming && totalAmount > 0 && (
           <div className="mt-4 pt-4 border-t border-border/20">
@@ -2307,75 +2336,6 @@ function PublicPaymentSection({
 // =================================================================
 // CONTACT SECTION
 // =================================================================
-// CANCELLATION TERMS
-// =================================================================
-function CancellationTermsAccordion() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="mt-4 border-t border-border/40 pt-3">
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-2 text-sm font-sans text-foreground/70 hover:text-foreground transition-colors group"
-      >
-        <Info className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300" />
-        <span className="flex-1 text-left font-medium">Flexibel stornieren — bis 30 Tage vor dem Event kostenfrei</span>
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform duration-200",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-
-      {open && (
-        <div className="mt-4 px-1 space-y-3 text-sm font-sans animate-in fade-in-0 slide-in-from-top-1 duration-200">
-          <p className="text-foreground/80 leading-relaxed">
-            Pläne können sich ändern — wir verstehen das. Falls Sie Ihr Event absagen müssen,
-            gelten folgende Stornogebühren (berechnet als Anteil der gebuchten Summe):
-          </p>
-
-          <ul className="space-y-2 pt-1">
-            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
-              <span className="text-foreground">Mehr als 30 Tage vor dem Event</span>
-              <span className="font-semibold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">kostenlos</span>
-            </li>
-            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
-              <span className="text-foreground">15–30 Tage vor dem Event</span>
-              <span className="font-semibold text-foreground whitespace-nowrap">25 %</span>
-            </li>
-            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
-              <span className="text-foreground">8–14 Tage vor dem Event</span>
-              <span className="font-semibold text-foreground whitespace-nowrap">50 %</span>
-            </li>
-            <li className="flex items-baseline justify-between gap-4 py-1.5 border-b border-border/20">
-              <span className="text-foreground">3–7 Tage vor dem Event</span>
-              <span className="font-semibold text-foreground whitespace-nowrap">80 %</span>
-            </li>
-            <li className="flex items-baseline justify-between gap-4 py-1.5">
-              <span className="text-foreground">Ab 48 Stunden vorher oder No-Show</span>
-              <span className="font-semibold text-foreground whitespace-nowrap">100 %</span>
-            </li>
-          </ul>
-
-          <p className="pt-2 text-xs text-muted-foreground leading-relaxed">
-            Maßgeblich ist der Eingang Ihrer schriftlichen Stornierung bei uns.
-            Bereits geleistete Anzahlungen werden mit der Stornogebühr verrechnet —
-            ein etwaiger Überschuss wird Ihnen zurückerstattet.
-            Vollständige Bedingungen finden Sie in unseren{" "}
-            <LocalizedLink to="/agb-veranstaltungen/" className="underline hover:text-foreground">
-              AGB für Veranstaltungen
-            </LocalizedLink>.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// =================================================================
-
 function ContactSection({ lang }: { lang: OfferLang }) {
   return (
     <section className="border-t border-border/30">

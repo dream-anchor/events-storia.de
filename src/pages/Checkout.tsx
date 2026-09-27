@@ -175,6 +175,20 @@ const formatCurrency = (value: number): string => {
   return truncated.toFixed(2).replace('.', ',');
 };
 
+// Lieferkosten-Info: gespiegelt aus supabase/functions/calculate-delivery/index.ts
+// (NETTO-Konstanten dort; hier brutto inkl. 19 % USt angezeigt, wie im Warenkorb).
+const DELIVERY_INFO = {
+  vatRate: 0.19,
+  netPerTrip: 50,        // 1–8 km: 50 € netto je Fahrt; über 8 km: Anfahrtspauschale 50 € netto je Fahrt
+  netPerKm: 1.2,         // über 8 km zusätzlich 1,20 € netto je km und Fahrt
+  minOrderUpTo1Km: 50,
+  minOrderUpTo8Km: 150,
+  minOrderOver8Km: 200,
+} as const;
+const grossOf = (net: number): number => Math.round(net * (1 + DELIVERY_INFO.vatRate) * 100) / 100;
+const formatEuro = (value: number): string =>
+  `${value.toLocaleString('de-DE', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })} €`;
+
 const Checkout = () => {
   const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
   const { language } = useLanguage();
@@ -924,8 +938,8 @@ const Checkout = () => {
       setCurrentStep('customer');
       toast.error(
         language === 'de'
-          ? 'Bitte akzeptieren Sie die AGB und Widerrufsbelehrung'
-          : 'Please accept the terms and cancellation policy'
+          ? 'Bitte akzeptieren Sie die AGB'
+          : 'Please accept the terms and conditions'
       );
       // Scroll to terms checkbox
       setTimeout(() => {
@@ -1572,34 +1586,34 @@ const Checkout = () => {
                               {language === 'de' ? '📍 Lieferkosten nach Entfernung' : '📍 Delivery costs by distance'}
                             </p>
                             <div className="grid gap-2">
-                              <div className="flex justify-between items-center">
+                              <div className="flex justify-between items-center gap-3">
                                 <span>{language === 'de' ? 'Bis 1 km' : 'Up to 1 km'}</span>
-                                <span className="font-medium text-green-600 dark:text-green-400">
-                                  {language === 'de' ? 'Kostenlos' : 'Free'} <span className="text-muted-foreground font-normal">(min. 50€)</span>
+                                <span className="font-medium text-right text-green-600 dark:text-green-400">
+                                  {language === 'de' ? 'Kostenlos' : 'Free'} <span className="text-muted-foreground font-normal">({language === 'de' ? 'Mindestbestellwert' : 'minimum order'} {formatEuro(DELIVERY_INFO.minOrderUpTo1Km)})</span>
                                 </span>
                               </div>
-                              <div className="flex justify-between items-center">
+                              <div className="flex justify-between items-center gap-3">
                                 <span>1–8 km</span>
-                                <span className="font-medium">
-                                  50€ netto/Fahrt <span className="text-muted-foreground font-normal">(min. 150€)</span>
+                                <span className="font-medium text-right">
+                                  {formatEuro(grossOf(DELIVERY_INFO.netPerTrip))} {language === 'de' ? 'pro Fahrt' : 'per trip'} <span className="text-muted-foreground font-normal">({language === 'de' ? 'Mindestbestellwert' : 'minimum order'} {formatEuro(DELIVERY_INFO.minOrderUpTo8Km)})</span>
                                 </span>
                               </div>
-                              <div className="flex justify-between items-center">
+                              <div className="flex justify-between items-center gap-3">
                                 <span>{language === 'de' ? 'Über 8 km' : 'Over 8 km'}</span>
-                                <span className="font-medium">
-                                  1,20€/km <span className="text-muted-foreground font-normal">(min. 200€)</span>
+                                <span className="font-medium text-right">
+                                  {formatEuro(grossOf(DELIVERY_INFO.netPerTrip))} {language === 'de' ? 'pro Fahrt' : 'per trip'} + {formatEuro(grossOf(DELIVERY_INFO.netPerKm))}/km <span className="text-muted-foreground font-normal">({language === 'de' ? 'Mindestbestellwert' : 'minimum order'} {formatEuro(DELIVERY_INFO.minOrderOver8Km)})</span>
                                 </span>
                               </div>
                             </div>
                             <p className="text-muted-foreground pt-2 border-t border-border/50 mt-3">
                               {language === 'de'
-                                ? 'Catering mit Equipment: Hin- & Rückfahrt · Pizza: nur Hinfahrt'
-                                : 'Catering with equipment: round trip · Pizza: one-way only'}
+                                ? `Catering mit Mehrweggeschirr: Hin- und Rückfahrt (2 Fahrten, z. B. 1–8 km: ${formatEuro(grossOf(DELIVERY_INFO.netPerTrip * 2))}) · Pizza: nur Hinfahrt`
+                                : `Catering with reusable tableware: round trip (2 trips, e.g. 1–8 km: ${formatEuro(grossOf(DELIVERY_INFO.netPerTrip * 2))}) · Pizza: one-way only`}
                             </p>
                             <p className="text-muted-foreground">
                               {language === 'de'
-                                ? 'Alle Preise zzgl. 19% MwSt.'
-                                : 'All prices excl. 19% VAT'}
+                                ? 'Alle Preise inkl. 19 % MwSt. Die genauen Lieferkosten sehen Sie nach Eingabe der Adresse im Warenkorb.'
+                                : 'All prices incl. 19% VAT. The exact delivery cost is shown in the cart once you enter your address.'}
                             </p>
                           </div>
                         </CollapsibleContent>
@@ -2003,8 +2017,8 @@ const Checkout = () => {
                             termsError && !formData.acceptTerms && "text-destructive"
                           )}>
                             {language === 'de'
-                              ? <>Ich habe die <LocalizedLink to="legal.termsCatering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">AGB</LocalizedLink> und <LocalizedLink to="legal.withdrawal" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Widerrufsbelehrung</LocalizedLink> gelesen und akzeptiere diese. *</>
-                              : <>I have read and accept the <LocalizedLink to="legal.termsCatering" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Terms</LocalizedLink> and <LocalizedLink to="legal.withdrawal" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Cancellation Policy</LocalizedLink>. *</>
+                              ? <>Ich habe die <LocalizedLink to="legal.terms" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">AGB</LocalizedLink> gelesen und akzeptiere sie. Mir ist bekannt, dass bei Speisenlieferungen zu einem festen Termin kein Widerrufsrecht besteht. *</>
+                              : <>I have read and accept the <LocalizedLink to="legal.terms" target="_blank" className="text-neutral-700 dark:text-neutral-300 underline hover:text-neutral-900 dark:hover:text-neutral-100">Terms and Conditions (AGB)</LocalizedLink>. I am aware that there is no right of withdrawal for food deliveries on a fixed date. *</>
                             }
                           </Label>
                           {termsError && !formData.acceptTerms && (

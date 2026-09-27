@@ -202,7 +202,7 @@ export const en = {
     },
     contact: {
       title: 'Contact & Directions – Catering Munich Maxvorstadt',
-      description: 'STORIA Catering Munich: Karlstraße 47a, Maxvorstadt. Near main station, Königsplatz & TU Munich. Open Mon-Fri 9am-1am, Sat-Sun 12pm-1am. Call now: +49 89 54043770!',
+      description: 'STORIA Catering Munich: Karlstraße 47a, Maxvorstadt. Near main station, Königsplatz & TU Munich. Open Mon-Fri 9am-1am, Sat-Sun 12pm-1am. Call now: +49 89 51519696!',
     },
     events: {
       title: 'Events & Corporate Celebrations at STORIA Restaurant Munich',
@@ -351,7 +351,7 @@ export const en = {
         { question: 'Is there vegetarian/vegan finger food?', answer: 'Yes, we offer a wide selection: bruschetta, grilled vegetables, caponata, frittata and more. Fully vegan finger food is available on request.' },
         { question: 'Is the finger food delivered cold or warm?', answer: 'Both — cold bites ready to serve, warm options in chafing dishes or for reheating.' },
         { question: 'Is self-pickup available?', answer: 'Yes, you can pick up at any time from our restaurant at Karlstraße 47a.' },
-        { question: 'How far in advance do I need to order?', answer: 'At least 5–7 working days. For large events (50+ guests) we recommend 2–4 weeks\' notice.' },
+        { question: 'How far in advance do I need to order?', answer: 'Catering in the online shop requires at least 24 hours\' notice; weekend deliveries must be ordered by Thursday, 11:59 pm. For large events we recommend 2–4 weeks\' notice.' },
         { question: 'Do you also provide setup?', answer: 'Yes, on request we deliver, set up and clear away. Service staff can be booked optionally.' },
         { question: 'Are whole platters available instead of individual portions?', answer: 'Yes, we also offer sharing platters — perfect for relaxed events. See our Platters & Sharing selection.' },
       ],
@@ -365,8 +365,8 @@ export const en = {
         { question: 'Are drinks included in the price?', answer: 'Drinks are not included in most packages but can be added.' },
         { question: 'Is there a minimum order quantity?', answer: 'Our catering is available from 5 people. The minimum order value is listed in our online shop.' },
         { question: 'Net or gross prices?', answer: 'All prices on the website are final prices including VAT. For business customers, we provide net invoices.' },
-        { question: 'Is delivery included in the price?', answer: 'Delivery costs depend on the distance. Within the Munich city area, we charge a flat delivery fee. Self-pickup eliminates delivery costs.' },
-        { question: 'Can I change the quantity afterwards?', answer: 'Changes are possible up to 3 working days before delivery. Contact us in time.' },
+        { question: 'Is delivery included in the price?', answer: 'Delivery costs depend on the distance and are shown in the cart in euros including VAT before you order. Catering with reusable tableware is charged for the round trip, pizza for one trip only. There is no delivery fee for self-pickup.' },
+        { question: 'Can I change the quantity afterwards?', answer: 'We accept quantity changes up to 48 hours before the delivery time. Details: terms § 23.' },
       ],
     },
     hochzeitCatering: {
@@ -406,7 +406,7 @@ export const en = {
         { question: 'How much does party service cost per person?', answer: 'Finger food from approx. €8 p.p., pizza party from approx. €12 p.p., antipasti buffet from approx. €18 p.p. and complete package from approx. €25 p.p.' },
         { question: 'Can I just order pizza?', answer: 'Yes, our pizza party is one of the most popular party service options: authentic Neapolitan stone-oven pizza in over 25 varieties.' },
         { question: 'Is self-pickup available?', answer: 'Yes, you can pick up at any time from our restaurant at Karlstraße 47a — this saves delivery costs.' },
-        { question: 'How far in advance do I need to order?', answer: 'For small orders, 2–3 working days are sufficient. For larger events, we recommend 5–7 working days\' notice.' },
+        { question: 'How far in advance do I need to order?', answer: 'Catering in the online shop requires at least 24 hours\' notice; weekend deliveries must be ordered by Thursday, 11:59 pm. For large events we recommend 2–4 weeks\' notice.' },
         { question: 'Do you deliver on weekends?', answer: 'Yes, we deliver on Saturdays and Sundays too. Weekend orders should be placed by Thursday.' },
         { question: 'Can I combine different dishes?', answer: 'Of course! Put together your desired combination of pizza, antipasti, finger food and hot dishes — completely flexible.' },
       ],
@@ -417,8 +417,8 @@ export const en = {
       faqTitle: 'Frequently Asked Questions About Delivery Service',
       faq: [
         { question: 'What area do you deliver to?', answer: 'We deliver throughout Munich and the surrounding area, including Messe München/Riem, Grünwald, Pullach and other municipalities. Contact us for deliveries outside Munich.' },
-        { question: 'How much does delivery cost?', answer: 'Delivery costs depend on the distance. Within the Munich city area, we charge a flat rate. Self-pickup eliminates delivery costs.' },
-        { question: 'Is there a minimum order value?', answer: 'Yes, the minimum order value depends on the delivery zone and is listed in our online shop. A lower minimum applies for self-pickup.' },
+        { question: 'How much does delivery cost?', answer: 'Delivery costs depend on the distance and are shown in the cart in euros including VAT before you order. Catering with reusable tableware is charged for the round trip, pizza for one trip only. There is no delivery fee for self-pickup.' },
+        { question: 'Is there a minimum order value?', answer: 'Yes, the minimum order value depends on the distance and is shown in the cart. If your order is below it, you can still order — we then charge the difference as a small-order surcharge. There is no delivery fee for self-pickup.' },
         { question: 'Can I also order via Lieferando or Wolt?', answer: 'Yes, for individual orders we are also available on Lieferando and Wolt. For catering orders from 5 people, we recommend our own shop.' },
         { question: 'What are the delivery times?', answer: 'Catering orders are delivered at the agreed time. For short-notice orders, contact us by phone or WhatsApp.' },
         { question: 'Is self-pickup available?', answer: 'Yes, self-pickup is available at any time from our restaurant at Karlstraße 47a, Munich Maxvorstadt.' },
