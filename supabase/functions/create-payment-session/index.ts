@@ -103,6 +103,9 @@ serve(async (req) => {
     if (!inquiryId || !paymentType) {
       throw new Error('inquiryId und paymentType sind erforderlich');
     }
+    if (body.agbAccepted !== true) {
+      throw new Error('Bitte bestätigen Sie die AGB, bevor Sie bezahlen.');
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,

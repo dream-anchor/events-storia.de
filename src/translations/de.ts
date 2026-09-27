@@ -366,7 +366,7 @@ export const de = {
         { question: 'Gibt es eine Mindestbestellmenge?', answer: 'Unser Catering ist ab 5 Personen verfügbar. Der Mindestbestellwert ist in unserem Online-Shop hinterlegt.' },
         { question: 'Netto oder Brutto?', answer: 'Alle Preise auf der Website sind Endpreise inkl. MwSt. Für Geschäftskunden erstellen wir Netto-Rechnungen.' },
         { question: 'Ist Lieferung im Preis enthalten?', answer: 'Die Lieferkosten hängen von der Entfernung ab und werden im Warenkorb vor der Bestellung in Euro inklusive Umsatzsteuer angezeigt. Catering mit Mehrweggeschirr berechnen wir mit Hin- und Rückfahrt, Pizza nur mit einer Fahrt. Bei Selbstabholung fallen keine Lieferkosten an.' },
-        { question: 'Kann ich die Menge nachträglich ändern?', answer: 'Änderungen sind bis 3 Werktage vor Lieferung möglich. Kontaktieren Sie uns rechtzeitig.' },
+        { question: 'Kann ich die Menge nachträglich ändern?', answer: 'Mengenänderungen nehmen wir bis 48 Stunden vor dem Liefertermin an. Details: AGB § 23.' },
       ],
     },
     hochzeitCatering: {

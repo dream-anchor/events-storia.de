@@ -366,7 +366,7 @@ export const en = {
         { question: 'Is there a minimum order quantity?', answer: 'Our catering is available from 5 people. The minimum order value is listed in our online shop.' },
         { question: 'Net or gross prices?', answer: 'All prices on the website are final prices including VAT. For business customers, we provide net invoices.' },
         { question: 'Is delivery included in the price?', answer: 'Delivery costs depend on the distance and are shown in the cart in euros including VAT before you order. Catering with reusable tableware is charged for the round trip, pizza for one trip only. There is no delivery fee for self-pickup.' },
-        { question: 'Can I change the quantity afterwards?', answer: 'Changes are possible up to 3 working days before delivery. Contact us in time.' },
+        { question: 'Can I change the quantity afterwards?', answer: 'We accept quantity changes up to 48 hours before the delivery time. Details: terms § 23.' },
       ],
     },
     hochzeitCatering: {
