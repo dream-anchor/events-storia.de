@@ -77,11 +77,11 @@
     ]
    },
    {
-    "title": "5. Datenbank der Website events-storia.de",
+    "title": "5. Datenbanken der Websites",
     "blocks": [
      {
       "type": "p",
-      "text": "Bestellungen, Anfragen, Gutscheine und Kundenkonten von events-storia.de speichern wir in einer Datenbank der Supabase, Inc., USA. Mit Supabase besteht ein Vertrag zur Auftragsverarbeitung; eine Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln."
+      "text": "Bestellungen, Anfragen, Gutscheine und Kundenkonten von events-storia.de sowie Saison-Vormerkungen und Inhalte von ristorantestoria.de speichern wir in Datenbanken der Supabase, Inc., USA. Mit Supabase besteht ein Vertrag zur Auftragsverarbeitung; eine Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln."
      }
     ]
    }
@@ -172,7 +172,7 @@
      },
      {
       "type": "p",
-      "text": "Mit der Funktion „Daten für nächste Bestellung merken“ speichern wir Name, E-Mail-Adresse, Telefonnummer und Firma nur in Ihrem Browser für 30 Tage; diese Daten werden nicht an uns übertragen."
+      "text": "Während des Bestellvorgangs hält Ihr Browser die eingegebenen Formulardaten bis zum Abschluss der Bestellung zwischen. Wählen Sie „Meine Daten für zukünftige Besuche auf diesem Gerät speichern“, bleiben Name, E-Mail-Adresse, Telefonnummer und Firma 30 Tage in Ihrem Browser gespeichert; diese Daten werden dadurch nicht an uns übertragen."
      }
     ]
    },

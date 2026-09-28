@@ -30,7 +30,7 @@
         "sub": []
        },
        {
-        "text": "Externe Inhalte: Google Maps und das Bewertungs-Widget von Elfsight (nur events-storia.de). Wird nur mit Ihrer Einwilligung geladen.",
+        "text": "Externe Inhalte: Google Maps (ristorantestoria.de) und das Bewertungs-Widget von Elfsight (events-storia.de). Wird nur mit Ihrer Einwilligung geladen.",
         "sub": []
        }
       ]
@@ -56,7 +56,11 @@
         "sub": []
        },
        {
-        "text": "storia_utm – Herkunft des Besuchs für die Zuordnung einer Anfrage (ristorantestoria.de), Session Storage, bis zum Schließen des Browsers.",
+        "text": "storia_utm – Herkunft des Besuchs für die Zuordnung einer Anfrage (ristorantestoria.de), Session Storage, bis zum Schließen des Browsers;",
+        "sub": []
+       },
+       {
+        "text": "lunchScrollPosition und rg_danke_confirmation – Scrollposition der Mittagskarte und Anzeige der Bestätigung nach einer Gruppenanfrage (ristorantestoria.de), Session Storage, bis zum Schließen des Browsers.",
         "sub": []
        }
       ]
@@ -70,6 +74,14 @@
       "items": [
        {
         "text": "storia-catering-cart – Inhalt Ihres Warenkorbs, Local Storage, bis zum Abschluss der Bestellung oder zum Löschen;",
+        "sub": []
+       },
+       {
+        "text": "storia-checkout-form, storia-checkout-step und storia-checkout-completed – Ihre Eingaben und der Stand im Bestellvorgang, Local Storage, bis zum Abschluss der Bestellung;",
+        "sub": []
+       },
+       {
+        "text": "storia_offer_qty_… – gewählte Mengen auf einer Angebotsseite, Local Storage, bis zum Löschen;",
         "sub": []
        },
        {
@@ -98,7 +110,7 @@
       "type": "ul",
       "items": [
        {
-        "text": "storia-saved-customer – Name, E-Mail-Adresse, Telefonnummer und Firma für die nächste Bestellung, wenn Sie „Daten für nächste Bestellung merken“ wählen, Local Storage, 30 Tage.",
+        "text": "storia-saved-customer – Name, E-Mail-Adresse, Telefonnummer und Firma, wenn Sie „Meine Daten für zukünftige Besuche auf diesem Gerät speichern“ wählen, Local Storage, 30 Tage.",
         "sub": []
        }
       ]

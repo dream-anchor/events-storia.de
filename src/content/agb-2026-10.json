@@ -193,7 +193,7 @@
     ]
    },
    {
-    "title": "§ 8 Kein Widerrufsrecht",
+    "title": "§ 8 Widerrufsrecht",
     "blocks": [
      {
       "type": "p",
@@ -634,7 +634,7 @@
         "sub": []
        },
        {
-        "text": "Der Kunde wählt Betrag und Gestaltung und gibt die Daten der beschenkten Person an. Mit Klick auf die Bezahl-Schaltfläche gibt er ein verbindliches Angebot ab. Der Vertrag kommt mit dem erfolgreichen Abschluss der Zahlung zustande; mit der Zahlung wird der Gutschein ausgestellt.",
+        "text": "Beim Online-Kauf wählt der Kunde Betrag und Gestaltung und gibt die Daten der beschenkten Person an. Mit Klick auf die Bezahl-Schaltfläche gibt er ein verbindliches Angebot ab. Der Vertrag kommt mit dem erfolgreichen Abschluss der Zahlung zustande; mit der Zahlung wird der Gutschein ausgestellt.",
         "sub": []
        }
       ]

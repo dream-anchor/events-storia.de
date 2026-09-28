@@ -215,7 +215,7 @@ const Gutschein = () => {
               <Checkbox id="agb" checked={agbOk} onCheckedChange={(v) => setAgbOk(v === true)} className="mt-1" />
               <Label htmlFor="agb" className="text-sm font-normal leading-relaxed cursor-pointer">
                 {t.agbPre}{" "}
-                <Link to="/agb/#paragraf-28" target="_blank" className="underline">{t.agbTerms}</Link>{" "}
+                <Link to={isDE ? "/agb/#paragraf-28" : "/en/terms/#paragraf-28"} target="_blank" className="underline">{t.agbTerms}</Link>{" "}
                 {t.agbAnd}{" "}
                 <Link to={isDE ? "/datenschutz" : "/en/privacy"} target="_blank" className="underline">{t.agbPrivacy}</Link>
                 {t.agbPost}

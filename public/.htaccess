@@ -58,16 +58,16 @@ RewriteRule ^en/restaurant-terms/?$ /en/terms/ [R=301,L]
 
 # AGB Gutscheine = AGB Teil E (§ 28 ff.), 28.09.2026 — NE, damit # nicht als %23 kodiert wird
 RewriteRule ^agb-gutscheine/?$ /agb/#paragraf-28 [R=301,NE,L]
-RewriteRule ^en/voucher-terms/?$ /agb/#paragraf-28 [R=301,NE,L]
-RewriteRule ^en/agb-gutscheine/?$ /agb/#paragraf-28 [R=301,NE,L]
+RewriteRule ^en/voucher-terms/?$ /en/terms/#paragraf-28 [R=301,NE,L]
+RewriteRule ^en/agb-gutscheine/?$ /en/terms/#paragraf-28 [R=301,NE,L]
 
 # Haftungsausschluss entfällt (Inhalt im Impressum), Zahlungsinformationen stehen in AGB § 4
 RewriteRule ^haftungsausschluss/?$ /impressum/ [R=301,L]
 RewriteRule ^en/disclaimer/?$ /en/imprint/ [R=301,L]
 RewriteRule ^en/haftungsausschluss/?$ /en/imprint/ [R=301,L]
 RewriteRule ^zahlungsinformationen/?$ /agb/#paragraf-4 [R=301,NE,L]
-RewriteRule ^en/payment-information/?$ /agb/#paragraf-4 [R=301,NE,L]
-RewriteRule ^en/zahlungsinformationen/?$ /agb/#paragraf-4 [R=301,NE,L]
+RewriteRule ^en/payment-information/?$ /en/terms/#paragraf-4 [R=301,NE,L]
+RewriteRule ^en/zahlungsinformationen/?$ /en/terms/#paragraf-4 [R=301,NE,L]
 
 # Alte Datenschutz-URL → aktuelle Seite
 RewriteRule ^datenschutzerklaerung/?$ /datenschutz/ [R=301,L]
