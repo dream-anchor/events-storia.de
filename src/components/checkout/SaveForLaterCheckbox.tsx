@@ -34,7 +34,7 @@ const SaveForLaterCheckbox = ({
   const texts = {
     de: {
       label: 'Meine Daten für zukünftige Besuche auf diesem Gerät speichern',
-      sublabel: 'Verschlüsselt im Browser (30 Tage)',
+      sublabel: 'Nur in Ihrem Browser gespeichert, 30 Tage',
       restoredBadge: 'Wiederhergestellt',
       clearData: 'Gespeicherte Daten löschen',
       privacyTitle: 'Datenschutz-Information',
@@ -59,7 +59,7 @@ const SaveForLaterCheckbox = ({
     },
     en: {
       label: 'Save my data for future visits on this device',
-      sublabel: 'Encrypted in browser (30 days)',
+      sublabel: 'Stored only in your browser, 30 days',
       restoredBadge: 'Restored',
       clearData: 'Clear saved data',
       privacyTitle: 'Privacy Information',

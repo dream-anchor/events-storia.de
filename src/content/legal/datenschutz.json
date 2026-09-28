@@ -1,0 +1,387 @@
+[
+ {
+  "title": "Allgemeines",
+  "sections": [
+   {
+    "title": "1. Geltungsbereich",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Diese Datenschutzerklärung gilt für die Websites www.ristorantestoria.de und www.events-storia.de, für unsere Angebotsseiten und das Kundenportal unter storia.schrittmacher.ai sowie für die Kommunikation mit uns per E-Mail, Telefon und WhatsApp. Sie informiert Sie darüber, welche personenbezogenen Daten wir verarbeiten, zu welchen Zwecken und welche Rechte Sie haben."
+     }
+    ]
+   },
+   {
+    "title": "2. Verantwortlicher",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Speranza GmbH, Karlstraße 47a, 80333 München, vertreten durch die Geschäftsführerin Agnese Lettieri. Telefon +49 89 51519696, E-Mail info@ristorantestoria.de oder info@events-storia.de."
+     },
+     {
+      "type": "p",
+      "text": "Für alle Fragen zum Datenschutz und zur Ausübung Ihrer Rechte erreichen Sie uns unter diesen Kontaktdaten."
+     }
+    ]
+   },
+   {
+    "title": "3. Rechtsgrundlagen",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Wir verarbeiten personenbezogene Daten auf folgenden Grundlagen der Datenschutz-Grundverordnung (DSGVO):"
+     },
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "Art. 6 Abs. 1 lit. a DSGVO – Ihre Einwilligung, zum Beispiel für Statistik-Dienste, externe Inhalte, den Newsletter oder eine Bewertungsbitte;",
+        "sub": []
+       },
+       {
+        "text": "Art. 6 Abs. 1 lit. b DSGVO – Anbahnung und Erfüllung eines Vertrags, zum Beispiel bei Anfragen, Angeboten, Bestellungen, Reservierungen und Gutscheinen;",
+        "sub": []
+       },
+       {
+        "text": "Art. 6 Abs. 1 lit. c DSGVO – gesetzliche Pflichten, insbesondere handels- und steuerrechtliche Aufbewahrungspflichten;",
+        "sub": []
+       },
+       {
+        "text": "Art. 6 Abs. 1 lit. f DSGVO – unsere berechtigten Interessen, etwa an einem sicheren Betrieb der Websites, an der effizienten Bearbeitung von Anfragen und am Nachweis von Vertragsabschlüssen.",
+        "sub": []
+       }
+      ]
+     },
+     {
+      "type": "p",
+      "text": "Für das Speichern von Informationen auf Ihrem Endgerät und den Zugriff darauf gilt zusätzlich § 25 TDDDG: Technisch notwendige Vorgänge erfolgen nach § 25 Abs. 2 Nr. 2 TDDDG, alle anderen nur mit Ihrer Einwilligung nach § 25 Abs. 1 TDDDG."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Websites und Hosting",
+  "sections": [
+   {
+    "title": "4. Bereitstellung der Websites und Server-Logfiles",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Beide Websites werden bei der IONOS SE, Montabaur, gehostet. Beim Aufruf verarbeitet der Server automatisch IP-Adresse, Datum und Uhrzeit, aufgerufene Seite, Referrer-URL, Browser und Betriebssystem. Das ist technisch erforderlich, um die Seiten auszuliefern und die Sicherheit zu gewährleisten (Art. 6 Abs. 1 lit. f DSGVO). Die Logfiles werden nach kurzer Zeit gelöscht, sofern sie nicht zur Aufklärung eines Sicherheitsvorfalls benötigt werden. Mit IONOS besteht ein Vertrag zur Auftragsverarbeitung."
+     },
+     {
+      "type": "p",
+      "text": "Schriftarten binden wir lokal ein; beim Seitenaufruf werden dafür keine Daten an Dritte übertragen."
+     }
+    ]
+   },
+   {
+    "title": "5. Datenbank der Website events-storia.de",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Bestellungen, Anfragen, Gutscheine und Kundenkonten von events-storia.de speichern wir in einer Datenbank der Supabase, Inc., USA. Mit Supabase besteht ein Vertrag zur Auftragsverarbeitung; eine Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Anfragen und Kommunikation",
+  "sections": [
+   {
+    "title": "6. Anfragen über Formulare, E-Mail, Telefon und WhatsApp",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Wenn Sie uns über ein Formular, per E-Mail, telefonisch oder per WhatsApp anfragen, verarbeiten wir Ihre Angaben (z. B. Name, Firma, E-Mail-Adresse, Telefonnummer, Datum, Personenzahl, Wünsche und hochgeladene Dateien), um Ihre Anfrage zu beantworten und ein Angebot zu erstellen (Art. 6 Abs. 1 lit. b DSGVO)."
+     },
+     {
+      "type": "p",
+      "text": "Anfragen, Angebote, Buchungen und den zugehörigen E-Mail-Verkehr verwalten wir in der Software MAESTRO der Dream & Anchor Handelsgesellschaft mbH, die als Auftragsverarbeiter für uns tätig ist. MAESTRO läuft auf Servern der Cloudflare, Inc. (USA) und nutzt eine Datenbank der Neon Inc. mit Serverstandort Frankfurt am Main. Unsere E-Mail-Postfächer liegen bei IONOS; für die Übernahme eingehender E-Mails in MAESTRO wird ein Server der Contabo GmbH (Deutschland) eingesetzt. Übermittlungen in die USA erfolgen auf Grundlage des EU-US Data Privacy Framework bzw. der EU-Standardvertragsklauseln."
+     },
+     {
+      "type": "p",
+      "text": "Beginnen Sie ein Formular in MAESTRO und schicken es nicht ab, speichern wir lediglich Ihre bereits eingegebene E-Mail-Adresse für höchstens 14 Tage, um Ihnen bei Bedarf weiterzuhelfen. Zur Abwehr von Missbrauch verarbeiten wir die IP-Adresse kurzzeitig und löschen sie nach spätestens einem Tag."
+     },
+     {
+      "type": "p",
+      "text": "Wenn Sie uns per WhatsApp schreiben, verarbeitet zusätzlich die Meta Platforms Ireland Limited, Merrion Road, Dublin 4, Irland, Ihre Nachrichten und Ihre Telefonnummer. Über neue Anfragen informieren wir unser Team teilweise per WhatsApp; diese internen Benachrichtigungen enthalten Name und Kontaktdaten der anfragenden Person."
+     }
+    ]
+   },
+   {
+    "title": "7. Einsatz von künstlicher Intelligenz",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Um Anfragen und E-Mails schneller zu bearbeiten, lassen wir deren Inhalt durch KI-Modelle der Anthropic PBC, USA, auswerten: Die KI erkennt das Anliegen, übernimmt Angaben wie Datum und Personenzahl in die Anfrage und entwirft Angebote und Antworten. Jede Antwort und jedes Angebot prüft und versendet ein Mitarbeiter; automatisierte Entscheidungen im Sinne von Art. 22 DSGVO finden nicht statt. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b und f DSGVO. Die Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln."
+     },
+     {
+      "type": "p",
+      "text": "Der Anfrage-Assistent auf events-storia.de nutzt ein KI-Modell von Google, das über den Dienst des Anbieters Lovable (Schweden) angebunden ist. Ihre Eingaben im Assistenten und hochgeladene Dateien werden dafür verarbeitet und als Anfrage an uns übergeben."
+     }
+    ]
+   },
+   {
+    "title": "8. Geschäftsanfragen: Abgleich mit öffentlichen Quellen",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Geben Sie bei einer Anfrage eine Firma an, gleichen wir deren Stammdaten mit öffentlich zugänglichen Quellen ab: Handelsregister und Unternehmensregister bzw. Bundesanzeiger, dem Impressum der Firmenwebsite, der Bestätigung der Umsatzsteuer-Identifikationsnummer beim Bundeszentralamt für Steuern, dem LEI-Verzeichnis der GLEIF und Google Places (Google Ireland Limited; übermittelt werden nur Firmenname und Ort). So stellen wir korrekte Rechnungs- und Firmendaten sicher (Art. 6 Abs. 1 lit. f DSGVO). Die abgerufenen Daten werden je nach Quelle nach drei bis zwölf Monaten gelöscht. Anfragen von Privatpersonen ohne Firmenangabe gleichen wir nicht ab."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Angebote, Buchungen und Zahlungen",
+  "sections": [
+   {
+    "title": "9. Angebotsseite, Kostenübernahme und Kundenportal",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Unsere Angebote erhalten Sie als Link auf eine persönliche Angebotsseite. Beim bloßen Aufruf speichern wir nur, wie oft und wann die Seite zuletzt geöffnet wurde, jedoch keine IP-Adresse. Nehmen Sie ein Angebot an, lehnen es ab oder bitten um Änderungen, speichern wir Zeitpunkt, IP-Adresse und Browserkennung als Nachweis Ihrer Erklärung (Art. 6 Abs. 1 lit. b und f DSGVO)."
+     },
+     {
+      "type": "p",
+      "text": "Für eine Kostenübernahme- bzw. Auftragserklärung nutzen wir den Signaturdienst eSignatures.io. Dabei werden Name, E-Mail-Adresse, Mobilnummer, Rechnungsanschrift sowie Veranstaltungs- und Betragsdaten übermittelt; zur Bestätigung erhalten Sie einen Code per SMS."
+     },
+     {
+      "type": "p",
+      "text": "Im Kundenportal melden Sie sich über einen Anmeldelink per E-Mail an, der 20 Minuten gültig ist. Bei der Anmeldung speichern wir IP-Adresse und Browserkennung zur Absicherung Ihres Zugangs."
+     }
+    ]
+   },
+   {
+    "title": "10. Online-Shop, Kundenkonto und Lieferung",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Für Bestellungen im Online-Shop auf events-storia.de verarbeiten wir Name, Kontaktdaten, Liefer- und Rechnungsanschrift, Lieferdetails, die Bestellung und Ihre Anmerkungen (Art. 6 Abs. 1 lit. b DSGVO)."
+     },
+     {
+      "type": "p",
+      "text": "Zur Berechnung der Lieferentfernung übermitteln wir die Lieferadresse an den Dienst openrouteservice der Heidelberg Institute for Geoinformation Technology (HeiGIT) gGmbH, Heidelberg."
+     },
+     {
+      "type": "p",
+      "text": "Wenn Sie ein Kundenkonto anlegen, speichern wir Name, E-Mail-Adresse, ein verschlüsseltes Passwort sowie freiwillig Telefonnummer, Firma und Adressen, damit Sie Bestellungen und Rechnungen einsehen können. Sie können die Löschung Ihres Kontos jederzeit per E-Mail verlangen."
+     },
+     {
+      "type": "p",
+      "text": "Mit der Funktion „Daten für nächste Bestellung merken“ speichern wir Name, E-Mail-Adresse, Telefonnummer und Firma nur in Ihrem Browser für 30 Tage; diese Daten werden nicht an uns übertragen."
+     }
+    ]
+   },
+   {
+    "title": "11. Zahlungen",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Online-Zahlungen wickelt die Stripe Payments Europe Ltd., 1 Grand Canal Street Lower, Grand Canal Dock, Dublin, Irland, ab. Je nach gewählter Zahlungsart (z. B. Kreditkarte, SEPA-Lastschrift, Apple Pay, Google Pay, Klarna) verarbeitet Stripe Ihre Zahlungsdaten und leitet sie gegebenenfalls an den jeweiligen Zahlungsanbieter weiter; Klarna kann dabei eine Bonitätsprüfung durchführen. Kartendaten geben Sie direkt bei Stripe ein, wir erhalten sie nicht."
+     },
+     {
+      "type": "p",
+      "text": "Für den Kauf auf Rechnung durch Geschäftskunden setzen wir die Billie GmbH, Charlottenstraße 4, 10969 Berlin, ein. Billie erhält Firmenname, Rechtsform, Geschäftsadresse, Name und E-Mail-Adresse des Bestellers und die Bestelldaten und führt eine automatisierte Bonitätsprüfung durch."
+     },
+     {
+      "type": "p",
+      "text": "Rechnungen erstellen wir mit Lexware Office der Haufe-Lexware GmbH & Co. KG, Freiburg. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b und c DSGVO."
+     }
+    ]
+   },
+   {
+    "title": "12. Gutscheine",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Beim Kauf eines Gutscheins verarbeiten wir Name und E-Mail-Adresse der kaufenden Person sowie gegebenenfalls Name, E-Mail-Adresse und Grußtext für die beschenkte Person, um den Gutschein auszustellen und zu versenden (Art. 6 Abs. 1 lit. b DSGVO). Die Zahlung erfolgt über Stripe."
+     }
+    ]
+   },
+   {
+    "title": "13. Tischreservierungen über OpenTable",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Für Tischreservierungen leiten wir Sie auf die Seite von OpenTable weiter (OpenTable, Inc., USA; in der EU OpenTable International Ltd.). OpenTable verarbeitet Ihre Reservierungsdaten in eigener Verantwortung nach seiner Datenschutzerklärung: www.opentable.de/legal/privacy-policy."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "E-Mails und Newsletter",
+  "sections": [
+   {
+    "title": "14. E-Mail-Versand",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Angebote, Bestätigungen, Erinnerungen und Rechnungen versenden wir über die Sendinblue SAS (Brevo), Paris, Frankreich. E-Mails aus dem Online-Shop und zu Zahlungen von events-storia.de versenden wir über die Resend, Inc., USA, ersatzweise über IONOS. Übermittlungen in die USA erfolgen auf Grundlage der EU-Standardvertragsklauseln."
+     }
+    ]
+   },
+   {
+    "title": "15. Saison-Vormerkung und Newsletter",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Tragen Sie sich auf ristorantestoria.de für Informationen zu saisonalen Angeboten ein, erhalten Sie zunächst eine E-Mail mit einem Bestätigungslink (Double-Opt-in). Wir speichern Ihre E-Mail-Adresse sowie Zeitpunkt, IP-Adresse und Wortlaut Ihrer Einwilligung als Nachweis (Art. 6 Abs. 1 lit. a und c DSGVO). Versandt werden diese E-Mails über Brevo. Sie können sich jederzeit über den Abmeldelink in jeder E-Mail oder per Nachricht an uns abmelden."
+     }
+    ]
+   },
+   {
+    "title": "16. Bitte um eine Bewertung",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Wenn Sie zugestimmt haben, bitten wir Sie nach Ihrer Veranstaltung einmalig per E-Mail um eine Bewertung bei Google. Wir versenden höchstens eine solche E-Mail je Adresse in zwölf Monaten und erfassen beim Klick auf den Link nur das Datum, keine IP-Adresse. Sie können der Bewertungsbitte jederzeit widersprechen; Ihre Adresse speichern wir dann verschlüsselt in einer Sperrliste."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Externe Inhalte und Statistik",
+  "sections": [
+   {
+    "title": "17. Einwilligungsverwaltung",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Beim ersten Besuch fragen wir Sie, welchen Kategorien Sie zustimmen: Statistik, Marketing und externe Inhalte. Ihre Auswahl speichern wir in Ihrem Browser für zwölf Monate. Sie können sie jederzeit über das Cookie-Symbol auf der Seite ändern oder widerrufen. Einzelheiten finden Sie in unserer Cookie-Richtlinie."
+     }
+    ]
+   },
+   {
+    "title": "18. Google Analytics",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Mit Ihrer Einwilligung (Kategorie Statistik) nutzen wir Google Analytics 4 der Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland, um die Nutzung unserer Websites auszuwerten. Dabei werden Cookies gesetzt und Nutzungsdaten wie aufgerufene Seiten, Verweildauer, Geräte- und Browserdaten, ungefährer Standort und Klicks auf Telefon- oder WhatsApp-Links verarbeitet. IP-Adressen werden von Google Analytics 4 nicht gespeichert. Die Daten können an Google LLC in den USA übermittelt werden; Google ist nach dem EU-US Data Privacy Framework zertifiziert. Rechtsgrundlage ist Art. 6 Abs. 1 lit. a DSGVO und § 25 Abs. 1 TDDDG. Ohne Ihre Einwilligung wird Google Analytics nicht geladen."
+     }
+    ]
+   },
+   {
+    "title": "19. Microsoft Clarity",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Auf events-storia.de nutzen wir mit Ihrer Einwilligung (Kategorie Statistik) Microsoft Clarity der Microsoft Ireland Operations Limited, Dublin, Irland. Clarity zeichnet Mausbewegungen, Klicks und Scrollverhalten auf, um Heatmaps und Sitzungsaufzeichnungen zu erstellen. Die Daten können in die USA übermittelt werden; Microsoft ist nach dem EU-US Data Privacy Framework zertifiziert."
+     }
+    ]
+   },
+   {
+    "title": "20. Google Maps",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Mit Ihrer Einwilligung (Kategorie Externe Inhalte) binden wir Karten von Google Maps der Google Ireland Limited ein. Beim Laden der Karte werden Ihre IP-Adresse und Browserdaten an Google übertragen, gegebenenfalls auch in die USA."
+     }
+    ]
+   },
+   {
+    "title": "21. Bewertungen",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Auf ristorantestoria.de zeigen wir öffentliche Google-Bewertungen an, die wir selbst abrufen und auf unserem Server speichern; beim Anzeigen werden keine Daten an Google übertragen. Auf events-storia.de zeigen wir Bewertungen mit Ihrer Einwilligung (Kategorie Externe Inhalte) über ein Widget der Elfsight LLC, USA, an. Beim Laden des Widgets werden Ihre IP-Adresse und Browserdaten an Elfsight übertragen."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Speicherdauer, Empfänger und Ihre Rechte",
+  "sections": [
+   {
+    "title": "22. Speicherdauer",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Wir speichern personenbezogene Daten nur so lange, wie es für den jeweiligen Zweck erforderlich ist:"
+     },
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "Anfragen ohne Vertragsschluss: bis zu zwölf Monate nach dem letzten Kontakt;",
+        "sub": []
+       },
+       {
+        "text": "Verträge, Rechnungen und geschäftliche Korrespondenz: bis zum Ablauf der gesetzlichen Aufbewahrungsfristen von sechs bis zehn Jahren (§ 257 HGB, § 147 AO);",
+        "sub": []
+       },
+       {
+        "text": "Einwilligungsnachweise: so lange die Einwilligung besteht und darüber hinaus, soweit wir sie zum Nachweis benötigen;",
+        "sub": []
+       },
+       {
+        "text": "Kundenkonto: bis zur Löschung des Kontos, vorbehaltlich der Aufbewahrungsfristen.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "23. Empfänger",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Ihre Daten erhalten nur die in dieser Erklärung genannten Dienstleister, soweit dies für den jeweiligen Zweck nötig ist, sowie Behörden, soweit wir gesetzlich dazu verpflichtet sind. Mit allen Dienstleistern, die in unserem Auftrag tätig sind, bestehen Verträge zur Auftragsverarbeitung nach Art. 28 DSGVO. Wir verkaufen keine personenbezogenen Daten."
+     }
+    ]
+   },
+   {
+    "title": "24. Ihre Rechte",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16 DSGVO), Löschung (Art. 17 DSGVO), Einschränkung der Verarbeitung (Art. 18 DSGVO) und Datenübertragbarkeit (Art. 20 DSGVO). Eine erteilte Einwilligung können Sie jederzeit mit Wirkung für die Zukunft widerrufen (Art. 7 Abs. 3 DSGVO)."
+     },
+     {
+      "type": "p",
+      "text": "Sie haben außerdem das Recht, sich bei einer Aufsichtsbehörde zu beschweren. Für uns zuständig ist das Bayerische Landesamt für Datenschutzaufsicht, Promenade 18, 91522 Ansbach."
+     }
+    ]
+   },
+   {
+    "title": "25. Widerspruchsrecht nach Art. 21 DSGVO",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Verarbeiten wir Ihre Daten auf Grundlage berechtigter Interessen (Art. 6 Abs. 1 lit. f DSGVO), können Sie dieser Verarbeitung aus Gründen, die sich aus Ihrer besonderen Situation ergeben, jederzeit widersprechen. Werbung per E-Mail können Sie jederzeit ohne Angabe von Gründen widersprechen. Ein formloser Hinweis an info@ristorantestoria.de oder info@events-storia.de genügt.",
+      "strong": true
+     }
+    ]
+   },
+   {
+    "title": "26. Pflicht zur Bereitstellung und automatisierte Entscheidungen",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Die Angabe Ihrer Kontaktdaten ist für die Bearbeitung einer Anfrage und den Abschluss eines Vertrags erforderlich; ohne sie können wir Ihre Anfrage nicht bearbeiten. Automatisierte Entscheidungen nach Art. 22 DSGVO treffen wir nicht. Bei der Wahl von Kauf auf Rechnung oder Klarna entscheiden Billie bzw. Klarna anhand ihrer Bonitätsprüfung über die Verfügbarkeit dieser Zahlungsart."
+     }
+    ]
+   },
+   {
+    "title": "27. Sicherheit und Änderungen",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Wir übertragen alle Daten verschlüsselt (TLS). Wir passen diese Datenschutzerklärung an, wenn sich unsere Dienste oder die Rechtslage ändern."
+     },
+     {
+      "type": "p",
+      "text": "Stand: 28. September 2026"
+     }
+    ]
+   }
+  ]
+ }
+]

@@ -5,6 +5,11 @@ import SEO from "@/components/SEO";
 import { useLanguage } from "@/contexts/LanguageContext";
 import agbData from "@/content/agb-2026-10.json";
 import { AGB_VERSION, AGB_STAND } from "@/config/legal";
+import LegalDocument, {
+  defaultPartId,
+  paragraphSectionId,
+  type LegalPart,
+} from "@/components/legal/LegalDocument";
 
 /**
  * Einheitliche AGB (Version AGB-2026-10, Stand 28. September 2026).
@@ -13,20 +18,10 @@ import { AGB_VERSION, AGB_STAND } from "@/config/legal";
  * unverändert gerendert. Nur die deutsche Fassung ist verbindlich.
  */
 
-type AgbListItem = { text: string; sub: string[] };
-type AgbBlock =
-  | { type: "p"; text: string }
-  | { type: "ol"; items: AgbListItem[] };
-type AgbSection = { title: string; blocks: AgbBlock[] };
-type AgbPart = { title: string; sections: AgbSection[] };
+const parts = agbData as LegalPart[];
 
-const parts = agbData as AgbPart[];
-
-const partId = (index: number) => `teil-${String.fromCharCode(97 + index)}`;
-const sectionId = (title: string) => {
-  const match = title.match(/§\s*(\d+)/);
-  return match ? `paragraf-${match[1]}` : undefined;
-};
+const partId = defaultPartId;
+const sectionId = paragraphSectionId;
 
 const AGB = () => {
   const { language } = useLanguage();
@@ -98,45 +93,11 @@ const AGB = () => {
               </ol>
             </nav>
 
-            <div className="prose prose-lg max-w-none space-y-8 text-foreground/90">
-              {parts.map((part, pi) => (
-                <section key={part.title} id={partId(pi)} className="scroll-mt-32">
-                  <h2 className="text-2xl md:text-3xl font-serif font-semibold text-foreground mt-12 mb-4">
-                    {part.title}
-                  </h2>
-
-                  {part.sections.map((section) => (
-                    <section key={section.title} id={sectionId(section.title)} className="scroll-mt-32">
-                      <h3 className="text-xl font-serif font-semibold text-foreground mt-8 mb-3">
-                        {section.title}
-                      </h3>
-                      {section.blocks.map((block, bi) =>
-                        block.type === "p" ? (
-                          <p key={bi} className="mb-2">
-                            {block.text}
-                          </p>
-                        ) : (
-                          <ol key={bi} className="list-decimal pl-6 space-y-2">
-                            {block.items.map((item, ii) => (
-                              <li key={ii}>
-                                {item.text}
-                                {item.sub.length > 0 && (
-                                  <ol className="list-[lower-alpha] pl-6 mt-2 space-y-1">
-                                    {item.sub.map((sub, si) => (
-                                      <li key={si}>{sub}</li>
-                                    ))}
-                                  </ol>
-                                )}
-                              </li>
-                            ))}
-                          </ol>
-                        )
-                      )}
-                    </section>
-                  ))}
-                </section>
-              ))}
-            </div>
+            <LegalDocument
+              parts={parts}
+              partIdFor={partId}
+              sectionIdFor={(title) => sectionId(title)}
+            />
           </div>
         </main>
 

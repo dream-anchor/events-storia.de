@@ -9,7 +9,7 @@
       "type": "ol",
       "items": [
        {
-        "text": "Vertragspartner ist die Speranza GmbH, Karlstraße 47a, 80333 München, vertreten durch die Geschäftsführerin Agnese Lettieri (nachfolgend „STORIA“ oder „wir“). Die vollständigen Anbieterangaben stehen in § 29.",
+        "text": "Vertragspartner ist die Speranza GmbH, Karlstraße 47a, 80333 München, vertreten durch die Geschäftsführerin Agnese Lettieri (nachfolgend „STORIA“ oder „wir“). Die vollständigen Anbieterangaben stehen in § 35.",
         "sub": []
        },
        {
@@ -21,7 +21,7 @@
         ]
        },
        {
-        "text": "Teil A und Teil E gelten für alle Verträge. Für Gutscheine gelten die gesonderten AGB Gutscheine.",
+        "text": "Teil A und Teil F gelten für alle Verträge. Für den Kauf von Gutscheinen gilt zusätzlich Teil E.",
         "sub": []
        },
        {
@@ -107,7 +107,7 @@
       "type": "ol",
       "items": [
        {
-        "text": "Welche Zahlungsarten zur Verfügung stehen, zeigen der Bestellprozess im Online-Shop bzw. das Angebot. Online-Zahlungen (z. B. Kreditkarte, SEPA-Lastschrift, Apple Pay, Google Pay, Klarna) wickelt der Zahlungsdienstleister Stripe Payments Europe Ltd. ab.",
+        "text": "Welche Zahlungsarten zur Verfügung stehen, zeigen der Bestellprozess im Online-Shop bzw. das Angebot. Online-Zahlungen (z. B. Kreditkarte, SEPA-Lastschrift, Apple Pay, Google Pay, Klarna) wickelt der Zahlungsdienstleister Stripe Payments Europe Ltd. ab. Im Restaurant kann bar, mit Girocard, Kreditkarte, Apple Pay oder Google Pay bezahlt werden.",
         "sub": []
        },
        {
@@ -197,7 +197,7 @@
     "blocks": [
      {
       "type": "p",
-      "text": "Verbrauchern steht bei Verträgen über die Lieferung von Speisen und Getränken sowie über Veranstaltungsleistungen, die zu einem bestimmten Termin erbracht werden, kein Widerrufsrecht zu (§ 312g Abs. 2 Nr. 9 BGB, bei schnell verderblichen Speisen zusätzlich Nr. 2). Für Absagen gelten stattdessen § 13 (Veranstaltungen), § 23 (Online-Shop) und § 27 (Reservierungen)."
+      "text": "Verbrauchern steht bei Verträgen über die Lieferung von Speisen und Getränken sowie über Veranstaltungsleistungen, die zu einem bestimmten Termin erbracht werden, kein Widerrufsrecht zu (§ 312g Abs. 2 Nr. 9 BGB, bei schnell verderblichen Speisen zusätzlich Nr. 2). Für Absagen gelten stattdessen § 13 (Veranstaltungen), § 23 (Online-Shop) und § 27 (Reservierungen). Für Gutscheine gilt das Widerrufsrecht nach § 32."
      }
     ]
    },
@@ -621,10 +621,118 @@
   ]
  },
  {
-  "title": "Teil E – Schlussbestimmungen",
+  "title": "Teil E – Gutscheine",
   "sections": [
    {
-    "title": "§ 28 Recht, Gerichtsstand, Streitbeilegung",
+    "title": "§ 28 Geltung und Vertragsschluss",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Teil E gilt für den Kauf von Wertgutscheinen über www.events-storia.de/gutschein sowie im Restaurant.",
+        "sub": []
+       },
+       {
+        "text": "Der Kunde wählt Betrag und Gestaltung und gibt die Daten der beschenkten Person an. Mit Klick auf die Bezahl-Schaltfläche gibt er ein verbindliches Angebot ab. Der Vertrag kommt mit dem erfolgreichen Abschluss der Zahlung zustande; mit der Zahlung wird der Gutschein ausgestellt.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 29 Einlösung",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Gutscheine sind bis zum 31. Dezember des dritten Jahres nach dem Kauf gültig (Kauf im Jahr 2026: gültig bis 31. Dezember 2029). Das Gültigkeitsdatum steht auf dem Gutschein.",
+        "sub": []
+       },
+       {
+        "text": "Gutscheine können im Restaurant STORIA, Karlstraße 47a, 80333 München, eingelöst werden. Eine Auszahlung in bar ist nicht möglich.",
+        "sub": []
+       },
+       {
+        "text": "Gutscheine sind übertragbar. Wird ein Gutschein nicht vollständig eingelöst, bleibt der Restwert bis zum Ablauf der Gültigkeit erhalten.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 30 Versand",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Wir versenden Gutscheine als PDF-Datei per E-Mail, in der Regel wenige Minuten nach erfolgreicher Zahlung. Versandkosten fallen nicht an; einen Postversand bieten wir nicht an.",
+        "sub": []
+       },
+       {
+        "text": "Geht die PDF-Datei verloren, senden wir sie auf Anfrage erneut an die beim Kauf angegebene E-Mail-Adresse.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 31 Preise und Zahlung",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Es gelten die bei der Bestellung angegebenen Preise einschließlich der gesetzlichen Umsatzsteuer.",
+        "sub": []
+       },
+       {
+        "text": "Die Zahlung erfolgt online über die Stripe Payments Europe Ltd. Welche Zahlungsarten zur Verfügung stehen, zeigt der Bestellprozess.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 32 Widerrufsrecht",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Verbrauchern steht beim Kauf eines Gutscheins ein Widerrufsrecht von 14 Tagen zu. Es erlischt nicht bereits mit der Ausstellung oder dem Versand des Gutscheins. Einzelheiten stehen in unserer Widerrufsbelehrung.",
+        "sub": []
+       },
+       {
+        "text": "Wurde der Gutschein vor dem Widerruf bereits teilweise eingelöst, erstatten wir den noch nicht eingelösten Betrag.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 33 Missbrauch",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Jeder Gutschein trägt einen eindeutigen Code. Wir dürfen Gutscheine sperren, deren Code erkennbar unberechtigt verwendet oder vervielfältigt wurde. Die Rechte des berechtigten Inhabers bleiben davon unberührt."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Teil F – Schlussbestimmungen",
+  "sections": [
+   {
+    "title": "§ 34 Recht, Gerichtsstand, Streitbeilegung",
     "blocks": [
      {
       "type": "ol",
@@ -650,7 +758,7 @@
     ]
    },
    {
-    "title": "§ 29 Anbieterangaben",
+    "title": "§ 35 Anbieterangaben",
     "blocks": [
      {
       "type": "p",
