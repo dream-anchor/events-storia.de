@@ -337,31 +337,53 @@ const handler = async (req: Request): Promise<Response> => {
       customerResult = { sent: true, provider: "maestro", messageId: null, errorMessage: null };
     }
 
-    // Restaurant-Benachrichtigung senden
+    // Restaurant-Benachrichtigung: im Normalfall informiert MAESTRO den Betreiber.
+    // Versand nur noch als Rückfall, wenn forwardToMaestro fehlschlägt (oder bei skipInsert, da dann keine Weiterleitung läuft).
     const restaurantEmailText = generateRestaurantEmailText(data);
-    const restaurantSubject = `Neue Event-Anfrage: ${data.companyName || data.contactName}`;
-    const restaurantResult = await sendEmail(
-      ["info@events-storia.de"],
-      restaurantSubject,
-      restaurantEmailText,
-      "STORIA Anfragen",
-      data.email
-    );
+    const baseRestaurantSubject = `Neue Event-Anfrage: ${data.companyName || data.contactName}`;
+    const sendRestaurantMail = async (subject: string): Promise<SendResult> => {
+      const result = await sendEmail(
+        ["info@events-storia.de"],
+        subject,
+        restaurantEmailText,
+        "STORIA Anfragen",
+        data.email
+      );
+      await supabase.from('email_delivery_logs').insert({
+        entity_type: 'event_inquiry',
+        entity_id: inquiryId,
+        recipient_email: 'info@events-storia.de',
+        recipient_name: 'STORIA Team',
+        subject,
+        provider: result.provider || 'none',
+        provider_message_id: result.messageId,
+        status: result.sent ? 'sent' : 'failed',
+        error_message: result.errorMessage,
+        sent_by: 'system',
+        metadata: { email_type: 'inquiry_notification_restaurant' },
+      });
+      return result;
+    };
 
-    // Restaurant-Email loggen
-    await supabase.from('email_delivery_logs').insert({
-      entity_type: 'event_inquiry',
-      entity_id: inquiryId,
-      recipient_email: 'info@events-storia.de',
-      recipient_name: 'STORIA Team',
-      subject: restaurantSubject,
-      provider: restaurantResult.provider || 'none',
-      provider_message_id: restaurantResult.messageId,
-      status: restaurantResult.sent ? 'sent' : 'failed',
-      error_message: restaurantResult.errorMessage,
-      sent_by: 'system',
-      metadata: { email_type: 'inquiry_notification_restaurant' },
-    });
+    let restaurantResult: SendResult;
+    if (data.skipInsert) {
+      restaurantResult = await sendRestaurantMail(baseRestaurantSubject);
+    } else {
+      restaurantResult = { sent: true, provider: "maestro", messageId: null, errorMessage: null };
+      await supabase.from('email_delivery_logs').insert({
+        entity_type: 'event_inquiry',
+        entity_id: inquiryId,
+        recipient_email: 'info@events-storia.de',
+        recipient_name: 'STORIA Team',
+        subject: baseRestaurantSubject,
+        provider: 'maestro',
+        provider_message_id: null,
+        status: 'skipped',
+        error_message: 'Betreiber-Mail übersprungen – MAESTRO übernimmt',
+        sent_by: 'system',
+        metadata: { email_type: 'inquiry_notification_restaurant', skipped_reason: 'maestro_handles' },
+      });
+    }
 
     const emailsSent = customerResult.sent && restaurantResult.sent;
 
@@ -381,6 +403,7 @@ const handler = async (req: Request): Promise<Response> => {
         : undefined;
       const guests = data.guestCount ? parseInt(data.guestCount, 10) : NaN;
       const forwardToMaestro = async () => {
+        let forwardFailed = false;
         try {
           const res = await fetch('https://storia.schrittmacher.ai/api/public/inquiries', {
             method: 'POST',
@@ -401,9 +424,19 @@ const handler = async (req: Request): Promise<Response> => {
           if (!res.ok) {
             const body = await res.text().catch(() => '<unlesbar>');
             console.error(`MAESTRO forward abgelehnt (inquiry ${inquiryId}): HTTP ${res.status} — ${body}`);
+            forwardFailed = true;
           }
         } catch (e) {
           console.error(`MAESTRO forward error (inquiry ${inquiryId}):`, e instanceof Error ? e.message : e);
+          forwardFailed = true;
+        }
+        // Rückfall: Betreiber-Mail nur, wenn MAESTRO nicht erreichbar war
+        if (forwardFailed) {
+          try {
+            await sendRestaurantMail(`[MAESTRO nicht erreichbar] ${baseRestaurantSubject}`);
+          } catch (mailErr) {
+            console.error(`Rückfall-Betreiber-Mail fehlgeschlagen (inquiry ${inquiryId}):`, mailErr instanceof Error ? mailErr.message : mailErr);
+          }
         }
       };
       // @ts-ignore — EdgeRuntime ist in Supabase Deno verfügbar
