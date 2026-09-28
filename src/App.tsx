@@ -48,11 +48,8 @@ const Impressum = lazy(() => import("./pages/Impressum"));
 const Datenschutz = lazy(() => import("./pages/Datenschutz"));
 const CookieRichtlinie = lazy(() => import("./pages/CookieRichtlinie"));
 const AGB = lazy(() => import("./pages/AGB"));
-const AGBGutscheine = lazy(() => import("./pages/AGBGutscheine"));
 const Widerrufsbelehrung = lazy(() => import("./pages/Widerrufsbelehrung"));
-const Zahlungsinformationen = lazy(() => import("./pages/Zahlungsinformationen"));
 const Lebensmittelhinweise = lazy(() => import("./pages/Lebensmittelhinweise"));
-const Haftungsausschluss = lazy(() => import("./pages/Haftungsausschluss"));
 
 /** Renders frontend-only global components (cart, cookie banner, etc.) only on non-admin routes */
 const FrontendGlobals = () => {
@@ -211,15 +208,16 @@ const App = () => {
                     <Route path="/datenschutz" element={<Datenschutz />} />
                     <Route path="/cookie-richtlinie" element={<CookieRichtlinie />} />
                     <Route path="/agb" element={<AGB />} />
-                    <Route path="/agb-gutscheine" element={<AGBGutscheine />} />
+                    {/* AGB Gutscheine = AGB Teil E; Haftungsausschluss/Zahlungsinformationen entfallen (Server-301 in public/.htaccess) */}
+                    <Route path="/agb-gutscheine" element={<Navigate to="/agb/#paragraf-28" replace />} />
                     {/* Frühere Einzel-AGB → einheitliche AGB (Server-301 in public/.htaccess) */}
                     <Route path="/agb-restaurant" element={<Navigate to="/agb/" replace />} />
                     <Route path="/agb-catering" element={<Navigate to="/agb/" replace />} />
                     <Route path="/agb-veranstaltungen" element={<Navigate to="/agb/" replace />} />
                     <Route path="/widerrufsbelehrung" element={<Widerrufsbelehrung />} />
-                    <Route path="/zahlungsinformationen" element={<Zahlungsinformationen />} />
+                    <Route path="/zahlungsinformationen" element={<Navigate to="/agb/#paragraf-4" replace />} />
                     <Route path="/lebensmittelhinweise" element={<Lebensmittelhinweise />} />
-                    <Route path="/haftungsausschluss" element={<Haftungsausschluss />} />
+                    <Route path="/haftungsausschluss" element={<Navigate to="/impressum/" replace />} />
                     <Route path="/faq-catering-muenchen" element={<FAQ />} />
 
                     {/* SEO Landing Pages DE */}
@@ -264,13 +262,13 @@ const App = () => {
                     <Route path="/en/privacy" element={<Datenschutz />} />
                     <Route path="/en/cookie-policy" element={<CookieRichtlinie />} />
                     <Route path="/en/terms" element={<AGB />} />
-                    <Route path="/en/voucher-terms" element={<AGBGutscheine />} />
+                    <Route path="/en/voucher-terms" element={<Navigate to="/agb/#paragraf-28" replace />} />
                     <Route path="/en/restaurant-terms" element={<Navigate to="/en/terms/" replace />} />
                     <Route path="/en/catering-terms" element={<Navigate to="/en/terms/" replace />} />
                     <Route path="/en/cancellation-policy" element={<Widerrufsbelehrung />} />
-                    <Route path="/en/payment-information" element={<Zahlungsinformationen />} />
+                    <Route path="/en/payment-information" element={<Navigate to="/agb/#paragraf-4" replace />} />
                     <Route path="/en/food-information" element={<Lebensmittelhinweise />} />
-                    <Route path="/en/disclaimer" element={<Haftungsausschluss />} />
+                    <Route path="/en/disclaimer" element={<Navigate to="/en/imprint/" replace />} />
                     <Route path="/en/catering-faq-munich" element={<FAQ />} />
 
                     {/* SEO Landing Pages EN */}

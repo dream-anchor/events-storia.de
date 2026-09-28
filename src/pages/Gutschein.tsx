@@ -215,9 +215,9 @@ const Gutschein = () => {
               <Checkbox id="agb" checked={agbOk} onCheckedChange={(v) => setAgbOk(v === true)} className="mt-1" />
               <Label htmlFor="agb" className="text-sm font-normal leading-relaxed cursor-pointer">
                 {t.agbPre}{" "}
-                <Link to={isDE ? "/agb-gutscheine" : "/en/voucher-terms"} target="_blank" className="underline">{t.agbTerms}</Link>{" "}
+                <Link to={isDE ? "/agb/#paragraf-28" : "/en/terms/#paragraf-28"} target="_blank" className="underline">{t.agbTerms}</Link>{" "}
                 {t.agbAnd}{" "}
-                <Link to={isDE ? "/datenschutz" : "/en/privacy"} target="_blank" className="underline">{t.agbPrivacy}</Link>{" "}
+                <Link to={isDE ? "/datenschutz" : "/en/privacy"} target="_blank" className="underline">{t.agbPrivacy}</Link>
                 {t.agbPost}
               </Label>
             </div>
@@ -293,17 +293,17 @@ const COPY = {
     purchaserEmail: "E-Mail",
     purchaserEmailHelp: "An diese Adresse senden wir den Gutschein-PDF und die Rechnung.",
     agbPre: "Ich akzeptiere die",
-    agbTerms: "AGB für Gutscheine",
-    agbAnd: "und die",
+    agbTerms: "AGB (Teil E – Gutscheine)",
+    agbAnd: "und habe die",
     agbPrivacy: "Datenschutzerklärung",
-    agbPost: ".",
+    agbPost: " zur Kenntnis genommen.",
     total: "Gesamt",
     cta: "Jetzt sicher bezahlen",
     loading: "Weiterleitung zu Stripe …",
     checkoutHint: "Bezahlung erfolgt sicher über Stripe. Du wirst weitergeleitet.",
     errAmount: "Bitte einen Betrag zwischen 10 € und 500 € wählen.",
     errEmail: "Bitte eine gültige E-Mail angeben.",
-    errAgb: "Bitte AGB und Datenschutz akzeptieren.",
+    errAgb: "Bitte die AGB akzeptieren und die Datenschutzerklärung zur Kenntnis nehmen.",
     errMessage: "Nachricht darf max. 300 Zeichen lang sein.",
     errGeneric: "Es ist ein Fehler aufgetreten",
     trust1Title: "Sofort per E-Mail",
@@ -319,7 +319,7 @@ const COPY = {
       { q: "Kann ich den Gutschein online einlösen?", a: "Nein. Der Gutschein wird ausschließlich vor Ort im Restaurant STORIA in der Karlstraße 47a, München, eingelöst." },
       { q: "Was passiert mit dem Restbetrag?", a: "Ein nicht vollständig genutzter Betrag bleibt bis zum Gültigkeitsende auf dem Code erhalten und kann beim nächsten Besuch verwendet werden." },
       { q: "Erhalte ich eine Rechnung?", a: "Ja, die Rechnung wird automatisch per E-Mail zugestellt." },
-      { q: "Gilt das Widerrufsrecht?", a: "Ja. Als Verbraucher kannst du den Gutscheinkauf innerhalb von 14 Tagen widerrufen — das Widerrufsrecht erlischt nicht mit der Erstellung des Gutscheins. Details: AGB für Gutscheine und Widerrufsbelehrung." },
+      { q: "Gilt das Widerrufsrecht?", a: "Ja. Als Verbraucher kannst du den Gutscheinkauf innerhalb von 14 Tagen widerrufen — das Widerrufsrecht erlischt nicht mit der Erstellung des Gutscheins. Details: AGB Teil E (Gutscheine) und Widerrufsbelehrung." },
     ],
   },
   en: {
@@ -342,8 +342,8 @@ const COPY = {
     purchaserEmail: "Email",
     purchaserEmailHelp: "We'll send the voucher PDF and the invoice to this address.",
     agbPre: "I accept the",
-    agbTerms: "voucher terms",
-    agbAnd: "and the",
+    agbTerms: "terms and conditions (Part E – Vouchers)",
+    agbAnd: "and have taken note of the",
     agbPrivacy: "privacy policy",
     agbPost: ".",
     total: "Total",
@@ -368,7 +368,7 @@ const COPY = {
       { q: "Can I redeem the voucher online?", a: "No. The voucher can only be redeemed in person at STORIA, Karlstraße 47a, Munich." },
       { q: "What happens to a remaining balance?", a: "Any unused balance remains on the code until the expiry date and can be used on your next visit." },
       { q: "Do I get an invoice?", a: "Yes, the invoice is sent automatically by email." },
-      { q: "Does the right of withdrawal apply?", a: "Yes. As a consumer you can withdraw from the voucher purchase within 14 days — the right of withdrawal does not expire when the voucher is created. Details: voucher terms and cancellation policy." },
+      { q: "Does the right of withdrawal apply?", a: "Yes. As a consumer you can withdraw from the voucher purchase within 14 days — the right of withdrawal does not expire when the voucher is created. Details: terms and conditions Part E (vouchers) and cancellation policy." },
     ],
   },
 };

@@ -2,11 +2,20 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
 import SEO from "@/components/SEO";
+import LegalDocument, { type LegalPart } from "@/components/legal/LegalDocument";
+import legalText from "@/content/legal/impressum.json";
+
+/**
+ * Impressum der Speranza GmbH — gemeinsamer Text für events-storia.de und ristorantestoria.de.
+ * Quelle: src/content/legal/impressum.json (siehe README.md dort), hier unverändert gerendert.
+ */
+const parts = legalText as LegalPart[];
+const PAGE_TITLE = "Impressum";
 
 const Impressum = () => {
   return (
     <>
-      <SEO 
+      <SEO
         title="Impressum"
         description="Impressum der Speranza GmbH - Ristorante STORIA München. Rechtliche Angaben, Kontaktdaten und Firmendaten."
         canonical="/impressum"
@@ -14,105 +23,16 @@ const Impressum = () => {
       />
       <div className="min-h-screen bg-background">
         <Header />
-      
-      <main className="pt-32 pb-20 px-4">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-serif font-semibold text-foreground mb-12 text-center">
-            Impressum
-          </h1>
-          
-          <div className="prose prose-xl max-w-none space-y-8 text-foreground/90">
-            {/* Firmenadresse */}
-            <section>
-              <p className="font-semibold text-lg">Speranza GmbH</p>
-              <p>
-                Karlstraße 47a<br />
-                80333 München<br />
-                Deutschland
-              </p>
-            </section>
 
-            {/* Kontakt */}
-            <section>
-              <p>
-                <strong>Telefon:</strong>{" "}
-                <a href="tel:+498951519696" className="text-primary hover:underline">
-                  +49 89 51519696
-                </a>
-              </p>
-              <p>
-                <strong>E-Mail:</strong>{" "}
-                <a href="mailto:info@events-storia.de" className="text-primary hover:underline">
-                  info@events-storia.de
-                </a>
-              </p>
-            </section>
+        <main className="pt-32 pb-20 px-4">
+          <div className="max-w-3xl mx-auto">
+            <h1 className="text-4xl md:text-5xl font-serif font-semibold text-foreground mb-12 text-center">
+              {PAGE_TITLE}
+            </h1>
 
-            {/* Vertretung */}
-            <section>
-              <p>
-                <strong>Vertreten durch die Geschäftsführerin:</strong><br />
-                Agnese Lettieri
-              </p>
-            </section>
-
-            {/* Handelsregister */}
-            <section>
-              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                Registereintrag
-              </h2>
-              <p>
-                Eingetragen im Handelsregister des Amtsgerichts München<br />
-                <strong>Handelsregisternummer:</strong> HRB 209637
-              </p>
-            </section>
-
-            {/* Steuern */}
-            <section>
-              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                Umsatzsteuer-ID
-              </h2>
-              <p>DE 296024880</p>
-              
-              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                Steuernummer
-              </h2>
-              <p>143/182/00980</p>
-            </section>
-
-            {/* Inhaltlich Verantwortlicher */}
-            <section>
-              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                Inhaltlich Verantwortliche gemäß § 18 Abs. 2 MStV
-              </h2>
-              <p>
-                Agnese Lettieri<br />
-                Karlstraße 47a<br />
-                80333 München
-              </p>
-            </section>
-
-            {/* Berufsbezogene Angaben */}
-            <section>
-              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                Berufsbezogene Angaben
-              </h2>
-              <p>Gewerbebetrieb Gastronomie (nach § 14 GewO angemeldet)</p>
-            </section>
-
-            {/* Verbraucherstreitbeilegung (OS-Plattform der EU zum 20.07.2025 eingestellt) */}
-            <section>
-              <h2 className="text-2xl font-serif font-semibold text-foreground mt-8 mb-3">
-                Verbraucherstreitbeilegung
-              </h2>
-              <p>
-                Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren
-                vor einer Verbraucherschlichtungsstelle teilzunehmen (§ 36 VSBG).
-              </p>
-            </section>
+            <LegalDocument parts={parts} pageTitle={PAGE_TITLE} />
           </div>
-        </div>
-      </main>
+        </main>
 
         <Footer />
         <FloatingActions />

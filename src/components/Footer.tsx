@@ -178,8 +178,6 @@ const Footer = () => {
             <span className="opacity-50 hidden sm:inline">·</span>
             <LocalizedLink to="legal.terms" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'AGB' : 'Terms'}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
-            <LocalizedLink to="legal.termsVouchers" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'AGB Gutscheine' : 'Voucher Terms'}</LocalizedLink>
-            <span className="opacity-50 hidden sm:inline">·</span>
             <LocalizedLink to="legal.withdrawal" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{language === 'de' ? 'Widerrufsbelehrung' : 'Cancellation Policy'}</LocalizedLink>
             <span className="opacity-50 hidden sm:inline">·</span>
             <LocalizedLink to="legal.foodInfo" className="py-2 min-h-[44px] md:min-h-0 inline-flex items-center hover:text-primary-foreground/70 transition-colors touch-manipulation">{t.legal.foodInfo}</LocalizedLink>

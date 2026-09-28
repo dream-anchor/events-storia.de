@@ -1,0 +1,87 @@
+[
+ {
+  "title": "Impressum",
+  "sections": [
+   {
+    "title": "Angaben gemäß § 5 DDG",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Diese Angaben gelten für die Websites www.ristorantestoria.de und www.events-storia.de."
+     },
+     {
+      "type": "p",
+      "text": "Speranza GmbH\nKarlstraße 47a\n80333 München\nDeutschland"
+     }
+    ]
+   },
+   {
+    "title": "Vertreten durch",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Geschäftsführerin: Agnese Lettieri"
+     }
+    ]
+   },
+   {
+    "title": "Kontakt",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Telefon: +49 89 51519696\nE-Mail: info@ristorantestoria.de · info@events-storia.de"
+     }
+    ]
+   },
+   {
+    "title": "Registereintrag",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Eingetragen im Handelsregister des Amtsgerichts München unter HRB 209637."
+     }
+    ]
+   },
+   {
+    "title": "Umsatzsteuer",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Umsatzsteuer-Identifikationsnummer gemäß § 27a UStG: DE296024880\nSteuernummer: 143/182/00980"
+     }
+    ]
+   },
+   {
+    "title": "Inhaltlich verantwortlich gemäß § 18 Abs. 2 MStV",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Agnese Lettieri, Karlstraße 47a, 80333 München"
+     }
+    ]
+   },
+   {
+    "title": "Verbraucherstreitbeilegung",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen (§ 36 VSBG)."
+     }
+    ]
+   },
+   {
+    "title": "Haftung für Inhalte und Links",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Wir erstellen die Inhalte dieser Websites mit Sorgfalt. Preise und Speisekarten auf den Websites dienen der Information; verbindlich sind das Angebot, die Bestellübersicht bzw. die Karte im Restaurant. Für Inhalte verlinkter fremder Websites sind ausschließlich deren Betreiber verantwortlich. Werden uns Rechtsverletzungen bekannt, entfernen wir die betreffenden Inhalte oder Links umgehend."
+     },
+     {
+      "type": "p",
+      "text": "Stand: 28. September 2026"
+     }
+    ]
+   }
+  ]
+ }
+]

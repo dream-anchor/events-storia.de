@@ -6,7 +6,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -30,6 +29,7 @@ import { de, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { LocalizedLink } from "@/components/LocalizedLink";
 
 const formSchema = z.object({
   company: z.string().trim().max(120).optional(),
@@ -46,7 +46,6 @@ const formSchema = z.object({
   date: z.date().optional(),
   time: z.string().min(1, "Bitte Uhrzeit angeben"),
   message: z.string().optional(),
-  newsletter: z.boolean().default(true),
   selectedPackage: z.string().optional(),
 });
 
@@ -74,7 +73,6 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
       eventTypeOther: "",
       time: "",
       message: "",
-      newsletter: true,
       selectedPackage: preselectedPackage || "",
     },
   });
@@ -435,29 +433,6 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
                 )}
               />
 
-              {/* Newsletter */}
-              <FormField
-                control={form.control}
-                name="newsletter"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel className="text-sm font-normal text-muted-foreground">
-                        {language === 'de'
-                          ? 'Ich möchte über exklusive Angebote und Event-Neuigkeiten informiert werden.'
-                          : 'I would like to receive exclusive offers and event news.'}
-                      </FormLabel>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
               {/* Submit Button */}
               <Button 
                 type="submit" 
@@ -477,6 +452,20 @@ const EventContactForm = ({ preselectedPackage }: EventContactFormProps) => {
                   </>
                 )}
               </Button>
+
+              <p className="text-xs text-center text-muted-foreground">
+                {language === 'de' ? (
+                  <>
+                    Mit dem Absenden verarbeiten wir Ihre Angaben zur Bearbeitung Ihrer Anfrage. Details in unserer{" "}
+                    <LocalizedLink to="legal.privacy" className="underline hover:text-foreground">Datenschutzerklärung</LocalizedLink>.
+                  </>
+                ) : (
+                  <>
+                    By submitting, we process your details to handle your inquiry. Details in our{" "}
+                    <LocalizedLink to="legal.privacy" className="underline hover:text-foreground">privacy policy</LocalizedLink>.
+                  </>
+                )}
+              </p>
 
               <p className="text-xs text-center text-muted-foreground">
                 {language === 'de'

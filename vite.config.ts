@@ -20,11 +20,8 @@ const PRERENDER_ROUTES = [
   '/datenschutz',
   '/cookie-richtlinie',
   '/agb',
-  '/agb-gutscheine',
   '/widerrufsbelehrung',
-  '/zahlungsinformationen',
   '/lebensmittelhinweise',
-  '/haftungsausschluss',
   // SEO Landing Pages DE
   '/italienisches-catering-muenchen',
   '/firmenfeier-catering-muenchen',
@@ -45,11 +42,8 @@ const PRERENDER_ROUTES = [
   '/en/privacy',
   '/en/cookie-policy',
   '/en/terms',
-  '/en/voucher-terms',
   '/en/cancellation-policy',
-  '/en/payment-information',
   '/en/food-information',
-  '/en/disclaimer',
   // SEO Landing Pages EN
   '/en/italian-catering-munich',
   '/en/corporate-event-catering-munich',

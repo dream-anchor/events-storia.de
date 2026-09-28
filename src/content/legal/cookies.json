@@ -1,0 +1,170 @@
+[
+ {
+  "title": "Cookie-Richtlinie",
+  "sections": [
+   {
+    "title": "1. Worum es geht",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Diese Richtlinie gilt für www.ristorantestoria.de und www.events-storia.de. Sie erklärt, welche Informationen wir in Ihrem Browser speichern oder auslesen (Cookies, Local Storage, Session Storage) und welche externen Dienste wir laden. Rechtsgrundlage ist § 25 TDDDG: Technisch notwendige Speicherungen erfolgen nach § 25 Abs. 2 Nr. 2 TDDDG, alle anderen nur mit Ihrer Einwilligung nach § 25 Abs. 1 TDDDG und Art. 6 Abs. 1 lit. a DSGVO. Weitere Informationen finden Sie in unserer Datenschutzerklärung."
+     }
+    ]
+   },
+   {
+    "title": "2. Kategorien",
+    "blocks": [
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "Notwendig: für den Betrieb der Website erforderlich, z. B. Ihre Einwilligungsauswahl, der Warenkorb, die Spracheinstellung und die Anmeldung im Kundenkonto. Diese Kategorie ist immer aktiv.",
+        "sub": []
+       },
+       {
+        "text": "Statistik: Google Analytics 4 auf beiden Websites, Microsoft Clarity nur auf events-storia.de. Wird nur mit Ihrer Einwilligung geladen.",
+        "sub": []
+       },
+       {
+        "text": "Marketing: derzeit laden wir in dieser Kategorie keine Dienste. Ihre Auswahl wird an Google Analytics als Werbe-Einwilligung weitergegeben.",
+        "sub": []
+       },
+       {
+        "text": "Externe Inhalte: Google Maps (ristorantestoria.de) und das Bewertungs-Widget von Elfsight (events-storia.de). Wird nur mit Ihrer Einwilligung geladen.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "3. Gespeicherte Einträge",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Notwendig (beide Websites):"
+     },
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "storia_cookie_consent – Ihre Einwilligungsauswahl mit Zeitpunkt und Version, Local Storage, 12 Monate;",
+        "sub": []
+       },
+       {
+        "text": "storia-language – gewählte Sprache (ristorantestoria.de), Local Storage, bis zum Löschen;",
+        "sub": []
+       },
+       {
+        "text": "storia_utm – Herkunft des Besuchs für die Zuordnung einer Anfrage (ristorantestoria.de), Session Storage, bis zum Schließen des Browsers;",
+        "sub": []
+       },
+       {
+        "text": "lunchScrollPosition und rg_danke_confirmation – Scrollposition der Mittagskarte und Anzeige der Bestätigung nach einer Gruppenanfrage (ristorantestoria.de), Session Storage, bis zum Schließen des Browsers.",
+        "sub": []
+       }
+      ]
+     },
+     {
+      "type": "p",
+      "text": "Notwendig (events-storia.de):"
+     },
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "storia-catering-cart – Inhalt Ihres Warenkorbs, Local Storage, bis zum Abschluss der Bestellung oder zum Löschen;",
+        "sub": []
+       },
+       {
+        "text": "storia-checkout-form, storia-checkout-step und storia-checkout-completed – Ihre Eingaben und der Stand im Bestellvorgang, Local Storage, bis zum Abschluss der Bestellung;",
+        "sub": []
+       },
+       {
+        "text": "storia_offer_qty_… – gewählte Mengen auf einer Angebotsseite, Local Storage, bis zum Löschen;",
+        "sub": []
+       },
+       {
+        "text": "stripe_order_… und stripe_success_… – Zuordnung einer Zahlung zur Bestellung, Local Storage, bis zum Abschluss;",
+        "sub": []
+       },
+       {
+        "text": "priceDisplay – Anzeige der Preise brutto oder netto, Local Storage, bis zum Löschen;",
+        "sub": []
+       },
+       {
+        "text": "storia-checkout-entry-page und storia.aiIntake.conversationId – Einstiegsseite in den Bestellprozess und laufende Unterhaltung mit dem Anfrage-Assistenten, Session Storage, bis zum Schließen des Browsers;",
+        "sub": []
+       },
+       {
+        "text": "sb-…-auth-token – Anmeldung im Kundenkonto, Local Storage, bis zur Abmeldung.",
+        "sub": []
+       }
+      ]
+     },
+     {
+      "type": "p",
+      "text": "Nur auf Ihren Wunsch (events-storia.de):"
+     },
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "storia-saved-customer – Name, E-Mail-Adresse, Telefonnummer und Firma, wenn Sie „Meine Daten für zukünftige Besuche auf diesem Gerät speichern“ wählen, Local Storage, 30 Tage.",
+        "sub": []
+       }
+      ]
+     },
+     {
+      "type": "p",
+      "text": "Statistik (mit Einwilligung):"
+     },
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "_ga und _ga_… – Google Analytics, Cookies, bis zu 2 Jahre;",
+        "sub": []
+       },
+       {
+        "text": "_clck, _clsk und weitere Clarity-Cookies – Microsoft Clarity (events-storia.de), bis zu 1 Jahr.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "4. Einwilligung ändern oder widerrufen",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Sie können Ihre Auswahl jederzeit über das Cookie-Symbol auf der Seite ändern oder widerrufen. Der Widerruf gilt für die Zukunft. Sie können gespeicherte Einträge außerdem jederzeit in den Einstellungen Ihres Browsers löschen."
+     }
+    ]
+   },
+   {
+    "title": "5. Technische Umsetzung",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Dienste der Kategorien Statistik, Marketing und Externe Inhalte werden erst geladen, nachdem Sie eingewilligt haben. Ihre Einwilligung fragen wir nach zwölf Monaten erneut ab."
+     }
+    ]
+   },
+   {
+    "title": "6. Kontakt",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Speranza GmbH, Karlstraße 47a, 80333 München, E-Mail info@ristorantestoria.de oder info@events-storia.de."
+     },
+     {
+      "type": "p",
+      "text": "Stand: 28. September 2026"
+     }
+    ]
+   }
+  ]
+ }
+]

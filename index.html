@@ -18,12 +18,8 @@
       });
     </script>
     
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-P7H48RC2W1"></script>
-    <script>
-      gtag('js', new Date());
-      gtag('config', 'G-P7H48RC2W1');
-    </script>
+    <!-- gtag.js wird NICHT hier geladen: erst nach Einwilligung „Statistik“
+         (src/components/GoogleAnalytics.tsx, nicht auf /admin). -->
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>STORIA Catering & Events – Italienisches Catering München | Fingerfood, Pizza, Buffets</title>
@@ -35,10 +31,7 @@
     <!-- Canonical -->
     <link rel="canonical" href="https://www.events-storia.de/" />
 
-    <!-- Preconnect for performance -->
-    <link rel="preconnect" href="https://static.elfsight.com" />
-    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-    <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+    <!-- Keine Preconnects/DNS-Prefetches zu Drittanbietern vor der Einwilligung -->
     
     <!-- Preload LCP image (Hero logo) -->
     <link rel="preload" href="/src/assets/storia-logo.webp" as="image" type="image/webp" fetchpriority="high" />
