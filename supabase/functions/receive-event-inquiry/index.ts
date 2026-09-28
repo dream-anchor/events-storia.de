@@ -423,9 +423,19 @@ const handler = async (req: Request): Promise<Response> => {
           if (!res.ok) {
             const body = await res.text().catch(() => '<unlesbar>');
             console.error(`MAESTRO forward abgelehnt (inquiry ${inquiryId}): HTTP ${res.status} — ${body}`);
+            forwardFailed = true;
           }
         } catch (e) {
           console.error(`MAESTRO forward error (inquiry ${inquiryId}):`, e instanceof Error ? e.message : e);
+          forwardFailed = true;
+        }
+        // Rückfall: Betreiber-Mail nur, wenn MAESTRO nicht erreichbar war
+        if (forwardFailed) {
+          try {
+            await sendRestaurantMail(`[MAESTRO nicht erreichbar] ${baseRestaurantSubject}`);
+          } catch (mailErr) {
+            console.error(`Rückfall-Betreiber-Mail fehlgeschlagen (inquiry ${inquiryId}):`, mailErr instanceof Error ? mailErr.message : mailErr);
+          }
         }
       };
       // @ts-ignore — EdgeRuntime ist in Supabase Deno verfügbar
