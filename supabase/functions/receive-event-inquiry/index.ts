@@ -403,6 +403,7 @@ const handler = async (req: Request): Promise<Response> => {
         : undefined;
       const guests = data.guestCount ? parseInt(data.guestCount, 10) : NaN;
       const forwardToMaestro = async () => {
+        let forwardFailed = false;
         try {
           const res = await fetch('https://storia.schrittmacher.ai/api/public/inquiries', {
             method: 'POST',
