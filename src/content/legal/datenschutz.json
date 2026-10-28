@@ -293,15 +293,15 @@
      },
      {
       "type": "p",
-      "text": "Diese Bewertungen ruft unsere Anwendung storia-gbp-sync (Abschnitt 28) täglich über die Schnittstelle von Google ab. Eine Auswahl positiver Bewertungen mit vier oder fünf Sternen speichern wir in Dateien, die im nicht öffentlichen Quellcode-Repository unserer Website bei der GitHub, Inc., USA, liegen und mit der Website bei IONOS veröffentlicht werden. GitHub ist nach dem EU-US Data Privacy Framework zertifiziert. Bei jedem erfolgreichen Abruf werden diese Dateien vollständig neu erstellt; eine bei Google gelöschte Bewertung entfällt dadurch mit dem nächsten erfolgreichen Abruf."
+      "text": "Diese Bewertungen ruft unsere Anwendung storia-gbp-sync (Abschnitt 28) täglich über die Schnittstelle von Google ab und speichert sie in einer Datenbank der Neon, LLC, einer Tochtergesellschaft der Databricks, Inc. (USA), mit Serverstandort Frankfurt am Main: Vorname und erster Buchstabe des Nachnamens, Sternebewertung, Originaltext, Sprache und Datum. Auf der Website zeigen wir davon nur eine Auswahl positiver Bewertungen mit vier oder fünf Sternen; die Website wird nach jedem Abruf täglich neu aufgebaut und übernimmt die Bewertungen dabei aus der Datenbank. Bewertungen, die Google nicht mehr liefert, löschen wir beim nächsten vollständigen Abruf (alle Seiten abgerufen und mindestens 90 Prozent der von Google gemeldeten Gesamtzahl) aus der Datenbank; mit dem anschließenden Neuaufbau entfallen sie auch auf der Website."
      },
      {
       "type": "p",
-      "text": "Zusätzlich haben wir am 27. Oktober 2026 einmalig öffentliche Google-Bewertungen mit vier oder fünf Sternen über den Dienst der DataForSEO OÜ, Tallinn, Estland, abgerufen, um daraus Zitate für einzelne Seiten auszuwählen. Diese Auswahl liegt ebenfalls in diesem Repository und wird nicht automatisch abgeglichen. Möchten Sie, dass Ihre Bewertung dort nicht mehr erscheint, genügt eine Nachricht an info@ristorantestoria.de."
+      "text": "Zusätzlich haben wir am 27. Oktober 2026 einmalig öffentliche Google-Bewertungen mit vier oder fünf Sternen über den Dienst der DataForSEO OÜ, Tallinn, Estland, abgerufen, um daraus Zitate für einzelne Seiten auszuwählen. Diese Bewertungen liegen ebenfalls in der genannten Datenbank und werden nicht automatisch abgeglichen. Möchten Sie, dass Ihre Bewertung dort nicht mehr erscheint, genügt eine Nachricht an info@ristorantestoria.de."
      },
      {
       "type": "p",
-      "text": "Frühere Fassungen dieser Dateien bleiben in der Versionsgeschichte des Repositorys gespeichert."
+      "text": "Bis zum 28. Oktober 2026 lagen die Bewertungen als Dateien im Quellcode-Repository unserer Website bei GitHub. Frühere Fassungen dieser Dateien sind in der nicht öffentlichen Versionsgeschichte des Repositorys weiterhin gespeichert."
      },
      {
       "type": "p",
@@ -477,11 +477,11 @@
      },
      {
       "type": "p",
-      "text": "Die Zugriffsschlüssel von Google (Access- und Refresh-Token) und das Client-Geheimnis der Anwendung speichern wir mit AES-256-GCM verschlüsselt in einer Datenbank der Neon, LLC, einer Tochtergesellschaft der Databricks, Inc. (USA), mit Serverstandort Frankfurt am Main. Der Schlüssel dafür wird getrennt davon als geschützte Umgebungsvariable bei GitHub und auf dem Rechner einer berechtigten Person verwahrt. Bei einer erneuten Freigabe entsteht zunächst eine ebenfalls verschlüsselte Kopie der Tokens auf dem Rechner der anmeldenden Person, die anschließend in die Datenbank übernommen wird. In derselben Datenbank protokollieren wir die veröffentlichten Beiträge mit Bildzuordnung, Zeitplan und Ergebnis."
+      "text": "Die Zugriffsschlüssel von Google (Access- und Refresh-Token) und das Client-Geheimnis der Anwendung speichern wir mit AES-256-GCM verschlüsselt in einer Datenbank der Neon, LLC, einer Tochtergesellschaft der Databricks, Inc. (USA), mit Serverstandort Frankfurt am Main. Der Schlüssel dafür wird getrennt davon als geschützte Umgebungsvariable bei GitHub und auf dem Rechner einer berechtigten Person verwahrt. Bei einer erneuten Freigabe entsteht zunächst eine ebenfalls verschlüsselte Kopie der Tokens auf dem Rechner der anmeldenden Person, die anschließend in die Datenbank übernommen wird. In derselben Datenbank speichern wir die abgerufenen Bewertungen mit gekürztem Namen (Abschnitt 21) und protokollieren die veröffentlichten Beiträge mit Bildzuordnung, Zeitplan und Ergebnis."
      },
      {
       "type": "p",
-      "text": "Die automatisierten Abläufe laufen über GitHub Actions der GitHub, Inc., USA. Die Ablaufprotokolle können Beitragstexte und Fehlermeldungen der Schnittstellen enthalten, aber keine Zugriffsschlüssel; einsehen können sie nur Personen mit Zugriff auf das nicht öffentliche Repository unserer Website. Abgerufene Leistungsdaten legen wir als Datei bei GitHub ab."
+      "text": "Die automatisierten Abläufe laufen über GitHub Actions der GitHub, Inc., USA. Beim täglichen Abruf und beim Neuaufbau der Website werden dort auch die Bewertungen verarbeitet, aber nicht im Repository gespeichert. Die Ablaufprotokolle können Beitragstexte und Fehlermeldungen der Schnittstellen enthalten, aber keine Zugriffsschlüssel; einsehen können sie nur Personen mit Zugriff auf das nicht öffentliche Repository unserer Website. Abgerufene Leistungsdaten legen wir als Datei bei GitHub ab."
      },
      {
       "type": "p",
@@ -500,7 +500,7 @@
         "sub": []
        },
        {
-        "text": "GitHub, Inc., USA, für die Ablage des Quellcodes, die automatisierten Abläufe und deren Protokolle sowie für die Bewertungsdateien der Website (Abschnitt 21). GitHub ist nach dem EU-US Data Privacy Framework zertifiziert.",
+        "text": "GitHub, Inc., USA, für die Ablage des Quellcodes, die automatisierten Abläufe und deren Protokolle sowie für die Versionsgeschichte mit früheren Bewertungsdateien (Abschnitt 21). GitHub ist nach dem EU-US Data Privacy Framework zertifiziert.",
         "sub": []
        },
        {
@@ -542,7 +542,7 @@
         "sub": []
        },
        {
-        "text": "Bewertungen auf unserer Website: wie in Abschnitt 21 beschrieben.",
+        "text": "Bewertungen in der Datenbank und auf unserer Website: wie in Abschnitt 21 beschrieben.",
         "sub": []
        }
       ]
@@ -554,7 +554,7 @@
      },
      {
       "type": "p",
-      "text": "Eine berechtigte Person kann die Freigabe jederzeit in ihrem Google-Konto unter „Sicherheit“ → „Ihre Verbindungen zu Drittanbieter-Apps und -Diensten“ entfernen (https://myaccount.google.com/connections). Danach kann die Anwendung nicht mehr auf unser Unternehmensprofil zugreifen: Automatische Beiträge, Antworten auf Bewertungen, der Abgleich der Speisekarte und der tägliche Abruf der Bewertungen enden, und die gespeicherten Tokens werden ungültig. Bereits auf der Website gezeigte Bewertungen bleiben im zuletzt abgerufenen Stand, bis wir sie entfernen. Die Löschung gespeicherter Tokens können Sie unter info@ristorantestoria.de verlangen."
+      "text": "Eine berechtigte Person kann die Freigabe jederzeit in ihrem Google-Konto unter „Sicherheit“ → „Ihre Verbindungen zu Drittanbieter-Apps und -Diensten“ entfernen (https://myaccount.google.com/connections). Danach kann die Anwendung nicht mehr auf unser Unternehmensprofil zugreifen: Automatische Beiträge, Antworten auf Bewertungen, der Abgleich der Speisekarte und der tägliche Abruf der Bewertungen enden, und die gespeicherten Tokens werden ungültig. Bereits gespeicherte Bewertungen bleiben im zuletzt abgerufenen Stand in der Datenbank und auf der Website, bis wir sie entfernen. Die Löschung gespeicherter Tokens können Sie unter info@ristorantestoria.de verlangen."
      },
      {
       "type": "p",
