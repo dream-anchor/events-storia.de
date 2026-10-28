@@ -10,6 +10,7 @@ import LegalDocument, {
   paragraphSectionId,
   type LegalPart,
 } from "@/components/legal/LegalDocument";
+import StoriaGbpSyncHinweise from "@/components/legal/StoriaGbpSyncHinweise";
 
 /**
  * Einheitliche AGB (Version AGB-2026-10, Stand 28. September 2026).
@@ -98,6 +99,9 @@ const AGB = () => {
               partIdFor={partId}
               sectionIdFor={(title) => sectionId(title)}
             />
+
+            {/* Kein Teil der AGB: Nutzungshinweise der internen Google-Anwendung, Anker #storia-gbp-sync */}
+            <StoriaGbpSyncHinweise />
           </div>
         </main>
 

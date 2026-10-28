@@ -7,7 +7,7 @@
     "blocks": [
      {
       "type": "p",
-      "text": "Diese Datenschutzerklärung gilt für die Websites www.ristorantestoria.de und www.events-storia.de, für unsere Angebotsseiten und das Kundenportal unter storia.schrittmacher.ai sowie für die Kommunikation mit uns per E-Mail, Telefon und WhatsApp. Sie informiert Sie darüber, welche personenbezogenen Daten wir verarbeiten, zu welchen Zwecken und welche Rechte Sie haben."
+      "text": "Diese Datenschutzerklärung gilt für die Websites www.ristorantestoria.de und www.events-storia.de, für unsere Angebotsseiten und das Kundenportal unter storia.schrittmacher.ai, für unsere interne Anwendung storia-gbp-sync zur Pflege unseres Google-Unternehmensprofils sowie für die Kommunikation mit uns per E-Mail, Telefon und WhatsApp. Sie informiert Sie darüber, welche personenbezogenen Daten wir verarbeiten, zu welchen Zwecken und welche Rechte Sie haben."
      }
     ]
    },
@@ -289,7 +289,27 @@
     "blocks": [
      {
       "type": "p",
-      "text": "Auf ristorantestoria.de zeigen wir öffentliche Google-Bewertungen an, die wir selbst abrufen und auf unserem Server speichern; beim Anzeigen werden keine Daten an Google übertragen. Auf events-storia.de zeigen wir Bewertungen mit Ihrer Einwilligung (Kategorie Externe Inhalte) über ein Widget der Elfsight LLC, USA, an. Beim Laden des Widgets werden Ihre IP-Adresse und Browserdaten an Elfsight übertragen."
+      "text": "Auf ristorantestoria.de zeigen wir öffentliche Google-Bewertungen unseres Restaurants mit Vornamen und dem ersten Buchstaben des Nachnamens der bewertenden Person, Sternebewertung, Bewertungstext und Datum. Beim Anzeigen werden keine Daten an Google übertragen."
+     },
+     {
+      "type": "p",
+      "text": "Diese Bewertungen ruft unsere Anwendung storia-gbp-sync (Abschnitt 28) täglich über die Schnittstelle von Google ab. Eine Auswahl positiver Bewertungen mit vier oder fünf Sternen speichern wir in Dateien, die im öffentlichen Quellcode-Repository unserer Website bei der GitHub, Inc., USA, liegen und mit der Website bei IONOS veröffentlicht werden. Bei jedem erfolgreichen Abruf werden diese Dateien vollständig neu erstellt; eine bei Google gelöschte Bewertung entfällt dadurch mit dem nächsten erfolgreichen Abruf."
+     },
+     {
+      "type": "p",
+      "text": "Zusätzlich haben wir am 27. Oktober 2026 einmalig öffentliche Google-Bewertungen mit vier oder fünf Sternen über den Dienst der DataForSEO OÜ, Tallinn, Estland, abgerufen, um daraus Zitate für einzelne Seiten auszuwählen. Diese Auswahl liegt ebenfalls im öffentlichen Repository und wird nicht automatisch abgeglichen. Möchten Sie, dass Ihre Bewertung dort nicht mehr erscheint, genügt eine Nachricht an info@ristorantestoria.de."
+     },
+     {
+      "type": "p",
+      "text": "Frühere Fassungen dieser Dateien bleiben in der Versionsgeschichte des Repositorys gespeichert."
+     },
+     {
+      "type": "p",
+      "text": "Rechtsgrundlage ist unser berechtigtes Interesse, Gästen anhand echter Bewertungen einen Eindruck von unserem Restaurant zu geben (Art. 6 Abs. 1 lit. f DSGVO). Sie können dieser Verarbeitung widersprechen (Abschnitt 25)."
+     },
+     {
+      "type": "p",
+      "text": "Auf events-storia.de zeigen wir Bewertungen mit Ihrer Einwilligung (Kategorie Externe Inhalte) über ein Widget der Elfsight LLC, USA, an. Beim Laden des Widgets werden Ihre IP-Adresse und Browserdaten an Elfsight übertragen."
      }
     ]
    }
@@ -378,7 +398,168 @@
      },
      {
       "type": "p",
-      "text": "Stand: 28. September 2026"
+      "text": "Stand: 28. Oktober 2026"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Google-Unternehmensprofil und storia-gbp-sync",
+  "sections": [
+   {
+    "title": "28. Interne Anwendung storia-gbp-sync",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Für die Pflege unseres eigenen Google-Unternehmensprofils „Ristorante STORIA“ (Karlstraße 47a, 80333 München) nutzen wir die interne Anwendung „storia-gbp-sync“. Sie ist über die Schnittstellen von Google für Unternehmensprofile (Google Business Profile APIs) mit unserem Profil verbunden. Betreiberin der Anwendung und Verantwortliche ist die Speranza GmbH (Abschnitt 2)."
+     },
+     {
+      "type": "p",
+      "text": "Nutzerkreis",
+      "strong": true
+     },
+     {
+      "type": "p",
+      "text": "Die Anwendung ist nicht öffentlich. Es gibt keine Registrierung und keine Nutzerkonten für Gäste oder andere Dritte. Bedienen und für unser Unternehmensprofil freigeben dürfen sie ausschließlich zwei namentlich berechtigte Personen aus unserem Team bzw. von unserem Dienstleister."
+     },
+     {
+      "type": "p",
+      "text": "Zugriffsberechtigung bei Google",
+      "strong": true
+     },
+     {
+      "type": "p",
+      "text": "Die Anwendung fordert bei Google ausschließlich die Berechtigung „business.manage“ (Verwaltung von Unternehmensprofilen) an. Die Freigabe erteilt eine berechtigte Person in einem Anmeldedialog von Google (OAuth). Diese Freigabe ist eine technische Zugriffsberechtigung für unser eigenes Unternehmensprofil; sie ist keine Einwilligung im Sinne der DSGVO und nicht die Rechtsgrundlage der nachfolgend beschriebenen Verarbeitung. Profildaten des freigebenden Google-Kontos wie Name oder E-Mail-Adresse ruft die Anwendung nicht ab."
+     },
+     {
+      "type": "p",
+      "text": "Funktionen und verarbeitete Daten",
+      "strong": true
+     },
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "Bewertungen lesen: Die Anwendung ruft die Bewertungen zu unserem Profil ab, jeweils mit dem Anzeigenamen der bewertenden Person, der Sternebewertung, dem Bewertungstext und dem Datum.",
+        "sub": []
+       },
+       {
+        "text": "Auf Bewertungen antworten: Die Anwendung veröffentlicht unsere Antworten auf Bewertungen und kann eigene Antworten ändern. Die Antworten entwirft ein KI-Modell der Anthropic PBC, USA; dafür werden Bewertungstext und Anzeigename an Anthropic übermittelt. Die Antworten werden ohne vorherige Prüfung durch einen Mitarbeiter veröffentlicht.",
+        "sub": []
+       },
+       {
+        "text": "Beiträge veröffentlichen: Die Anwendung veröffentlicht Beiträge in unserem Profil mit Text, einem Foto von unserer Website und einer Schaltfläche, etwa einem Link oder einer Anruf-Schaltfläche. Die Texte erstellt ein KI-Modell der Anthropic PBC aus internen Themenlisten; sie enthalten keine personenbezogenen Daten.",
+        "sub": []
+       },
+       {
+        "text": "Speisekarte abgleichen: Die Anwendung liest die Speisekarte in unserem Profil und aktualisiert sie aus unserer eigenen Speisekarten-Datenbank. Personenbezogene Daten sind darin nicht enthalten.",
+        "sub": []
+       },
+       {
+        "text": "Leistungsdaten abrufen: Die Anwendung ruft zusammengefasste Kennzahlen zu unserem Profil ab, etwa tägliche Aufrufe und Interaktionen sowie monatliche Suchbegriffe. Diese Kennzahlen enthalten keine Angaben zu einzelnen Personen.",
+        "sub": []
+       }
+      ]
+     },
+     {
+      "type": "p",
+      "text": "Die Anwendung löscht keine Bewertungen oder Beiträge, ändert keine Unternehmensangaben wie Adresse oder Öffnungszeiten, beantwortet keine Fragen im Bereich „Fragen und Antworten“ und lädt keine Fotos in das Profil hoch. Daten, die wir über die Schnittstellen von Google erhalten, nutzen wir nur für die in diesem Abschnitt und in Abschnitt 21 beschriebenen Zwecke."
+     },
+     {
+      "type": "p",
+      "text": "Rechtsgrundlage für die Verarbeitung der Daten bewertender Personen ist unser berechtigtes Interesse, unser eigenes Unternehmensprofil zu pflegen, auf Bewertungen zu antworten und Bewertungen auf unserer Website zu zeigen (Art. 6 Abs. 1 lit. f DSGVO). Sie können dieser Verarbeitung widersprechen (Abschnitt 25)."
+     },
+     {
+      "type": "p",
+      "text": "Speicherung",
+      "strong": true
+     },
+     {
+      "type": "p",
+      "text": "Die Zugriffsschlüssel von Google (Access- und Refresh-Token) und das Client-Geheimnis der Anwendung speichern wir mit AES-256-GCM verschlüsselt in einer Datenbank der Neon Inc. mit Serverstandort Frankfurt am Main. Der Schlüssel dafür wird getrennt davon als geschützte Umgebungsvariable bei GitHub und auf dem Rechner einer berechtigten Person verwahrt. Bei einer erneuten Freigabe entsteht zunächst eine ebenfalls verschlüsselte Kopie der Tokens auf dem Rechner der anmeldenden Person, die anschließend in die Datenbank übernommen wird. In derselben Datenbank protokollieren wir die veröffentlichten Beiträge mit Bildzuordnung, Zeitplan und Ergebnis."
+     },
+     {
+      "type": "p",
+      "text": "Die automatisierten Abläufe laufen über GitHub Actions der GitHub, Inc., USA. Weil das Quellcode-Repository unserer Website öffentlich ist, sind auch die Ablaufprotokolle öffentlich einsehbar. Sie können Beitragstexte und Fehlermeldungen der Schnittstellen enthalten, aber keine Zugriffsschlüssel. Abgerufene Leistungsdaten legen wir als Datei bei GitHub ab."
+     },
+     {
+      "type": "p",
+      "text": "Empfänger und Übermittlung in Drittländer",
+      "strong": true
+     },
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland, als Anbieterin des Unternehmensprofils und der Schnittstellen. Die Daten können an Google LLC in den USA übermittelt werden; Google ist nach dem EU-US Data Privacy Framework zertifiziert.",
+        "sub": []
+       },
+       {
+        "text": "Anthropic PBC, USA, für das Entwerfen von Antworten und Beitragstexten. Die Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln.",
+        "sub": []
+       },
+       {
+        "text": "GitHub, Inc., USA, für die Ablage des Quellcodes, die automatisierten Abläufe und deren Protokolle sowie für die Bewertungsdateien der Website (Abschnitt 21).",
+        "sub": []
+       },
+       {
+        "text": "Neon Inc. für die Datenbank mit Serverstandort Frankfurt am Main.",
+        "sub": []
+       },
+       {
+        "text": "IONOS SE, Montabaur, für das Hosting der Website, auf der die Bewertungen erscheinen.",
+        "sub": []
+       },
+       {
+        "text": "DataForSEO OÜ, Tallinn, Estland, für den einmaligen Abruf öffentlicher Google-Bewertungen (Abschnitt 21).",
+        "sub": []
+       }
+      ]
+     },
+     {
+      "type": "p",
+      "text": "Speicherdauer",
+      "strong": true
+     },
+     {
+      "type": "ul",
+      "items": [
+       {
+        "text": "Zugriffsschlüssel und Client-Geheimnis: bis zum Widerruf der Freigabe bzw. bis zu ihrer Löschung. Nach einem Widerruf sind die Tokens wirkungslos; auf Anfrage löschen wir sie.",
+        "sub": []
+       },
+       {
+        "text": "Ablaufprotokolle bei GitHub: 90 Tage.",
+        "sub": []
+       },
+       {
+        "text": "Dateien mit Leistungsdaten bei GitHub: 30 Tage.",
+        "sub": []
+       },
+       {
+        "text": "Bewertungen auf unserer Website: wie in Abschnitt 21 beschrieben.",
+        "sub": []
+       }
+      ]
+     },
+     {
+      "type": "p",
+      "text": "Widerruf der Freigabe",
+      "strong": true
+     },
+     {
+      "type": "p",
+      "text": "Eine berechtigte Person kann die Freigabe jederzeit in ihrem Google-Konto unter „Sicherheit“ → „Ihre Verbindungen zu Drittanbieter-Apps und -Diensten“ entfernen (https://myaccount.google.com/connections). Danach kann die Anwendung nicht mehr auf unser Unternehmensprofil zugreifen: Automatische Beiträge, Antworten auf Bewertungen, der Abgleich der Speisekarte und der tägliche Abruf der Bewertungen enden, und die gespeicherten Tokens werden ungültig. Bereits auf der Website gezeigte Bewertungen bleiben im zuletzt abgerufenen Stand, bis wir sie entfernen. Die Löschung gespeicherter Tokens können Sie unter info@ristorantestoria.de verlangen."
+     },
+     {
+      "type": "p",
+      "text": "Kontakt",
+      "strong": true
+     },
+     {
+      "type": "p",
+      "text": "Fragen zur Anwendung und zum Datenschutz richten Sie bitte an info@ristorantestoria.de. Die Nutzungshinweise für die Anwendung finden Sie unter https://www.events-storia.de/agb/#storia-gbp-sync."
      }
     ]
    }
