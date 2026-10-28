@@ -99,7 +99,7 @@
      },
      {
       "type": "p",
-      "text": "Anfragen, Angebote, Buchungen und den zugehörigen E-Mail-Verkehr verwalten wir in der Software MAESTRO der Dream & Anchor Handelsgesellschaft mbH, die als Auftragsverarbeiter für uns tätig ist. MAESTRO läuft auf Servern der Cloudflare, Inc. (USA) und nutzt eine Datenbank der Neon Inc. mit Serverstandort Frankfurt am Main. Unsere E-Mail-Postfächer liegen bei IONOS; für die Übernahme eingehender E-Mails in MAESTRO wird ein Server der Contabo GmbH (Deutschland) eingesetzt. Übermittlungen in die USA erfolgen auf Grundlage des EU-US Data Privacy Framework bzw. der EU-Standardvertragsklauseln."
+      "text": "Anfragen, Angebote, Buchungen und den zugehörigen E-Mail-Verkehr verwalten wir in der Software MAESTRO der Dream & Anchor Handelsgesellschaft mbH, die als Auftragsverarbeiter für uns tätig ist. MAESTRO läuft auf Servern der Cloudflare, Inc. (USA) und nutzt eine Datenbank der Neon, LLC, einer Tochtergesellschaft der Databricks, Inc. (USA), mit Serverstandort Frankfurt am Main. Unsere E-Mail-Postfächer liegen bei IONOS; für die Übernahme eingehender E-Mails in MAESTRO wird ein Server der Contabo GmbH (Deutschland) eingesetzt. Übermittlungen in die USA erfolgen auf Grundlage des EU-US Data Privacy Framework bzw. der EU-Standardvertragsklauseln."
      },
      {
       "type": "p",
@@ -116,7 +116,7 @@
     "blocks": [
      {
       "type": "p",
-      "text": "Um Anfragen und E-Mails schneller zu bearbeiten, lassen wir deren Inhalt durch KI-Modelle der Anthropic PBC, USA, auswerten: Die KI erkennt das Anliegen, übernimmt Angaben wie Datum und Personenzahl in die Anfrage und entwirft Angebote und Antworten. Jede Antwort und jedes Angebot prüft und versendet ein Mitarbeiter; automatisierte Entscheidungen im Sinne von Art. 22 DSGVO finden nicht statt. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b und f DSGVO. Die Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln."
+      "text": "Um Anfragen und E-Mails schneller zu bearbeiten, lassen wir deren Inhalt durch KI-Modelle der Anthropic PBC, USA, auswerten: Die KI erkennt das Anliegen, übernimmt Angaben wie Datum und Personenzahl in die Anfrage und entwirft Angebote und Antworten. Jede Antwort und jedes Angebot prüft und versendet ein Mitarbeiter. Ausgenommen sind Antworten auf öffentliche Google-Bewertungen: Sie entwirft ebenfalls ein KI-Modell von Anthropic, und sie werden ohne vorherige Prüfung durch einen Mitarbeiter automatisch veröffentlicht (Abschnitt 28). Automatisierte Entscheidungen im Sinne von Art. 22 DSGVO finden nicht statt (Abschnitt 26). Rechtsgrundlage ist Art. 6 Abs. 1 lit. b und f DSGVO. Die Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln."
      },
      {
       "type": "p",
@@ -293,11 +293,11 @@
      },
      {
       "type": "p",
-      "text": "Diese Bewertungen ruft unsere Anwendung storia-gbp-sync (Abschnitt 28) täglich über die Schnittstelle von Google ab. Eine Auswahl positiver Bewertungen mit vier oder fünf Sternen speichern wir in Dateien, die im öffentlichen Quellcode-Repository unserer Website bei der GitHub, Inc., USA, liegen und mit der Website bei IONOS veröffentlicht werden. Bei jedem erfolgreichen Abruf werden diese Dateien vollständig neu erstellt; eine bei Google gelöschte Bewertung entfällt dadurch mit dem nächsten erfolgreichen Abruf."
+      "text": "Diese Bewertungen ruft unsere Anwendung storia-gbp-sync (Abschnitt 28) täglich über die Schnittstelle von Google ab. Eine Auswahl positiver Bewertungen mit vier oder fünf Sternen speichern wir in Dateien, die im nicht öffentlichen Quellcode-Repository unserer Website bei der GitHub, Inc., USA, liegen und mit der Website bei IONOS veröffentlicht werden. GitHub ist nach dem EU-US Data Privacy Framework zertifiziert. Bei jedem erfolgreichen Abruf werden diese Dateien vollständig neu erstellt; eine bei Google gelöschte Bewertung entfällt dadurch mit dem nächsten erfolgreichen Abruf."
      },
      {
       "type": "p",
-      "text": "Zusätzlich haben wir am 27. Oktober 2026 einmalig öffentliche Google-Bewertungen mit vier oder fünf Sternen über den Dienst der DataForSEO OÜ, Tallinn, Estland, abgerufen, um daraus Zitate für einzelne Seiten auszuwählen. Diese Auswahl liegt ebenfalls im öffentlichen Repository und wird nicht automatisch abgeglichen. Möchten Sie, dass Ihre Bewertung dort nicht mehr erscheint, genügt eine Nachricht an info@ristorantestoria.de."
+      "text": "Zusätzlich haben wir am 27. Oktober 2026 einmalig öffentliche Google-Bewertungen mit vier oder fünf Sternen über den Dienst der DataForSEO OÜ, Tallinn, Estland, abgerufen, um daraus Zitate für einzelne Seiten auszuwählen. Diese Auswahl liegt ebenfalls in diesem Repository und wird nicht automatisch abgeglichen. Möchten Sie, dass Ihre Bewertung dort nicht mehr erscheint, genügt eine Nachricht an info@ristorantestoria.de."
      },
      {
       "type": "p",
@@ -353,7 +353,7 @@
     "blocks": [
      {
       "type": "p",
-      "text": "Ihre Daten erhalten nur die in dieser Erklärung genannten Dienstleister, soweit dies für den jeweiligen Zweck nötig ist, sowie Behörden, soweit wir gesetzlich dazu verpflichtet sind. Mit allen Dienstleistern, die in unserem Auftrag tätig sind, bestehen Verträge zur Auftragsverarbeitung nach Art. 28 DSGVO. Wir verkaufen keine personenbezogenen Daten."
+      "text": "Ihre Daten erhalten nur die in dieser Erklärung genannten Dienstleister, soweit dies für den jeweiligen Zweck nötig ist, sowie Behörden, soweit wir gesetzlich dazu verpflichtet sind. Mit den Dienstleistern, die in unserem Auftrag tätig sind, bestehen Verträge zur Auftragsverarbeitung nach Art. 28 DSGVO; zu den Diensten der Anwendung storia-gbp-sync siehe Abschnitt 28. Wir verkaufen keine personenbezogenen Daten."
      }
     ]
    },
@@ -385,7 +385,7 @@
     "blocks": [
      {
       "type": "p",
-      "text": "Die Angabe Ihrer Kontaktdaten ist für die Bearbeitung einer Anfrage und den Abschluss eines Vertrags erforderlich; ohne sie können wir Ihre Anfrage nicht bearbeiten. Automatisierte Entscheidungen nach Art. 22 DSGVO treffen wir nicht. Bei der Wahl von Kauf auf Rechnung oder Klarna entscheiden Billie bzw. Klarna anhand ihrer Bonitätsprüfung über die Verfügbarkeit dieser Zahlungsart."
+      "text": "Die Angabe Ihrer Kontaktdaten ist für die Bearbeitung einer Anfrage und den Abschluss eines Vertrags erforderlich; ohne sie können wir Ihre Anfrage nicht bearbeiten. Automatisierte Entscheidungen nach Art. 22 DSGVO treffen wir nicht. Antworten auf öffentliche Google-Bewertungen erstellt ein KI-Modell, und sie werden automatisch veröffentlicht (Abschnitt 28). Diese Antworten sind öffentliche Erwiderungen auf die jeweilige Bewertung; sie sind nicht mit Reservierungen, Bestellungen oder Kundenkonten verknüpft, und mit ihnen wird nicht über Rechte oder Ansprüche der bewertenden Person entschieden. Bei der Wahl von Kauf auf Rechnung oder Klarna entscheiden Billie bzw. Klarna anhand ihrer Bonitätsprüfung über die Verfügbarkeit dieser Zahlungsart."
      }
     ]
    },
@@ -477,11 +477,11 @@
      },
      {
       "type": "p",
-      "text": "Die Zugriffsschlüssel von Google (Access- und Refresh-Token) und das Client-Geheimnis der Anwendung speichern wir mit AES-256-GCM verschlüsselt in einer Datenbank der Neon Inc. mit Serverstandort Frankfurt am Main. Der Schlüssel dafür wird getrennt davon als geschützte Umgebungsvariable bei GitHub und auf dem Rechner einer berechtigten Person verwahrt. Bei einer erneuten Freigabe entsteht zunächst eine ebenfalls verschlüsselte Kopie der Tokens auf dem Rechner der anmeldenden Person, die anschließend in die Datenbank übernommen wird. In derselben Datenbank protokollieren wir die veröffentlichten Beiträge mit Bildzuordnung, Zeitplan und Ergebnis."
+      "text": "Die Zugriffsschlüssel von Google (Access- und Refresh-Token) und das Client-Geheimnis der Anwendung speichern wir mit AES-256-GCM verschlüsselt in einer Datenbank der Neon, LLC, einer Tochtergesellschaft der Databricks, Inc. (USA), mit Serverstandort Frankfurt am Main. Der Schlüssel dafür wird getrennt davon als geschützte Umgebungsvariable bei GitHub und auf dem Rechner einer berechtigten Person verwahrt. Bei einer erneuten Freigabe entsteht zunächst eine ebenfalls verschlüsselte Kopie der Tokens auf dem Rechner der anmeldenden Person, die anschließend in die Datenbank übernommen wird. In derselben Datenbank protokollieren wir die veröffentlichten Beiträge mit Bildzuordnung, Zeitplan und Ergebnis."
      },
      {
       "type": "p",
-      "text": "Die automatisierten Abläufe laufen über GitHub Actions der GitHub, Inc., USA. Weil das Quellcode-Repository unserer Website öffentlich ist, sind auch die Ablaufprotokolle öffentlich einsehbar. Sie können Beitragstexte und Fehlermeldungen der Schnittstellen enthalten, aber keine Zugriffsschlüssel. Abgerufene Leistungsdaten legen wir als Datei bei GitHub ab."
+      "text": "Die automatisierten Abläufe laufen über GitHub Actions der GitHub, Inc., USA. Die Ablaufprotokolle können Beitragstexte und Fehlermeldungen der Schnittstellen enthalten, aber keine Zugriffsschlüssel; einsehen können sie nur Personen mit Zugriff auf das nicht öffentliche Repository unserer Website. Abgerufene Leistungsdaten legen wir als Datei bei GitHub ab."
      },
      {
       "type": "p",
@@ -496,15 +496,15 @@
         "sub": []
        },
        {
-        "text": "Anthropic PBC, USA, für das Entwerfen von Antworten und Beitragstexten. Die Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln.",
+        "text": "Anthropic PBC, USA, für das Entwerfen von Antworten und Beitragstexten; Vertragspartnerin für Kunden im Europäischen Wirtschaftsraum ist die Anthropic Ireland, Limited. Die Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln.",
         "sub": []
        },
        {
-        "text": "GitHub, Inc., USA, für die Ablage des Quellcodes, die automatisierten Abläufe und deren Protokolle sowie für die Bewertungsdateien der Website (Abschnitt 21).",
+        "text": "GitHub, Inc., USA, für die Ablage des Quellcodes, die automatisierten Abläufe und deren Protokolle sowie für die Bewertungsdateien der Website (Abschnitt 21). GitHub ist nach dem EU-US Data Privacy Framework zertifiziert.",
         "sub": []
        },
        {
-        "text": "Neon Inc. für die Datenbank mit Serverstandort Frankfurt am Main.",
+        "text": "Neon, LLC, eine Tochtergesellschaft der Databricks, Inc., USA, für die Datenbank mit Serverstandort Frankfurt am Main. Soweit dabei Daten in die USA übermittelt werden, erfolgt dies auf Grundlage des EU-US Data Privacy Framework, nach dem Databricks einschließlich Neon zertifiziert ist, und der EU-Standardvertragsklauseln.",
         "sub": []
        },
        {
@@ -516,6 +516,10 @@
         "sub": []
        }
       ]
+     },
+     {
+      "type": "p",
+      "text": "Die Vertragsbedingungen von Anthropic, von Databricks für Neon und von DataForSEO enthalten jeweils einen Vertrag zur Auftragsverarbeitung nach Art. 28 DSGVO."
      },
      {
       "type": "p",
