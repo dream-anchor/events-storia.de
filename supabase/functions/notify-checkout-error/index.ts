@@ -9,7 +9,7 @@ serve(async (req) => {
   }
 
   try {
-    const { errorMessage, items, paymentMethod, deliveryType, timestamp } = await req.json();
+    const { errorMessage, items, paymentMethod, deliveryType, timestamp, customerName, customerEmail, customerPhone, company, desiredDate, desiredTime, grandTotal } = await req.json();
 
     // Log to System-Health Hub
     reportEdgeError({
@@ -36,6 +36,10 @@ FEHLER: ${errorMessage}
 
 WARENKORB:
 ${itemsList}
+
+KUNDE: ${customerName || 'Unbekannt'}, ${customerEmail || '–'}, ${customerPhone || '–'}${company ? `, ${company}` : ''}
+Wunschtermin: ${desiredDate || '–'}${desiredTime ? ` ${desiredTime}` : ''}
+Summe: ${typeof grandTotal === 'number' ? grandTotal.toFixed(2) + ' €' : 'Unbekannt'}
 
 Zahlungsart: ${paymentMethod || 'Unbekannt'}
 Lieferart: ${deliveryType || 'Unbekannt'}

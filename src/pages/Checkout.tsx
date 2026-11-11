@@ -831,6 +831,36 @@ const Checkout = () => {
     setCurrentStep(step);
   };
 
+  // RPC-Aufruf mit bis zu 2 automatischen Wiederholungen bei Timeout/Netzwerkfehlern.
+  // orderId/order_number stehen vor dem Aufruf fest: Meldet die Wiederholung einen
+  // Unique-Fehler (23505 / "duplicate key"), war der erste Versuch bereits gespeichert → Erfolg.
+  const rpcWithRetry = async (
+    fnName: 'checkout_create_catering_order' | 'checkout_create_event_booking',
+    payload: Record<string, unknown>
+  ) => {
+    const isRetryable = (err: { message?: string; code?: string; status?: number } | null) => {
+      if (!err) return false;
+      const msg = (err.message || '').toLowerCase();
+      return msg.includes('timeout') || msg.includes('failed to fetch') || msg.includes('network')
+        || err.status === 502 || err.status === 503 || err.status === 504;
+    };
+    const isDuplicate = (err: { message?: string; code?: string } | null) => {
+      if (!err) return false;
+      return err.code === '23505' || (err.message || '').toLowerCase().includes('duplicate key');
+    };
+    const delays = [1500, 3000];
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+      const { error } = await supabase.rpc(fnName, { payload } as never);
+      if (!error) return;
+      if (attempt > 0 && isDuplicate(error)) return; // erster Versuch hatte bereits gespeichert
+      if (attempt < delays.length && isRetryable(error)) {
+        await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+        continue;
+      }
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -1002,64 +1032,56 @@ const Checkout = () => {
       const eventPackageId = eventItem?.id.replace('event-', '') || null;
       
       if (isEventBooking && eventItem) {
-        const { error } = await supabase.rpc('checkout_create_event_booking', {
-          payload: {
-            id: orderId,
-            booking_number: newOrderNumber,
-            customer_name: formData.name,
-            customer_email: formData.email,
-            phone: formData.phone,
-            company_name: formData.company || null,
-            event_date: formData.date,
-            event_time: formData.time,
-            guest_count: eventGuestCount,
-            package_id: eventPackageId,
-            total_amount: grandTotal,
-            payment_status: 'pending',
-            status: 'confirmed',
-            internal_notes: fullNotes || null,
-            menu_selection: null,
-          } as never,
+        await rpcWithRetry('checkout_create_event_booking', {
+          id: orderId,
+          booking_number: newOrderNumber,
+          customer_name: formData.name,
+          customer_email: formData.email,
+          phone: formData.phone,
+          company_name: formData.company || null,
+          event_date: formData.date,
+          event_time: formData.time,
+          guest_count: eventGuestCount,
+          package_id: eventPackageId,
+          total_amount: grandTotal,
+          payment_status: 'pending',
+          status: 'confirmed',
+          internal_notes: fullNotes || null,
+          menu_selection: null,
         });
-
-        if (error) throw error;
       } else {
-        const { error } = await supabase.rpc('checkout_create_catering_order', {
-          payload: {
-            id: orderId,
-            order_number: newOrderNumber,
-            customer_name: formData.name,
-            customer_email: formData.email,
-            customer_phone: formData.phone,
-            company_name: formData.company || null,
-            delivery_street: formData.deliveryType === 'delivery' ? formData.deliveryStreet : null,
-            delivery_zip: formData.deliveryType === 'delivery' ? formData.deliveryZip : null,
-            delivery_city: formData.deliveryType === 'delivery' ? formData.deliveryCity : null,
-            delivery_floor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : null,
-            has_elevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
-            delivery_address: formData.deliveryType === 'delivery' ? fullDeliveryAddress : null,
-            is_pickup: formData.deliveryType === 'pickup',
-            desired_date: formData.date || null,
-            desired_time: formData.time || null,
-            notes: fullNotes || null,
-            items: orderItems,
-            total_amount: grandTotal,
-            billing_name: billingAddress.name || null,
-            billing_street: billingAddress.street || null,
-            billing_zip: billingAddress.zip || null,
-            billing_city: billingAddress.city || null,
-            billing_country: billingAddress.country || null,
-            delivery_cost: deliveryCalc?.deliveryCostGross || 0,
-            minimum_order_surcharge: minimumOrderSurcharge,
-            calculated_distance_km: deliveryCalc?.distanceKm || null,
-            payment_method: paymentMethod,
-            payment_status: 'pending',
-            user_id: existingUserId,
-            reference_number: formData.referenceNumber?.trim() || null,
-          } as never,
+        await rpcWithRetry('checkout_create_catering_order', {
+          id: orderId,
+          order_number: newOrderNumber,
+          customer_name: formData.name,
+          customer_email: formData.email,
+          customer_phone: formData.phone,
+          company_name: formData.company || null,
+          delivery_street: formData.deliveryType === 'delivery' ? formData.deliveryStreet : null,
+          delivery_zip: formData.deliveryType === 'delivery' ? formData.deliveryZip : null,
+          delivery_city: formData.deliveryType === 'delivery' ? formData.deliveryCity : null,
+          delivery_floor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : null,
+          has_elevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
+          delivery_address: formData.deliveryType === 'delivery' ? fullDeliveryAddress : null,
+          is_pickup: formData.deliveryType === 'pickup',
+          desired_date: formData.date || null,
+          desired_time: formData.time || null,
+          notes: fullNotes || null,
+          items: orderItems,
+          total_amount: grandTotal,
+          billing_name: billingAddress.name || null,
+          billing_street: billingAddress.street || null,
+          billing_zip: billingAddress.zip || null,
+          billing_city: billingAddress.city || null,
+          billing_country: billingAddress.country || null,
+          delivery_cost: deliveryCalc?.deliveryCostGross || 0,
+          minimum_order_surcharge: minimumOrderSurcharge,
+          calculated_distance_km: deliveryCalc?.distanceKm || null,
+          payment_method: paymentMethod,
+          payment_status: 'pending',
+          user_id: existingUserId,
+          reference_number: formData.referenceNumber?.trim() || null,
         });
-
-        if (error) throw error;
       }
 
       setOrderNumber(newOrderNumber);
@@ -1264,6 +1286,13 @@ const Checkout = () => {
           paymentMethod,
           deliveryType: formData.deliveryType,
           timestamp: new Date().toISOString(),
+          customerName: formData.name,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          company: formData.company || null,
+          desiredDate: formData.date || null,
+          desiredTime: formData.time || null,
+          grandTotal,
         }
       }).catch(() => {}); // fire-and-forget, nie blockieren
     } finally {
