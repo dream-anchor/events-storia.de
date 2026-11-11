@@ -328,7 +328,8 @@ serve(async (req) => {
         unitName: 'Stück',
         unitPrice: {
           currency: 'EUR',
-          netAmount: roundCurrency(item.price / 1.07), // Convert gross to net (7% VAT for food)
+          // Brutto-Endpreis 1:1 übernehmen (7% MwSt für Speisen), keine Netto-Umrechnung.
+          grossAmount: roundCurrency(item.price),
           taxRatePercentage: 7
         }
       });
@@ -343,7 +344,8 @@ serve(async (req) => {
         unitName: 'Stück',
         unitPrice: {
           currency: 'EUR',
-          netAmount: roundCurrency(body.minimumOrderSurcharge / 1.07),
+          // Brutto-Endpreis 1:1 übernehmen (7% MwSt), keine Netto-Umrechnung.
+          grossAmount: roundCurrency(body.minimumOrderSurcharge),
           taxRatePercentage: 7
         }
       });
@@ -362,7 +364,8 @@ serve(async (req) => {
         unitName: 'Stück',
         unitPrice: {
           currency: 'EUR',
-          netAmount: roundCurrency(body.deliveryCost / 1.19), // Convert gross to net (19% VAT for delivery)
+          // Brutto-Endpreis 1:1 übernehmen (19% MwSt für Lieferung), keine Netto-Umrechnung.
+          grossAmount: roundCurrency(body.deliveryCost),
           taxRatePercentage: 19
         }
       });
@@ -498,7 +501,11 @@ serve(async (req) => {
       }),
       lineItems,
       totalPrice: { currency: 'EUR' },
-      taxConditions: { taxType: 'net' },
+      // taxType 'gross' statt 'net': LexOffice rundet selbst auf Basis des Bruttopreises.
+      // Bei 'net' wurden die Positionen einzeln brutto/1,07 bzw. /1,19 netto gerundet –
+      // die Rechnungssumme wich dann von der bezahlten Summe ab (z. B. 564,56 € statt
+      // 564,70 €). Gilt für Rechnung und Angebot (quotation) gleich.
+      taxConditions: { taxType: 'gross' },
       title: 'Catering-Rechnung', // Shop orders are always paid via Stripe
       introduction,
       remark,
@@ -508,7 +515,10 @@ serve(async (req) => {
     // Invoices require shippingConditions - add for paid orders
     if (isInvoice) {
       documentPayload.shippingConditions = {
-        shippingType: body.isPickup ? 'pickup' : 'delivery',
+        // LexOffice erlaubt als shippingType nur service, serviceperiod, delivery,
+        // deliveryperiod, none – 'pickup' wird abgelehnt. Abholung wird deshalb ebenfalls
+        // als 'delivery' gemeldet; der Abholhinweis steht unverändert in der introduction.
+        shippingType: 'delivery',
         shippingDate: (() => {
           const d = body.desiredDate ? new Date(body.desiredDate + 'T12:00:00Z') : new Date();
           return d.toISOString();
