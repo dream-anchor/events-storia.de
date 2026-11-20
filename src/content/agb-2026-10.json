@@ -917,11 +917,23 @@
       "type": "ol",
       "items": [
        {
-        "text": "Der Kunde kann seine Bestellung nur bis zur Abholung bzw. Übergabe des Geschenkkorbs widerrufen. Nach der Abholung bzw. Übergabe ist eine Rücknahme ausgeschlossen.",
+        "text": "Verbrauchern steht beim Kauf von Geschenkkörben das gesetzliche Widerrufsrecht zu. Die Widerrufsfrist beträgt 14 Tage ab dem Tag, an dem der Kunde oder ein von ihm benannter Dritter, der nicht der Beförderer ist, die Ware in Besitz genommen hat, bei Abholung ab der Übergabe im Restaurant. Einzelheiten und das Muster-Widerrufsformular stehen in unserer Widerrufsbelehrung.",
         "sub": []
        },
        {
-        "text": "Den Widerruf erklärt der Kunde in Textform (z. B. per E-Mail an info@events-storia.de) oder telefonisch. Bereits geleistete Zahlungen erstatten wir unverzüglich, spätestens binnen 14 Tagen, über dasselbe Zahlungsmittel.",
+        "text": "Nach einem Widerruf sendet der Kunde den Korb unverzüglich, spätestens binnen 14 Tagen, an uns zurück oder bringt ihn während der Öffnungszeiten (§ 40 Abs. 1) in die Karlstraße 47a, 80333 München, zurück. Die unmittelbaren Kosten der Rücksendung trägt der Kunde.",
+        "sub": []
+       },
+       {
+        "text": "Wir erstatten alle Zahlungen einschließlich der Liefergebühr der ursprünglichen Lieferung unverzüglich, spätestens binnen 14 Tagen ab Eingang des Widerrufs, über dasselbe Zahlungsmittel; hat der Kunde vor Ort bezahlt, erstatten wir bar oder per Überweisung. Wir können die Erstattung verweigern, bis wir die Ware zurückerhalten haben oder der Kunde nachgewiesen hat, dass er sie zurückgesandt hat, je nachdem, was früher ist.",
+        "sub": []
+       },
+       {
+        "text": "Für einen Wertverlust der Ware muss der Kunde nur aufkommen, wenn dieser auf einen zur Prüfung der Beschaffenheit, Eigenschaften und Funktionsweise nicht notwendigen Umgang mit ihr zurückzuführen ist.",
+        "sub": []
+       },
+       {
+        "text": "Das Widerrufsrecht besteht nicht für Waren, die schnell verderben können oder deren Verfallsdatum schnell überschritten würde (§ 312g Abs. 2 Nr. 2 BGB), und nicht für versiegelte Waren, die aus Gründen des Gesundheitsschutzes oder der Hygiene nicht zur Rückgabe geeignet sind, wenn ihre Versiegelung nach der Lieferung entfernt wurde (§ 312g Abs. 2 Nr. 3 BGB), etwa geöffnete Lebensmittel oder Getränke. Sind nur einzelne Bestandteile eines Korbs geöffnet, gilt der Ausschluss nur für diese Bestandteile; für die übrigen bleibt das Widerrufsrecht bestehen.",
         "sub": []
        }
       ]
@@ -935,7 +947,7 @@
       "type": "ol",
       "items": [
        {
-        "text": "Bis zur Abholung bzw. Übergabe kann der Kunde seine Bestellung kostenfrei stornieren (§ 41). Bereits online gezahlte Beträge erstatten wir über Stripe.",
+        "text": "Bis zur Abholung bzw. Übergabe kann der Kunde seine Bestellung kostenfrei stornieren; bereits online gezahlte Beträge erstatten wir über Stripe. Sein Widerrufsrecht nach § 41 bleibt unberührt.",
         "sub": []
        },
        {
