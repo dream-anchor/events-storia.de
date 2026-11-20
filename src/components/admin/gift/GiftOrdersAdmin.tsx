@@ -12,13 +12,14 @@ type Order = Tables<"gift_orders">;
 type Item = Tables<"gift_order_items">;
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "Zahlung offen", reserved: "Reserviert (vor Ort)", paid: "Bezahlt", ready: "Bereit", handed_over: "Übergeben", cancelled: "Storniert", expired: "Abgelaufen",
+  pending: "Zahlung offen", awaiting_confirmation: "Wartet auf Bestätigung", reserved: "Reserviert (vor Ort)", paid: "Bezahlt", ready: "Bereit", handed_over: "Übergeben", cancelled: "Storniert", expired: "Abgelaufen", refunded: "Erstattet",
 };
 const NEXT: Record<string, { to: string; label: string }[]> = {
   paid: [{ to: "ready", label: "Bereit" }, { to: "handed_over", label: "Übergeben" }, { to: "cancelled", label: "Stornieren" }],
   reserved: [{ to: "ready", label: "Bereit" }, { to: "handed_over", label: "Übergeben + bezahlt" }, { to: "cancelled", label: "Stornieren" }],
   ready: [{ to: "handed_over", label: "Übergeben" }, { to: "cancelled", label: "Stornieren" }],
   pending: [{ to: "cancelled", label: "Stornieren" }],
+  awaiting_confirmation: [{ to: "cancelled", label: "Stornieren" }],
 };
 
 type Filter = "open" | "today" | "tomorrow" | "pickup" | "delivery" | "all";
@@ -45,8 +46,8 @@ export function GiftOrdersAdmin() {
   const visible = useMemo(() => (orders ?? []).filter((o) => {
     switch (filter) {
       case "open": return ["paid", "reserved", "ready"].includes(o.status);
-      case "today": return o.handover_date === today && !["cancelled", "expired"].includes(o.status);
-      case "tomorrow": return o.handover_date === tomorrow && !["cancelled", "expired"].includes(o.status);
+      case "today": return o.handover_date === today && !["cancelled", "expired", "refunded"].includes(o.status);
+      case "tomorrow": return o.handover_date === tomorrow && !["cancelled", "expired", "refunded"].includes(o.status);
       case "pickup": return o.handover === "pickup";
       case "delivery": return o.handover === "delivery";
       default: return true;
@@ -77,7 +78,7 @@ export function GiftOrdersAdmin() {
               </span>
               <span className="flex items-center gap-2">
                 <span className="tabular-nums">{formatEuro(o.total_cents)}</span>
-                <Badge variant={["cancelled", "expired"].includes(o.status) ? "outline" : "default"}>{STATUS_LABEL[o.status] ?? o.status}</Badge>
+                <Badge variant={["cancelled", "expired", "refunded"].includes(o.status) ? "outline" : "default"}>{STATUS_LABEL[o.status] ?? o.status}</Badge>
               </span>
             </button>
           </li>
@@ -102,10 +103,16 @@ function OrderDialog({ order, windowLabel, onClose, onChanged }: { order: Order 
     const extra = to === "cancelled" ? " Bereits gezahlte Bestellungen müssen in Stripe erstattet werden; der Bestand wird NICHT automatisch zurückgebucht." : "";
     if (!confirm(`Status auf „${STATUS_LABEL[to]}" setzen?${extra}`)) return;
     setBusy(true);
-    const { error } = await supabase.rpc("gift_admin_set_status", { p_order_id: order.id, p_status: to });
+    const { data, error } = await supabase.rpc("gift_admin_set_status", { p_order_id: order.id, p_status: to });
     setBusy(false);
     if (error) { toast.error("Statuswechsel fehlgeschlagen", { description: error.message }); return; }
-    toast.success("Status geändert");
+    const res = (data ?? {}) as { oversold?: boolean };
+    if (res.oversold) {
+      // Bei Zahlung vor Ort war nicht mehr die volle Menge im Bestand: Bestand prüfen, ggf. nachbuchen
+      toast.warning("Achtung: Überverkauf", { description: "Beim Abbuchen reichte der Bestand nicht für die volle Menge (es wurde nur der freie Anteil abgebucht). Bitte Bestand prüfen und ggf. korrigieren.", duration: 12000 });
+    } else {
+      toast.success("Status geändert");
+    }
     onChanged();
   };
 
@@ -113,16 +120,17 @@ function OrderDialog({ order, windowLabel, onClose, onChanged }: { order: Order 
   const restock = async () => {
     if (!confirm("Bestand für diese Bestellung wieder einbuchen? Nur wenn die Körbe unversehrt zurück im Lager sind (Ware kann beschädigt oder verbraucht sein).")) return;
     setBusy(true);
-    for (const it of items) {
-      const { error } = await supabase.rpc("gift_adjust_stock", { p_variant_id: it.variant_id, p_delta: it.qty, p_reason: "restock_after_cancel", p_order_id: order.id });
-      if (error) { toast.error("Wiedereinbuchen fehlgeschlagen", { description: error.message }); setBusy(false); return; }
-    }
+    // Idempotent serverseitig (gift_orders.restocked_at): bucht genau die abgebuchten Mengen zurück, ein zweiter Klick ist wirkungslos
+    const { data, error } = await supabase.rpc("gift_restock_order", { p_order_id: order.id });
     setBusy(false);
-    toast.success("Bestand wieder eingebucht");
+    if (error) { toast.error("Wiedereinbuchen fehlgeschlagen", { description: error.message }); return; }
+    const res = (data ?? {}) as { already?: boolean; units?: number };
+    if (res.already) { toast.info("Bestand war bereits wieder eingebucht"); onChanged(); return; }
+    toast.success(res.units ? `Bestand wieder eingebucht (${res.units} Stück)` : "Nichts einzubuchen (unbegrenzter Bestand oder nichts abgebucht)");
     onChanged();
   };
 
-  const canRestock = order.status === "cancelled" && !!order.paid_at;
+  const canRestock = ["cancelled", "refunded"].includes(order.status) && !!order.paid_at && !order.restocked_at;
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>

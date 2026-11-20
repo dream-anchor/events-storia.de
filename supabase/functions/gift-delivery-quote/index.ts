@@ -4,7 +4,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { computeDeliveryFeeCents } from "../_shared/giftPricing.ts";
+import { computeDeliveryFeeCents, roundDistanceKm } from "../_shared/giftPricing.ts";
 import { resolveDistanceKm, RoutingError } from "../_shared/giftRouting.ts";
 import { clientIp, rateLimited } from "../_shared/giftRateLimit.ts";
 import { loadGiftSettings } from "../_shared/giftSettings.ts";
@@ -33,12 +33,13 @@ serve(async (req) => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
     const settings = await loadGiftSettings(supabase);
 
-    const km = await resolveDistanceKm({ street, zip, city }, settings.origin, Deno.env.get("OPENROUTE_API_KEY"));
+    // Strecke auf 0,01 km runden, dann rechnen: Anzeige, Gebühr und gespeicherter Wert stimmen überein
+    const km = roundDistanceKm(await resolveDistanceKm({ street, zip, city }, settings.origin, Deno.env.get("OPENROUTE_API_KEY")));
     const feeCents = computeDeliveryFeeCents(km, settings.tariff);
 
     return json({
       estimated: true, // voraussichtlich; endgültig bei der Bestellung
-      distance_km: Math.round(km * 10) / 10,
+      distance_km: km,
       estimated_fee_cents: feeCents,
       vat_rate: settings.delivery_vat_rate,
     });

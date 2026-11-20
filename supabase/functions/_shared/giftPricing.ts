@@ -18,7 +18,6 @@ export interface TariffTier {
 export interface DeliveryTariff {
   tiers: TariffTier[];
   min_fee_cents: number;
-  round_up_to_cents: number;
 }
 
 /** Fallback-Konstanten (Entscheidung Antoine 20.11.2026); maßgeblich ist gift_settings in der DB. */
@@ -28,13 +27,11 @@ export const DEFAULT_DELIVERY_TARIFF: DeliveryTariff = {
     { from_km: 7, per_km_cents: 250 }, // nur Mehr-km
   ],
   min_fee_cents: 590,
-  round_up_to_cents: 100,
 };
 
 export function parseTariff(raw: {
   tariff_tiers: unknown;
   min_fee_cents: unknown;
-  round_up_to_cents: unknown;
 }): DeliveryTariff {
   const tiers = Array.isArray(raw.tariff_tiers) ? raw.tariff_tiers : [];
   const parsed: TariffTier[] = tiers
@@ -42,17 +39,17 @@ export function parseTariff(raw: {
     .filter((t) => Number.isFinite(t.from_km) && t.from_km >= 0 && Number.isFinite(t.per_km_cents) && t.per_km_cents >= 0)
     .sort((a, b) => a.from_km - b.from_km);
   const min = Number(raw.min_fee_cents);
-  const round = Number(raw.round_up_to_cents);
-  if (parsed.length === 0 || parsed[0].from_km !== 0 || !Number.isFinite(min) || min < 0 || !Number.isFinite(round) || round < 1) {
+  if (parsed.length === 0 || parsed[0].from_km !== 0 || !Number.isFinite(min) || min < 0) {
     throw new Error("invalid_tariff");
   }
-  return { tiers: parsed, min_fee_cents: min, round_up_to_cents: round };
+  return { tiers: parsed, min_fee_cents: min };
 }
 
 /**
  * Liefergebühr für die EINFACHE Straßenstrecke (kein Rückweg), anteilig je Staffel:
- * erste 7 km zu 2,70 EUR/km, jeder weitere km zu 2,50 EUR/km; Minimum 5,90 EUR; auf volle Euro AUFGERUNDET.
- * Beispiele: 2 km -> 6 EUR, 7 km -> 19 EUR, 10 km -> 27 EUR.
+ * erste 7 km zu 2,70 EUR/km, jeder weitere km zu 2,50 EUR/km; Minimum 5,90 EUR; EXAKT, kaufmännisch auf den Cent
+ * gerundet (Inhaber 20.11.2026: kein Aufrunden auf volle Euro).
+ * Beispiele: 2,0 km -> 5,90 EUR (Minimum), 2,3 km -> 6,21 EUR, 7 km -> 18,90 EUR, 10 km -> 26,40 EUR.
  */
 export function computeDeliveryFeeCents(distanceKm: number, tariff: DeliveryTariff = DEFAULT_DELIVERY_TARIFF): number {
   if (!Number.isFinite(distanceKm) || distanceKm < 0) throw new Error("invalid_distance");
@@ -65,9 +62,12 @@ export function computeDeliveryFeeCents(distanceKm: number, tariff: DeliveryTari
     fee += kmInTier * tiers[i].per_km_cents;
   }
   fee = Math.max(fee, tariff.min_fee_cents);
-  // 1e-6-Toleranz gegen Gleitkomma-Artefakte (z. B. 7 km * 270 = 1890.0000000000002)
-  return Math.ceil(fee / tariff.round_up_to_cents - 1e-6) * tariff.round_up_to_cents;
+  // erst auf 1e-6 Cent glätten (Gleitkomma-Artefakte, z. B. 2,3 km * 270 = 620.9999999999999), dann auf ganze Cent
+  return Math.round(Math.round(fee * 1e6) / 1e6);
 }
+
+/** Strecke auf 0,01 km runden: Gebühr, Anzeige und gespeicherter Wert (gift_orders.distance_km) stimmen so überein. */
+export const roundDistanceKm = (km: number): number => Math.round(km * 100) / 100;
 
 /** Luftlinie in km (Haversine) – nur für die Plausibilitätsprüfung vor dem Routing-Aufruf. */
 export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -237,10 +237,22 @@ export interface ScheduleCheck {
   closing_at?: Date;
 }
 
-/** Früheste wählbare Übergabe: Abholung "sofort" (heute, ab Jetzt + Packzeit) bzw. Lieferung ab Folgetag. */
+/**
+ * Laufender Geschäftstag: zwischen 0:00 und dem Ladenschluss einer Öffnungszeit über Mitternacht (z. B. bis 1:00)
+ * gehört die Zeit noch zum VORTAG (Inhaber 20.11.2026: in dieser Stunde darf noch für den laufenden Geschäftstag bestellt werden).
+ */
+export function businessDate(now: Date, s: ScheduleSettings): string {
+  const { date, minutes } = berlinParts(now);
+  const prev = addDays(date, -1);
+  const h = s.pickup_hours[String(weekdayOf(prev))];
+  if (h && toMinutes(h.close) <= toMinutes(h.open) && minutes <= toMinutes(h.close)) return prev;
+  return date;
+}
+
+/** Früheste wählbare Übergabe: Abholung "sofort" (laufender Geschäftstag, ab Jetzt + Packzeit) bzw. Lieferung ab Folgetag. */
 export function earliestDate(handover: Handover, now: Date, s: ScheduleSettings): string {
   const today = berlinParts(now).date;
-  return handover === "pickup" ? today : addDays(today, s.delivery_lead_days);
+  return handover === "pickup" ? businessDate(now, s) : addDays(today, s.delivery_lead_days);
 }
 
 export function isBlackout(date: string, handover: Handover, blackout: BlackoutDate[]): boolean {
@@ -261,8 +273,8 @@ export function checkSchedule(
   blackout: BlackoutDate[],
 ): ScheduleCheck {
   if (!isIsoDate(date)) return { ok: false, error: "invalid_date" };
-  const nowB = berlinParts(now);
-  if (date < nowB.date) return { ok: false, error: "date_in_past" };
+  const bizDate = businessDate(now, s);
+  if (date < bizDate) return { ok: false, error: "date_in_past" };
   if (isBlackout(date, handover, blackout)) return { ok: false, error: "blackout" };
 
   if (handover === "delivery") {
@@ -284,7 +296,7 @@ export function checkSchedule(
   if (overnight ? !(t >= open || t <= close) : !(t >= open && t <= close)) return { ok: false, error: "closed" };
   const slotAt = berlinToUtc(slotDate, time);
   if (slotAt.getTime() < now.getTime() + s.pickup_lead_minutes * 60_000) {
-    return { ok: false, error: date === nowB.date ? "too_early" : "closed" };
+    return { ok: false, error: date === bizDate ? "too_early" : "closed" };
   }
   return { ok: true, closing_at: berlinToUtc(overnight ? addDays(date, 1) : date, hours.close) };
 }
@@ -307,7 +319,8 @@ export function pickupSlots(date: string, now: Date, s: ScheduleSettings, blacko
 
 // ── Bestellsumme ────────────────────────────────────────────────────────────
 export const MAX_QTY_PER_LINE = 10;
-export const MAX_QTY_PER_ORDER = 20;
+/** Max. 10 Körbe je Bestellung (Missbrauchsgrenze, Inhaber 20.11.2026). */
+export const MAX_QTY_PER_ORDER = 10;
 
 export function formatEuro(cents: number, locale: "de" | "en" = "de"): string {
   return new Intl.NumberFormat(locale === "de" ? "de-DE" : "en-GB", { style: "currency", currency: "EUR" }).format(cents / 100);

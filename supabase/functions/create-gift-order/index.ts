@@ -1,9 +1,11 @@
 // Geschenkkorb-Bestellung: EINZIGE autoritative Stelle für Preise, Liefergebühr, Termin und Bestand.
 // Vertraut nie Client-Beträgen: Körbe/Preise/Bestand kommen aus der DB, die Liefergebühr wird hier NEU
 // über OpenRouteService berechnet (nicht aus gift-delivery-quote übernommen).
-// Zahlart online: Bestand-Hold + Stripe Checkout (30 Min). Zahlart "vor Ort" (nur Abholung): Reservierung bis
-// Ladenschluss des Abholtags, Mail statt Stripe.
-// Ablauf Webhook/Verfall: handle-stripe-webhook (Zahlung, expired) und gift-expire-reservations (vor Ort).
+// Zahlart online: Bestand-Hold + Stripe Checkout (30 Min). Zahlart "vor Ort" (nur Abholung): Double-Opt-in statt
+// CAPTCHA (Inhaber 20.11.2026): Bestellung 'awaiting_confirmation' mit Hold nur 30 Min + Bestätigungsmail; erst der Klick
+// auf den Link (confirm-gift-reservation) macht daraus 'reserved' mit Hold bis Ladenschluss des Abholtags.
+// Missbrauchsschutz: Honeypot-Feld, Mindest-Ausfüllzeit, Limits je E-Mail/IP (DB-gestützt), Mengen- und Terminlimits.
+// Ablauf Webhook/Verfall: handle-stripe-webhook (Zahlung, expired) und gift-expire-reservations (Sweep, Mails).
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
@@ -15,17 +17,18 @@ import {
   computeDeliveryFeeCents,
   computeVatBreakdown,
   isValidVatSplit,
+  roundDistanceKm,
   MAX_QTY_PER_LINE,
   MAX_QTY_PER_ORDER,
   type VatShare,
 } from "../_shared/giftPricing.ts";
 import { resolveDistanceKm, RoutingError } from "../_shared/giftRouting.ts";
-import { clientIp, rateLimited } from "../_shared/giftRateLimit.ts";
+import { clientIp, hashIp, rateLimited } from "../_shared/giftRateLimit.ts";
+import { CONFIRM_HOLD_MINUTES, checkFormTiming, confirmUrl, generateConfirmToken, hashConfirmToken } from "../_shared/giftConfirm.ts";
 import { loadBlackoutDates, loadGiftSettings } from "../_shared/giftSettings.ts";
 import { GIFT_AGB_VERSION } from "../_shared/giftLegal.ts";
 import { sendGiftMails } from "../_shared/giftMail.ts";
 import { reportEdgeError } from "../_shared/reportError.ts";
-import { hashIp, verifyTurnstile } from "../_shared/giftTurnstile.ts";
 
 const log = (s: string, d?: unknown) => console.log(`[CREATE-GIFT-ORDER] ${s}${d ? " " + JSON.stringify(d) : ""}`);
 
@@ -52,14 +55,18 @@ interface OrderInput {
   payment_method: "online" | "on_site";
   gift_message: string;
   language: "de" | "en";
-  turnstile_token: string;
+  /** Honeypot: unsichtbares Feld, echte Nutzer lassen es leer; gefüllt = Bot (stille Scheinbestätigung, nichts wird angelegt) */
+  honeypot: string;
+  /** Client-Zeitstempel (ms), wann das Formular geöffnet wurde; Mindest-Ausfüllzeit wird serverseitig geprüft */
+  form_started_at: unknown;
 }
 
 /** Zahlung "vor Ort" (Reservierung ohne Anzahlung): Missbrauchsgrenzen (Mail-Spam-Relais, Bestandsblockade). */
 const ON_SITE_MAX_DAYS_AHEAD = 14;
 const ON_SITE_MAX_QTY = 5;
-const ON_SITE_MAX_OPEN_PER_EMAIL = 2;
-const ON_SITE_MAX_OPEN_PER_IP = 2;
+/** Offene (noch gültig gehaltene) Bestellungen je E-Mail bzw. je IP, getrennt für "vor Ort" und Online-Checkout (max. 2). */
+const MAX_OPEN_PER_EMAIL = 2;
+const MAX_OPEN_PER_IP = 2;
 /** Stripe-Session = Erstellung + 31 Min (Minimum 30); der Hold muss sie überdauern. */
 const STRIPE_SESSION_MINUTES = 31;
 const MIN_HOLD_MINUTES = 36;
@@ -115,7 +122,8 @@ function parseInput(b: Record<string, unknown>): OrderInput {
     payment_method,
     gift_message: clean(b.gift_message, 500),
     language: b.language === "en" ? "en" : "de",
-    turnstile_token: typeof b.turnstile_token === "string" ? b.turnstile_token : "",
+    honeypot: typeof b.website === "string" ? b.website.trim() : "",
+    form_started_at: b.form_started_at,
   };
 }
 
@@ -135,6 +143,20 @@ serve(async (req) => {
 
     const input = parseInput(await req.json().catch(() => ({})));
     const now = new Date();
+
+    // Bot-Schutz ohne CAPTCHA: Honeypot gefüllt -> stille Scheinbestätigung (Bot lernt nichts), nichts wird angelegt
+    if (input.honeypot) {
+      log("honeypot hit");
+      return json({ awaiting_confirmation: true, order_number: null, total_cents: 0 });
+    }
+    // Mindest-Ausfüllzeit (nur "vor Ort", dort kostet ein Bot-Treffer Bestand + eine Mail): zu schnell -> abgelehnt
+    if (input.payment_method === "on_site") {
+      const timing = checkFormTiming(input.form_started_at, now.getTime());
+      if (timing !== "ok") throw new HttpError(400, timing === "too_fast" ? "form_too_fast" : "form_invalid");
+    }
+
+    // Lazy-Sweep: abgelaufene Holds/Reservierungen freigeben, auch wenn der Cron noch nicht lief (Fehler egal)
+    await supabase.rpc("gift_sweep_expired_holds").then(() => undefined, () => undefined);
     // Testmodus NUR über den Stripe-Testschlüssel (sk_test_). Nie über Client-Angaben oder die eingetippte Adresse:
     // sonst könnte ein Kunde sich "testen" und Rechnung/Gate umgehen.
     const isTest = (Deno.env.get("STRIPE_SECRET_KEY") ?? "").startsWith("sk_test_");
@@ -177,15 +199,13 @@ serve(async (req) => {
     const sched = checkSchedule(input.handover, input.date, input.time, now, settings.schedule, blackout);
     if (!sched.ok) throw new HttpError(400, "invalid_schedule", { reason: sched.error });
 
-    // ── 2b) Zahlung vor Ort: Missbrauchsgrenzen (vor jeder Schreiboperation) ─────
-    let ipHash: string | null = null;
+    // ── 2b) Missbrauchsgrenzen (vor jeder Schreiboperation) ───────────────────
+    // IP nur gehasht speichern; gilt für beide Zahlwege (Online-Holds blockieren ebenfalls Bestand, 40 Min)
+    const ipHash = await hashIp(clientIp(req), Deno.env.get("GIFT_IP_PEPPER") ?? "");
     if (input.payment_method === "on_site") {
       const today = berlinParts(now).date;
       if (input.date > addDays(today, ON_SITE_MAX_DAYS_AHEAD)) throw new HttpError(400, "on_site_too_far_ahead", { max_days: ON_SITE_MAX_DAYS_AHEAD });
       if (input.items.reduce((s, i) => s + i.qty, 0) > ON_SITE_MAX_QTY) throw new HttpError(400, "on_site_quantity_limit", { max_qty: ON_SITE_MAX_QTY });
-      const ts = await verifyTurnstile(input.turnstile_token, clientIp(req), Deno.env.get("TURNSTILE_SECRET_KEY"), isTest);
-      if (!ts.ok) throw new HttpError(ts.code === "turnstile_not_configured" ? 503 : 400, ts.code);
-      ipHash = await hashIp(clientIp(req), Deno.env.get("GIFT_IP_PEPPER") ?? "");
     }
 
     // ── 3) Liefergebühr NEU berechnen (zweiter ORS-Aufruf) ───────────────────
@@ -201,6 +221,7 @@ serve(async (req) => {
         }
         throw e;
       }
+      distanceKm = roundDistanceKm(distanceKm); // Gebühr = f(gerundete, gespeicherte Strecke): reproduzierbar auf den Cent
       deliveryFee = computeDeliveryFeeCents(distanceKm, settings.tariff);
     }
     const total = itemsTotal + deliveryFee;
@@ -209,12 +230,15 @@ serve(async (req) => {
       input.handover === "delivery" ? { fee_cents: deliveryFee, vat_rate: settings.delivery_vat_rate } : null,
     );
 
-    // ── 4) Bestellung anlegen (pending/reserved) ─────────────────────────────
+    // ── 4) Bestellung anlegen (pending bzw. awaiting_confirmation) ───────────
     const onSite = input.payment_method === "on_site";
+    const confirmToken = onSite ? generateConfirmToken() : null;
     const { data: order, error: oErr } = await supabase
       .from("gift_orders")
       .insert({
-        status: onSite ? "reserved" : "pending",
+        status: onSite ? "awaiting_confirmation" : "pending",
+        confirm_token_hash: confirmToken ? await hashConfirmToken(confirmToken) : null,
+        reservation_until: onSite ? sched.closing_at!.toISOString() : null,
         payment_method: input.payment_method,
         customer_name: input.customer.name,
         customer_email: input.customer.email,
@@ -260,7 +284,10 @@ serve(async (req) => {
     if (iErr) throw new Error(`items_insert_failed: ${iErr.message}`);
 
     // ── 5) Bestand reservieren (Hold) ────────────────────────────────────────
-    const holdUntil = onSite ? sched.closing_at! : new Date(Date.now() + Math.max(settings.hold_minutes, MIN_HOLD_MINUTES) * 60_000);
+    // "vor Ort": nur 30 Min bis zur Bestätigung (danach verlängert gift_confirm_reservation bis Ladenschluss)
+    const holdUntil = onSite
+      ? new Date(Date.now() + CONFIRM_HOLD_MINUTES * 60_000)
+      : new Date(Date.now() + Math.max(settings.hold_minutes, MIN_HOLD_MINUTES) * 60_000);
     const { error: rErr } = await supabase.rpc("gift_reserve_stock", {
       p_order_id: order.id,
       p_items: lines.map((l) => ({ variant_id: l.variant_id, qty: l.qty })),
@@ -272,28 +299,30 @@ serve(async (req) => {
     }
     holdPlaced = true;
 
-    // ── 5b) Grenze offener Reservierungen je E-Mail / IP (nach dem Anlegen geprüft: gleichzeitige Anfragen sehen sich gegenseitig) ──
-    if (onSite) {
-      const open = (col: string, val: string) =>
-        supabase.from("gift_orders").select("id", { count: "exact", head: true })
-          .eq("payment_method", "on_site").eq("status", "reserved").eq("is_test", false).eq(col, val);
-      const byEmail = await open("customer_email", input.customer.email);
-      const byIp = ipHash ? await open("client_ip_hash", ipHash) : { count: 0, error: null };
-      if (byEmail.error || byIp.error) throw new Error(`open_reservation_count_failed: ${(byEmail.error ?? byIp.error)?.message}`);
-      if ((byEmail.count ?? 0) > ON_SITE_MAX_OPEN_PER_EMAIL || (byIp.count ?? 0) > ON_SITE_MAX_OPEN_PER_IP) {
+    // ── 5b) Grenze offener Bestellungen je E-Mail / IP (nach dem Anlegen geprüft: gleichzeitige Anfragen sehen sich gegenseitig) ──
+    // DB-gestützt (gift_open_counts): zählt nur Bestellungen mit noch gültigem Hold, abgelaufene/unbestätigt verfallene nie.
+    {
+      const { data: counts, error: cErr } = await supabase.rpc("gift_open_counts", {
+        p_payment_method: input.payment_method, p_email: input.customer.email, p_ip_hash: ipHash,
+      });
+      if (cErr) throw new Error(`open_count_failed: ${cErr.message}`);
+      if (Number(counts?.by_email ?? 0) > MAX_OPEN_PER_EMAIL || Number(counts?.by_ip ?? 0) > MAX_OPEN_PER_IP) {
         throw new HttpError(429, "too_many_open_reservations");  // catch räumt Hold + Bestellung auf, bevor eine Mail rausgeht
       }
     }
 
-    // ── 6a) Zahlung vor Ort: Reservierung bestätigen ─────────────────────────
+    // ── 6a) Zahlung vor Ort: Bestätigungslink (Double-Opt-in) ────────────────
     if (onSite) {
+      const reqOriginMail = req.headers.get("origin") ?? "";
+      const mailOrigin = ALLOWED_ORIGINS.some((re) => re.test(reqOriginMail)) ? reqOriginMail : DEFAULT_ORIGIN;
       try {
-        await sendGiftMails(supabase, order.id, "reserved");
+        await sendGiftMails(supabase, order.id, "confirm", { confirmUrl: confirmUrl(mailOrigin, input.language, confirmToken!) });
       } catch (e) {
-        // Reservierung steht; Mail-Fehler nicht zum Bestellabbruch machen, aber melden
+        // Ohne Mail kann der Kunde nicht bestätigen: Bestellung zurückrollen (catch räumt auf), Kunde bekommt einen klaren Fehler
         reportEdgeError({ source: "edge:create-gift-order:mail", severity: "error", message: e instanceof Error ? e.message : String(e) });
+        throw new HttpError(503, "mail_failed");
       }
-      return json({ order_number: order.order_number, reserved: true, total_cents: total });
+      return json({ awaiting_confirmation: true, order_number: order.order_number, total_cents: total });
     }
 
     // ── 6b) Online: Stripe Checkout (30 Min) ─────────────────────────────────
@@ -347,7 +376,12 @@ serve(async (req) => {
       payment_intent_data: { metadata: { order_type: "gift_basket", order_number: order.order_number, isTest: isTest ? "true" : "false" } },
     });
 
-    await supabase.from("gift_orders").update({ stripe_session_id: session.id }).eq("id", order.id);
+    const { error: sessErr } = await supabase.from("gift_orders").update({ stripe_session_id: session.id }).eq("id", order.id);
+    if (sessErr) {
+      // Session ohne gespeicherte ID wäre im Webhook nicht prüfbar: Session beenden, Bestellung zurückrollen (catch)
+      await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
+      throw new Error(`stripe_session_update_failed: ${sessErr.message}`);
+    }
     log("Checkout session created", { orderNumber: order.order_number, total });
     return json({ url: session.url, order_number: order.order_number, total_cents: total, delivery_fee_cents: deliveryFee });
   } catch (e) {
@@ -355,7 +389,7 @@ serve(async (req) => {
     if (orderId) {
       try {
         if (holdPlaced) await supabase.rpc("gift_release_stock", { p_order_id: orderId });
-        await supabase.from("gift_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", orderId).in("status", ["pending", "reserved"]);
+        await supabase.from("gift_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", orderId).in("status", ["pending", "awaiting_confirmation", "reserved"]);
       } catch (cleanupErr) {
         log("cleanup failed", { err: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr) });
       }

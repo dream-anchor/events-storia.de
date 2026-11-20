@@ -55,10 +55,12 @@ export function parseDeepLink(search: string | URLSearchParams): DeepLinkPos[] {
   return out;
 }
 
+const left = (available: number | null): number => (available === null ? Number.POSITIVE_INFINITY : available);
+
 export interface ResolvableBasket {
   slug: string;
   size_key: string;
-  variants: { id: string; key: string; available: number }[];
+  variants: { id: string; key: string; available: number | null }[]; // null = unbegrenzt
 }
 
 /** Löst Deep-Link-Posten gegen den Katalog auf. Ungültiges/Ausverkauftes wird gemeldet, der Rest bleibt erhalten. */
@@ -81,13 +83,13 @@ export function resolveDeepLink(
       notes.push({ kind: "unknown_wine", korb: p.korb, wein: p.wein });
       variant = undefined;
     }
-    if (!variant && !p.wein) variant = basket.variants.find((v) => v.available > 0) ?? basket.variants[0];
+    if (!variant && !p.wein) variant = basket.variants.find((v) => left(v.available) > 0) ?? basket.variants[0];
     if (!variant) continue;
-    if (variant.available <= 0) {
+    if (left(variant.available) <= 0) {
       notes.push({ kind: "sold_out", korb: p.korb, wein: variant.key });
       continue;
     }
-    const cap = Math.min(maxQtyPerLine, variant.available);
+    const cap = Math.min(maxQtyPerLine, left(variant.available));
     const existing = lines.find((l) => l.variantId === variant!.id);
     const wanted = p.menge + (existing?.qty ?? 0);
     const qty = Math.min(wanted, cap);

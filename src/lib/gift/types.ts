@@ -7,8 +7,10 @@ export interface GiftVariant {
   label_de: string;
   label_en: string;
   image_url: string | null;
-  /** verfügbarer Bestand (Lager minus aktive Reservierungen) */
-  available: number;
+  /** Standard: unbegrenzter Bestand (Körbe werden nachgemacht); keine Stückzahl anzeigen */
+  unlimited: boolean;
+  /** verfügbarer Bestand (Lager minus aktive Reservierungen); null = unbegrenzt, 0 = ausverkauft (vom Betreiber gesetzt) */
+  available: number | null;
   net_content: string | null;
   abv_percent: number | null;
   bottler: string | null;

@@ -43,6 +43,7 @@ const Gutschein = lazy(() => import("./pages/Gutschein"));
 const GutscheinDanke = lazy(() => import("./pages/GutscheinDanke"));
 const GiftOrder = lazy(() => import("./pages/GiftOrder"));
 const GiftThanks = lazy(() => import("./pages/GiftThanks"));
+const GiftConfirm = lazy(() => import("./pages/GiftConfirm"));
 const Danke = lazy(() => import("./pages/Danke"));
 
 // Legal Pages (lazy)
@@ -209,9 +210,11 @@ const App = () => {
                     <Route path="/geschenkkoerbe" element={<GiftOrder />} />
                     <Route path="/geschenkkoerbe/bestellung" element={<GiftOrder />} />
                     <Route path="/geschenkkoerbe/danke" element={<GiftThanks />} />
+                    <Route path="/geschenkkoerbe/bestaetigen" element={<GiftConfirm />} />
                     <Route path="/en/geschenkkoerbe" element={<GiftOrder />} />
                     <Route path="/en/geschenkkoerbe/bestellung" element={<GiftOrder />} />
                     <Route path="/en/geschenkkoerbe/danke" element={<GiftThanks />} />
+                    <Route path="/en/geschenkkoerbe/bestaetigen" element={<GiftConfirm />} />
 
                     {/* Legal */}
                     <Route path="/impressum" element={<Impressum />} />

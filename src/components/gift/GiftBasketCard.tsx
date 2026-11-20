@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { GIFT_COPY, type GiftLang } from "@/lib/gift/copy";
 import { formatEuro, MAX_QTY_PER_LINE } from "@/lib/gift/pricing";
+import { qtyLeft, showFewLeft } from "@/lib/gift/stock";
 import type { GiftBasket } from "@/lib/gift/types";
 import { giftImageProps } from "@/lib/gift/image";
 import { GiftLmiv } from "./GiftLmiv";
@@ -17,12 +18,12 @@ interface Props {
 
 export const GiftBasketCard = ({ basket, lang, onAdd }: Props) => {
   const t = GIFT_COPY[lang];
-  const firstAvailable = basket.variants.find((v) => v.available > 0) ?? basket.variants[0];
+  const firstAvailable = basket.variants.find((v) => qtyLeft(v) > 0) ?? basket.variants[0];
   const [variantId, setVariantId] = useState<string>(firstAvailable?.id ?? "");
   const [qty, setQty] = useState(1);
   const variant = basket.variants.find((v) => v.id === variantId);
-  const maxQty = Math.max(1, Math.min(MAX_QTY_PER_LINE, variant?.available ?? 1));
-  const soldOut = !variant || variant.available <= 0;
+  const maxQty = Math.max(1, Math.min(MAX_QTY_PER_LINE, variant ? qtyLeft(variant) : 1));
+  const soldOut = !variant || qtyLeft(variant) <= 0;
   const img = giftImageProps(variant?.image_url ?? basket.image_url);
   const name = lang === "de" ? basket.name_de : basket.name_en;
 
@@ -58,11 +59,11 @@ export const GiftBasketCard = ({ basket, lang, onAdd }: Props) => {
             <RadioGroup value={variantId} onValueChange={(v) => { setVariantId(v); setQty(1); }}>
               {basket.variants.map((v) => (
                 <div key={v.id} className="flex items-center gap-2">
-                  <RadioGroupItem value={v.id} id={`${basket.id}-${v.id}`} disabled={v.available <= 0} />
-                  <Label htmlFor={`${basket.id}-${v.id}`} className={v.available <= 0 ? "text-muted-foreground line-through" : ""}>
+                  <RadioGroupItem value={v.id} id={`${basket.id}-${v.id}`} disabled={qtyLeft(v) <= 0} />
+                  <Label htmlFor={`${basket.id}-${v.id}`} className={qtyLeft(v) <= 0 ? "text-muted-foreground line-through" : ""}>
                     {lang === "de" ? v.label_de : v.label_en}
-                    {v.available <= 0 && <span className="ml-2 no-underline">({t.soldOut})</span>}
-                    {v.available > 0 && v.available <= 3 && <span className="ml-2 text-xs text-primary">({t.onlyFew(v.available)})</span>}
+                    {qtyLeft(v) <= 0 && <span className="ml-2 no-underline">({t.soldOut})</span>}
+                    {showFewLeft(v) && <span className="ml-2 text-xs text-primary">({t.onlyFew(v.available as number)})</span>}
                   </Label>
                 </div>
               ))}

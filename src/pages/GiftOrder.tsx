@@ -6,8 +6,6 @@ import { Gift, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { TurnstileWidget } from "@/components/gift/TurnstileWidget";
-import { turnstileEnabled } from "@/lib/gift/turnstile";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -21,6 +19,7 @@ import {
   createGiftOrder,
   fetchGiftCatalog,
   fetchGiftSettings,
+  fetchGiftShopConfig,
   GiftApiError,
   quoteDelivery,
 } from "@/lib/gift/api";
@@ -33,12 +32,13 @@ import {
   formatEuro,
   isBlackout,
   MAX_QTY_PER_LINE,
+  MAX_QTY_PER_ORDER,
   pickupSlots,
   type Handover,
   type ScheduleSettings,
 } from "@/lib/gift/pricing";
 import type { GiftBasket, GiftPublicSettings } from "@/lib/gift/types";
-import { GIFT_LEGAL_APPROVED } from "../../supabase/functions/_shared/giftLegal";
+import { qtyLeft } from "@/lib/gift/stock";
 
 const FORM_KEY = "storia-gift-form";
 
@@ -96,7 +96,9 @@ const GiftOrder = () => {
   const [quote, setQuote] = useState<QuoteState>({ status: "idle" });
   const [ageOk, setAgeOk] = useState(false);
   const [agbOk, setAgbOk] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [honeypot, setHoneypot] = useState(""); // unsichtbares Feld: echte Nutzer lassen es leer
+  const formOpenedAt = useRef(Date.now()); // Mindest-Ausfüllzeit wird serverseitig gegen diesen Zeitstempel geprüft
+  const [orderable, setOrderable] = useState<boolean | null>(null); // Server-Env GIFT_LEGAL_APPROVED (oder Stripe-Testmodus)
   const [submitting, setSubmitting] = useState(false);
   const [deepNotes, setDeepNotes] = useState<DeepLinkNote[]>([]);
   const [now, setNow] = useState(() => new Date());
@@ -119,6 +121,11 @@ const GiftOrder = () => {
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    // Freigabe kommt vom Server (eine Quelle); bei Fehler nicht blockieren, der Server lehnt sonst selbst ab
+    fetchGiftShopConfig().then((c) => setOrderable(c.orderable), () => setOrderable(null));
   }, []);
 
   const loadCatalog = useCallback(async () => {
@@ -231,7 +238,6 @@ const GiftOrder = () => {
   const itemsTotal = cartLines.reduce((s, l) => s + l.basket.price_cents * l.qty, 0);
   const deliveryFee = form.handover === "delivery" && quote.status === "ok" ? quote.feeCents : 0;
   const total = itemsTotal + deliveryFee;
-  const anyLmivIncomplete = cartLines.some((l) => !l.variant.lmiv_complete || l.basket.components.some((c) => !c.lmiv_complete));
 
   const showDeepNote = (n: DeepLinkNote): string => {
     switch (n.kind) {
@@ -244,7 +250,8 @@ const GiftOrder = () => {
 
   const validate = (): string | null => {
     if (cartLines.length === 0) return t.valCart;
-    if (cartLines.some((l) => l.variant.available < l.qty)) return t.err.sold_out;
+    if (cartLines.some((l) => qtyLeft(l.variant) < l.qty)) return t.err.sold_out;
+    if (cartLines.reduce((s, l) => s + l.qty, 0) > MAX_QTY_PER_ORDER) return t.valQty;
     if (!sched || !settings || !checkSchedule(form.handover, form.date, form.time, now, sched, settings.blackout_dates).ok) return t.valSchedule;
     if (form.handover === "delivery") {
       if (form.street.trim().length < 3 || !/^\d{5}$/.test(form.zip.trim()) || form.city.trim().length < 2) return t.valAddress;
@@ -255,7 +262,6 @@ const GiftOrder = () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return t.valEmail;
     if (!ageOk) return t.valAge;
     if (!agbOk) return t.valAgb;
-    if (form.paymentMethod === "on_site" && turnstileEnabled && !turnstileToken) return t.err.turnstile_failed;
     return null;
   };
 
@@ -280,15 +286,16 @@ const GiftOrder = () => {
         age_confirmed: ageOk,
         agb_accepted: agbOk,
         language: lang,
-        turnstile_token: form.paymentMethod === "on_site" ? turnstileToken : undefined,
+        website: honeypot,
+        form_started_at: formOpenedAt.current,
       });
       if (result.url) {
         window.location.href = result.url;
         return;
       }
       clear();
-      trackEvent("purchase", { location: "geschenkkorb", currency: "EUR", value: result.total_cents / 100, transaction_id: result.order_number });
-      navigate(`${prefix}/geschenkkoerbe/danke?reserved=1&nr=${encodeURIComponent(result.order_number)}`);
+      // "vor Ort zahlen": noch keine Reservierung, erst der Klick auf den Mail-Link zählt (Double-Opt-in); kein purchase-Event
+      navigate(`${prefix}/geschenkkoerbe/danke?awaiting=1${result.order_number ? `&nr=${encodeURIComponent(result.order_number)}` : ""}`);
     } catch (err) {
       const code = err instanceof GiftApiError ? err.code : "generic";
       toast.error(t.err[code] ?? t.err.generic);
@@ -320,10 +327,8 @@ const GiftOrder = () => {
             <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">{t.intro}</p>
           </header>
 
-          {(!GIFT_LEGAL_APPROVED || anyLmivIncomplete) && (
-            <p role="alert" className="mb-6 rounded-xl border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
-              {t.legalDraftBanner}
-            </p>
+          {orderable === false && (
+            <p role="alert" className="mb-6 rounded-xl border border-border bg-secondary/40 p-3 text-sm">{t.notOrderable}</p>
           )}
           {params.get("cancelled") === "1" && (
             <p role="status" className="mb-6 rounded-xl border border-border bg-secondary/40 p-3 text-sm">{t.cancelled}</p>
@@ -338,6 +343,11 @@ const GiftOrder = () => {
 
           {catalog && catalog.length > 0 && settings && sched && (
             <form onSubmit={handleSubmit} noValidate className="space-y-10">
+              {/* Honeypot: für Menschen unsichtbar und nicht erreichbar; Bots füllen es aus */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
+                <label htmlFor="gift-website">Website</label>
+                <input id="gift-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+              </div>
               <section aria-labelledby="gift-step-basket">
                 <h2 id="gift-step-basket" className="mb-4 font-serif text-2xl font-bold">{t.stepBasket}</h2>
                 <div className="space-y-6">
@@ -347,7 +357,8 @@ const GiftOrder = () => {
                       basket={b}
                       lang={lang}
                       onAdd={(variantId, qty) => {
-                        const cap = variantIndex.get(variantId)?.variant.available ?? 0;
+                        const found = variantIndex.get(variantId)?.variant;
+                        const cap = found ? qtyLeft(found) : 0;
                         const current = lines.find((l) => l.variantId === variantId)?.qty ?? 0;
                         add(variantId, Math.max(0, Math.min(qty, cap - current)));
                         trackEvent("add_to_cart", { location: "geschenkkorb", item_id: variantId, quantity: qty });
@@ -364,7 +375,7 @@ const GiftOrder = () => {
                       <li key={l.variantId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                         <span>
                           {l.qty} × {lang === "de" ? l.basket.name_de : l.basket.name_en} – {lang === "de" ? l.variant.label_de : l.variant.label_en}
-                          {l.variant.available < l.qty && <strong className="ml-2 text-destructive">({t.onlyFew(l.variant.available)})</strong>}
+                          {qtyLeft(l.variant) < l.qty && <strong className="ml-2 text-destructive">({l.variant.available === 0 ? t.soldOut : t.onlyFew(l.variant.available ?? 0)})</strong>}
                         </span>
                         <span className="flex items-center gap-2">
                           <span className="tabular-nums">{formatEuro(l.basket.price_cents * l.qty, lang)}</span>
@@ -487,7 +498,6 @@ const GiftOrder = () => {
                       {form.paymentMethod === "on_site" && (
                         <div className="ml-6">
                           <p className="mt-1 text-sm text-muted-foreground">{t.payOnSiteHint}</p>
-                          <TurnstileWidget lang={lang} onToken={setTurnstileToken} />
                         </div>
                       )}
                     </div>
@@ -526,7 +536,7 @@ const GiftOrder = () => {
                   </div>
                 </div>
 
-                <Button type="submit" size="lg" className="mt-6 w-full rounded-full" disabled={submitting}>
+                <Button type="submit" size="lg" className="mt-6 w-full rounded-full" disabled={submitting || orderable === false}>
                   {submitting ? t.loading : form.paymentMethod === "on_site" ? t.ctaOnSite : t.ctaOnline}
                 </Button>
               </section>

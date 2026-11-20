@@ -96,7 +96,6 @@ function SettingsCard({ settings, onChanged }: { settings: Settings; onChanged: 
   const [threshold, setThreshold] = useState(String(second?.from_km ?? 7));
   const [secondRate, setSecondRate] = useState(centsToEuro(second?.per_km_cents ?? 250));
   const [minFee, setMinFee] = useState(centsToEuro(settings.min_fee_cents));
-  const [roundUp, setRoundUp] = useState(centsToEuro(settings.round_up_to_cents));
   const [pickupLead, setPickupLead] = useState(String(settings.pickup_lead_minutes));
   const [deliveryLead, setDeliveryLead] = useState(String(settings.delivery_lead_days));
   const [holdMinutes, setHoldMinutes] = useState(String(settings.hold_minutes));
@@ -108,7 +107,7 @@ function SettingsCard({ settings, onChanged }: { settings: Settings; onChanged: 
   const save = async () => {
     const newTiers = [{ from_km: 0, per_km_cents: euroToCents(firstRate) }, { from_km: Number(threshold), per_km_cents: euroToCents(secondRate) }];
     try {
-      parseTariff({ tariff_tiers: newTiers, min_fee_cents: euroToCents(minFee), round_up_to_cents: euroToCents(roundUp) });
+      parseTariff({ tariff_tiers: newTiers, min_fee_cents: euroToCents(minFee) });
     } catch { toast.error("Tarif ungültig (Beträge und Schwelle prüfen)"); return; }
     if (!(Number.parseInt(holdMinutes, 10) >= 36)) { toast.error("Bestand-Reservierung: mindestens 36 Minuten (Stripe-Sitzung läuft 31 Minuten)"); return; }
     const cleanHours: PickupHours = {};
@@ -116,7 +115,7 @@ function SettingsCard({ settings, onChanged }: { settings: Settings; onChanged: 
     if (windows.length === 0 || windows.some((w) => !/^[a-z0-9-]+$/.test(w.key) || !w.label_de.trim() || !w.label_en.trim())) { toast.error("Lieferfenster: Schlüssel (a-z, 0-9, -) und beide Bezeichnungen angeben"); return; }
 
     const { error } = await supabase.from("gift_settings").update({
-      tariff_tiers: newTiers, min_fee_cents: euroToCents(minFee), round_up_to_cents: euroToCents(roundUp),
+      tariff_tiers: newTiers, min_fee_cents: euroToCents(minFee),
       pickup_lead_minutes: Number.parseInt(pickupLead, 10), delivery_lead_days: Number.parseInt(deliveryLead, 10),
       hold_minutes: Number.parseInt(holdMinutes, 10), order_notify_email: notify.trim(), pickup_hours: cleanHours, delivery_windows: windows as unknown as Json,
     }).eq("id", 1);
@@ -130,12 +129,11 @@ function SettingsCard({ settings, onChanged }: { settings: Settings; onChanged: 
       <CardHeader><CardTitle className="text-lg">Einstellungen</CardTitle></CardHeader>
       <CardContent className="space-y-6">
         <fieldset className="grid gap-3 md:grid-cols-3">
-          <legend className="mb-1 text-sm font-semibold">Lieferpreis (Taxitarif, einfache Strecke ab {settings.origin_label})</legend>
+          <legend className="mb-1 text-sm font-semibold">Lieferpreis (Taxitarif, einfache Strecke ab {settings.origin_label}; exakt auf den Cent, kein Aufrunden)</legend>
           <div><Label htmlFor="t-first">€ je km (bis zur Schwelle)</Label><Input id="t-first" value={firstRate} onChange={(e) => setFirstRate(e.target.value)} inputMode="decimal" /></div>
           <div><Label htmlFor="t-thr">Schwelle (km)</Label><Input id="t-thr" value={threshold} onChange={(e) => setThreshold(e.target.value)} inputMode="decimal" /></div>
           <div><Label htmlFor="t-second">€ je Mehr-km (ab Schwelle, nur die Mehr-km)</Label><Input id="t-second" value={secondRate} onChange={(e) => setSecondRate(e.target.value)} inputMode="decimal" /></div>
           <div><Label htmlFor="t-min">Mindestpreis (€)</Label><Input id="t-min" value={minFee} onChange={(e) => setMinFee(e.target.value)} inputMode="decimal" /></div>
-          <div><Label htmlFor="t-round">Aufrunden auf (€)</Label><Input id="t-round" value={roundUp} onChange={(e) => setRoundUp(e.target.value)} inputMode="decimal" /></div>
         </fieldset>
 
         <fieldset className="grid gap-3 md:grid-cols-4">

@@ -35,3 +35,11 @@ Deno.test("Deep-Link ohne Wein wählt erste verfügbare Variante; slug funktioni
   const r = resolveDeepLink(parseDeepLink("?korb=dolce-vita&menge=1"), baskets, 10);
   assertEquals(r.lines, [{ variantId: "v1", qty: 1 }]);
 });
+
+Deno.test("Deep-Link: unbegrenzter Bestand (available = null) ist bestellbar, nur durch das Zeilenlimit gedeckelt", () => {
+  const unlimited = [{ slug: "dolce-vita", size_key: "klein", variants: [{ id: "v1", key: "bianco-toscana", available: null }] }];
+  const r = resolveDeepLink(parseDeepLink("?korb=klein&wein=bianco-toscana&menge=20"), unlimited, 10);
+  assertEquals(r.lines, [{ variantId: "v1", qty: 10 }]);
+  assertEquals(r.notes.map((n) => n.kind), ["capped"]);
+  assertEquals(resolveDeepLink(parseDeepLink("?korb=klein"), unlimited, 10).lines, [{ variantId: "v1", qty: 1 }]);
+});

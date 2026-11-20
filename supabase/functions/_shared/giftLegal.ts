@@ -6,14 +6,13 @@
  */
 
 /** Wird beim Bestellen gespeichert (gift_orders.agb_version). Beim Livegang auf die freigegebene AGB-Version setzen. */
-export const GIFT_AGB_VERSION = "agb-2026-10+geschenkkoerbe-ENTWURF";
+export const GIFT_AGB_VERSION = "AGB-2026-11";
 
 /**
- * Gate für den Livegang: solange false, zeigt die Bestellseite einen deutlichen internen Hinweis
- * "Rechtstexte nicht freigegeben". Erst auf true setzen, wenn AGB-Teil Geschenkkörbe, Widerruf und
- * Datenschutz-Ergänzung anwaltlich geprüft und live sind (Bauplan Einheit S5).
+ * Livegang-Gate (Freigabe der Rechtstexte): EINE Quelle, die Server-Env `GIFT_LEGAL_APPROVED=true`
+ * (create-gift-order lehnt echte Bestellungen sonst ab). Das Frontend liest den Status über die Edge Function
+ * `gift-shop-config`, nicht aus einer Konstante hier.
  */
-export const GIFT_LEGAL_APPROVED = false;
 
 export type Lang = "de" | "en";
 
@@ -35,11 +34,21 @@ export const GIFT_TEXTS = {
     en: "Estimated delivery price (single trip from Karlstraße 47a). The final price is calculated when you place the order.",
   },
   onSiteHint: {
-    de: "Zahlung vor Ort: Wir reservieren Ihren Korb bis Ladenschluss des Abholtags. Wird er bis dahin nicht abgeholt, geht er automatisch zurück in den Verkauf.",
-    en: "Pay on site: we reserve your basket until closing time on the pickup day. If it is not collected by then, it automatically returns to sale.",
+    de: "Zahlung vor Ort: Sie erhalten eine E-Mail mit einem Bestätigungslink; erst nach dem Klick ist Ihr Korb reserviert, und zwar bis Ladenschluss des Abholtags. Wird er bis dahin nicht abgeholt, geht er automatisch zurück in den Verkauf.",
+    en: "Pay on site: you will receive an email with a confirmation link; your basket is reserved only after you click it, until closing time on the pickup day. If it is not collected by then, it automatically returns to sale.",
   },
-  lmivMissing: {
-    de: "INTERN: Pflichtangaben (LMIV) für diesen Korb sind noch nicht vollständig erfasst – Shop darf so nicht live gehen.",
-    en: "INTERNAL: mandatory food information (LMIV) for this basket is not complete yet – the shop must not go live like this.",
+  /** Hinweis zu den Lebensmittelangaben (Inhaber 20.11.2026: Schätzungen reichen vorerst, ehrlich gekennzeichnet). */
+  lmivNotice: {
+    de: "Angaben nach bestem Wissen; maßgeblich ist das Etikett. Fragen zu Allergenen beantworten wir gern unter",
+    en: "Information to the best of our knowledge; the label is authoritative. We are happy to answer questions about allergens at",
+  },
+  /** Bestätigungsmail "vor Ort zahlen" (Double-Opt-in): bewusst ohne frei wählbaren Text des Absenders. */
+  optinIntro: {
+    de: "für Ihren Wunsch, einen STORIA Geschenkkorb zu reservieren, benötigen wir noch Ihre Bestätigung. Erst nach Klick auf den Link ist der Korb für Sie reserviert.",
+    en: "to reserve a STORIA gift basket for you we still need your confirmation. The basket is reserved for you only after you click the link.",
+  },
+  optinHint: {
+    de: "Der Link ist 30 Minuten gültig. Haben Sie keine Reservierung angefragt, ignorieren Sie diese Mail einfach; es entsteht nichts.",
+    en: "The link is valid for 30 minutes. If you did not request a reservation, simply ignore this email; nothing will be created.",
   },
 } as const;

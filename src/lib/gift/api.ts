@@ -48,6 +48,19 @@ export interface DeliveryQuote {
 export const quoteDelivery = (address: { street: string; zip: string; city: string }) =>
   invoke<DeliveryQuote>("gift-delivery-quote", address);
 
+/** Öffentlicher Shop-Status (Server-Env GIFT_LEGAL_APPROVED, Edge Function gift-shop-config). */
+export interface GiftShopConfig {
+  legal_approved: boolean;
+  /** freigegeben ODER Stripe-Testmodus: nur dann nimmt der Server Bestellungen an */
+  orderable: boolean;
+}
+
+export async function fetchGiftShopConfig(): Promise<GiftShopConfig> {
+  const { data, error } = await supabase.functions.invoke("gift-shop-config", { method: "GET" });
+  if (error || !data) throw new Error("shop_config_unavailable");
+  return data as GiftShopConfig;
+}
+
 export interface CreateGiftOrderInput {
   items: { variant_id: string; qty: number }[];
   customer: { name: string; email: string; phone: string };
@@ -60,17 +73,25 @@ export interface CreateGiftOrderInput {
   age_confirmed: boolean;
   agb_accepted: boolean;
   language: "de" | "en";
-  /** Cloudflare-Turnstile-Token; nur bei payment_method "on_site" nötig (serverseitig geprüft). */
-  turnstile_token?: string;
+  /** Honeypot (unsichtbar, immer leer senden; Bots füllen es). */
+  website: string;
+  /** Zeitpunkt (ms), an dem das Formular geöffnet wurde: Mindest-Ausfüllzeit wird serverseitig geprüft. */
+  form_started_at: number;
 }
 
 export interface CreateGiftOrderResult {
   url?: string;
-  reserved?: boolean;
-  order_number: string;
+  /** "vor Ort zahlen": Bestätigungslink per E-Mail verschickt; reserviert ist erst nach dem Klick */
+  awaiting_confirmation?: boolean;
+  order_number: string | null;
   total_cents: number;
   delivery_fee_cents?: number;
 }
 
 export const createGiftOrder = (input: CreateGiftOrderInput) =>
   invoke<CreateGiftOrderResult>("create-gift-order", input as unknown as Record<string, unknown>);
+
+export type ConfirmStatus = "confirmed" | "already_confirmed" | "expired" | "invalid";
+
+/** Löst den Bestätigungslink ein ("vor Ort zahlen", Double-Opt-in). */
+export const confirmGiftReservation = (token: string) => invoke<{ status: ConfirmStatus }>("confirm-gift-reservation", { token });

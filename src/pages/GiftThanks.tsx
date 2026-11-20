@@ -14,7 +14,7 @@ const GiftThanks = () => {
   const t = GIFT_COPY[lang];
   const [params] = useSearchParams();
   const sessionId = params.get("session_id");
-  const reserved = params.get("reserved") === "1";
+  const awaiting = params.get("awaiting") === "1";
   const orderNo = params.get("nr");
 
   useEffect(() => {
@@ -35,8 +35,8 @@ const GiftThanks = () => {
       <main className="min-h-screen bg-background">
         <section className="container mx-auto max-w-2xl px-4 py-16 text-center md:py-24">
           <CheckCircle2 className="mx-auto mb-6 h-16 w-16 text-primary" aria-hidden="true" />
-          <h1 className="mb-4 font-serif text-3xl font-bold md:text-4xl">{t.thanksTitle}</h1>
-          <p className="mb-6 text-lg text-muted-foreground">{reserved ? t.thanksReserved : t.thanksPaid}</p>
+          <h1 className="mb-4 font-serif text-3xl font-bold md:text-4xl">{awaiting ? t.confirmTitle : t.thanksTitle}</h1>
+          <p className="mb-6 text-lg text-muted-foreground">{awaiting ? t.thanksAwaiting : t.thanksPaid}</p>
           {orderNo && <p className="mb-6">{t.thanksOrderNo}: <strong>{orderNo}</strong></p>}
           <div className="mb-8 rounded-xl border border-border bg-secondary/40 p-6 text-left">
             <div className="flex items-start gap-3">

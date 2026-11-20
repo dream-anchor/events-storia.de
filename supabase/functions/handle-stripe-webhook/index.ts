@@ -7,7 +7,7 @@ import { sendEmailWithFallback } from '../_shared/email-sender.ts';
 import { buildVoucherPdf, generateVoucherCode } from '../_shared/voucher-pdf.ts';
 import { isGiftSessionMetadata } from '../_shared/giftWebhook.ts';
 import { sendGiftMails } from '../_shared/giftMail.ts';
-import { buildGiftInvoiceRequest } from '../_shared/giftInvoice.ts';
+import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
 import {
   buildOrderPayload,
   enqueueMaestroHandoff,
@@ -221,14 +221,6 @@ async function processCheckoutPaid(
 // Maestro-Handoff läuft unverändert über maestroEnqueuePayment (metadata.order_number = GK-…).
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-const GIFT_INVOICE_CLAIM_TTL_MS = 10 * 60_000;
-/** true, wenn lexoffice_invoice_id nur ein verwaister Anspruch ist ("pending" ohne Zeit oder "pending:<ms>" älter als TTL). */
-function isStaleInvoiceClaim(v: string): boolean {
-  if (v === "pending") return true;
-  const m = /^pending:(\d+)$/.exec(v);
-  return !!m && Date.now() - Number(m[1]) > GIFT_INVOICE_CLAIM_TTL_MS;
-}
-
 /** Fehler bei der Verarbeitung einer Geschenkkorb-Zahlung/-Session: Webhook antwortet 500, damit Stripe erneut zustellt. */
 class GiftRetryError extends Error {}
 
@@ -321,49 +313,22 @@ async function handleGiftPayment(
     await sendOperatorAlert(`Geschenkkorb ${order.order_number}: Bestätigungsmail fehlgeschlagen`, `<p>${esc(msg)}</p><p>Bitte Kunde manuell informieren.</p>`);
   }
 
-  // Rechnung (LexOffice), nur echte Bestellungen mit vorhandener Steuer-Aufteilung
-  if ((!order.lexoffice_invoice_id || isStaleInvoiceClaim(order.lexoffice_invoice_id)) && !order.is_test) {
-    // Anspruch mit Zeitstempel markieren (gleichzeitige Webhook-Wiederholungen dürfen keine zweite Rechnung erzeugen);
-    // create-lexoffice-invoice überschreibt den Anspruch mit der echten Dokument-ID. Ein Anspruch, der länger als
-    // GIFT_INVOICE_CLAIM_TTL_MS besteht (Funktion abgestürzt), gilt als verwaist und wird übernommen.
-    const claimToken = `pending:${Date.now()}`;
-    let q = supabase.from("gift_orders").update({ lexoffice_invoice_id: claimToken }).eq("id", order.id);
-    q = order.lexoffice_invoice_id ? q.eq("lexoffice_invoice_id", order.lexoffice_invoice_id) : q.is("lexoffice_invoice_id", null);
-    const { data: claim } = await q.select("id");
-    if (!claim || claim.length === 0) {
-      logStep("Gift invoice already claimed by another delivery, skipping", { orderNumber: order.order_number });
-      return;
-    }
-    try {
-      const { data: items } = await supabase
-        .from("gift_order_items")
-        .select("basket_name, variant_label, qty, unit_price_cents, vat_split")
-        .eq("order_id", order.id)
-        .order("created_at");
-      const request = buildGiftInvoiceRequest(order, items ?? []);
-      if (!request) {
-        await supabase.from("gift_orders").update({ lexoffice_invoice_id: null }).eq("id", order.id).eq("lexoffice_invoice_id", claimToken);
-        await sendOperatorAlert(
-          `Geschenkkorb ${order.order_number}: Rechnung manuell erstellen`,
-          "<p>Keine Steuer-Aufteilung (7 %/19 %) am Korb hinterlegt (Steuerberater). Rechnung wurde NICHT automatisch erzeugt.</p>",
-        );
-      } else {
-        const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/create-lexoffice-invoice`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
-          body: JSON.stringify(request),
-        });
-        const result = await res.json().catch(() => ({}));
-        if (!res.ok || result?.success === false || result?.skipped) {
-          throw new Error(`create-lexoffice-invoice: ${res.status} ${JSON.stringify(result).slice(0, 300)}`);
-        }
-        logStep("Gift invoice created", { orderNumber: order.order_number });
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      logStep("Gift invoice failed (non-fatal)", { error: msg });
-      await supabase.from("gift_orders").update({ lexoffice_invoice_id: null }).eq("id", order.id).eq("lexoffice_invoice_id", claimToken);
-      await sendOperatorAlert(`Geschenkkorb ${order.order_number}: Rechnung fehlgeschlagen`, `<p>${esc(msg)}</p>`);
+  // Rechnung (LexOffice), nur echte Bestellungen mit vorhandener Steuer-Aufteilung. Anspruch/Verwaisung/Aufruf: ensureGiftInvoice
+  // (gemeinsam mit dem Ablauf-Sweep, der fehlgeschlagene Rechnungen bis zu 3x wiederholt).
+  if (!order.is_test) {
+    const inv = await ensureGiftInvoice(supabase, order);
+    if (inv.outcome === "created") {
+      logStep("Gift invoice created", { orderNumber: order.order_number });
+    } else if (inv.outcome === "claimed_elsewhere") {
+      logStep("Gift invoice already claimed/created, skipping", { orderNumber: order.order_number });
+    } else if (inv.outcome === "no_vat_split") {
+      await sendOperatorAlert(
+        `Geschenkkorb ${order.order_number}: Rechnung manuell erstellen`,
+        "<p>Keine Steuer-Aufteilung (7 %/19 %) am Korb hinterlegt (Steuerberater). Rechnung wurde NICHT automatisch erzeugt.</p>",
+      );
+    } else {
+      logStep("Gift invoice failed (non-fatal, Sweep wiederholt)", { error: inv.error });
+      await sendOperatorAlert(`Geschenkkorb ${order.order_number}: Rechnung fehlgeschlagen`, `<p>${esc(inv.error)}</p><p>Der Ablauf-Sweep versucht es bis zu 3-mal erneut.</p>`);
     }
   }
 }
@@ -672,6 +637,23 @@ async function handleChargeRefunded(
     }
   }
 
+  // gift_orders (Geschenkkorb): volle Erstattung -> Status 'refunded' (nur bezahlte/bereite/übergebene Bestellungen),
+  // Teil-Erstattung nur als Notiz. Bestand wird NICHT automatisch zurückgebucht (Admin: "Bestand wieder einbuchen").
+  {
+    const { data: rows } = await supabase
+      .from("gift_orders")
+      .select("id, status, internal_note, order_number")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.status === "refunded") continue; // idempotent
+      const update: Record<string, unknown> = { internal_note: appendNote(row.internal_note, note) };
+      if (fully && ["paid", "ready", "handed_over"].includes(row.status)) update.status = "refunded";
+      const { error: gErr } = await supabase.from("gift_orders").update(update).eq("id", row.id);
+      if (gErr) throw new GiftRetryError(`gift order refund mirror failed: ${gErr.message}`); // -> HTTP 500, Stripe wiederholt
+      reflected.push(`gift_orders:${row.id}`);
+    }
+  }
+
   // TODO(A3): LexOffice-Storno anstoßen. void-lexoffice-invoice existiert, ist
   // aber admin-auth-gated und daher nicht aus dem Webhook (Service-Role) aufrufbar.
   // Optionen: (a) void-lexoffice-invoice um einen service-role-tauglichen,
@@ -751,6 +733,16 @@ async function handleChargeDisputeCreated(
           },
         });
       }
+    }
+  }
+
+  // gift_orders: nur Notiz (Dispute ≠ Verlust, Status bleibt)
+  if (piId) {
+    const { data: rows } = await supabase.from("gift_orders").select("id, internal_note").eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      const { error: gErr } = await supabase.from("gift_orders").update({ internal_note: appendNote(row.internal_note, note) }).eq("id", row.id);
+      if (gErr) throw new GiftRetryError(`gift order dispute note failed: ${gErr.message}`);
+      reflected.push(`gift_orders:${row.id}`);
     }
   }
 

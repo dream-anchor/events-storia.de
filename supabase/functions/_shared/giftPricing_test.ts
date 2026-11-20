@@ -6,47 +6,46 @@ import {
   computeDeliveryFeeCents,
   computeVatBreakdown,
   isValidVatSplit,
+  MAX_QTY_PER_ORDER,
   parseTariff,
   pickupSlots,
+  roundDistanceKm,
+  businessDate,
   splitGrossByVat,
   type ScheduleSettings,
 } from "./giftPricing.ts";
 
-Deno.test("Taxitarif: Beispiele aus dem Bauplan", () => {
-  assertEquals(computeDeliveryFeeCents(2), 600); // 5,40 -> Minimum 5,90 -> 6 EUR
-  assertEquals(computeDeliveryFeeCents(7), 1900); // 18,90 -> 19 EUR
-  assertEquals(computeDeliveryFeeCents(10), 2700); // 18,90 + 7,50 = 26,40 -> 27 EUR (anteilig, nicht 25)
+Deno.test("Taxitarif: exakte Beispiele (Inhaber 20.11.2026, kein Aufrunden)", () => {
+  assertEquals(computeDeliveryFeeCents(2.3), 621); // 2,3 * 2,70 = 6,21 EUR
+  assertEquals(computeDeliveryFeeCents(2.0), 590); // 5,40 -> Minimum 5,90 EUR
+  assertEquals(computeDeliveryFeeCents(7), 1890); // 7 * 2,70 = 18,90 EUR
+  assertEquals(computeDeliveryFeeCents(10), 2640); // 18,90 + 3 * 2,50 = 26,40 EUR
 });
 
-Deno.test("Taxitarif: Grenzen und Rundung", () => {
-  assertEquals(computeDeliveryFeeCents(0), 600); // Minimum 5,90 -> 6
-  assertEquals(computeDeliveryFeeCents(2.185), 600); // 5,90 genau -> 6
-  assertEquals(computeDeliveryFeeCents(2.2), 600); // 5,94 -> 6
-  assertEquals(computeDeliveryFeeCents(7.01), 1900); // 18,90 + 0,025 -> 19
-});
-
-Deno.test("Taxitarif: aufrunden statt runden", () => {
-  // 7,1 km: 1890 + 0,1*250 = 1915 -> aufgerundet 2000
-  assertEquals(computeDeliveryFeeCents(7.1), 2000);
+Deno.test("Taxitarif: Grenzen und Cent-Rundung", () => {
+  assertEquals(computeDeliveryFeeCents(0), 590); // Minimum
+  assertEquals(computeDeliveryFeeCents(2.185), 590); // 5,8995 -> 5,90
+  assertEquals(computeDeliveryFeeCents(2.2), 594); // 5,94
+  assertEquals(computeDeliveryFeeCents(7.01), 1893); // 18,90 + 0,025 = 18,925 -> 18,93 (kaufmännisch)
+  assertEquals(computeDeliveryFeeCents(7.1), 1915); // 18,90 + 0,25
+  assertEquals(computeDeliveryFeeCents(roundDistanceKm(2.3049)), 621);
 });
 
 Deno.test("Taxitarif: Tarifwerte aus Daten", () => {
   const t = parseTariff({
     tariff_tiers: [{ from_km: 7, per_km_cents: 250 }, { from_km: 0, per_km_cents: 270 }],
     min_fee_cents: 590,
-    round_up_to_cents: 100,
   });
-  assertEquals(computeDeliveryFeeCents(10, t), 2700);
-  const flat = parseTariff({ tariff_tiers: [{ from_km: 0, per_km_cents: 100 }], min_fee_cents: 0, round_up_to_cents: 50 });
-  assertEquals(computeDeliveryFeeCents(3.2, flat), 350);
+  assertEquals(computeDeliveryFeeCents(10, t), 2640);
+  const flat = parseTariff({ tariff_tiers: [{ from_km: 0, per_km_cents: 100 }], min_fee_cents: 0 });
+  assertEquals(computeDeliveryFeeCents(3.2, flat), 320);
 });
 
 Deno.test("parseTariff weist kaputte Tarife ab", () => {
   for (const bad of [
-    { tariff_tiers: [], min_fee_cents: 590, round_up_to_cents: 100 },
-    { tariff_tiers: [{ from_km: 3, per_km_cents: 100 }], min_fee_cents: 590, round_up_to_cents: 100 },
-    { tariff_tiers: [{ from_km: 0, per_km_cents: 100 }], min_fee_cents: -1, round_up_to_cents: 100 },
-    { tariff_tiers: [{ from_km: 0, per_km_cents: 100 }], min_fee_cents: 590, round_up_to_cents: 0 },
+    { tariff_tiers: [], min_fee_cents: 590 },
+    { tariff_tiers: [{ from_km: 3, per_km_cents: 100 }], min_fee_cents: 590 },
+    { tariff_tiers: [{ from_km: 0, per_km_cents: 100 }], min_fee_cents: -1 },
   ]) {
     let threw = false;
     try { parseTariff(bad); } catch { threw = true; }
@@ -158,4 +157,21 @@ Deno.test("MwSt.: Aufteilung Inhaber 85 % zu 7 %, 15 % zu 19 % (Wein)", () => {
   assertEquals(splitGrossByVat(9900, split), [{ rate: 7, gross_cents: 8415 }, { rate: 19, gross_cents: 1485 }]);
   const b = computeVatBreakdown([{ unit_price_cents: 13900, qty: 1, vat_split: split }], null);
   assertEquals(b!.reduce((s, l) => s + l.gross_cents, 0), 13900);
+});
+
+Deno.test("0:00-1:00: Bestellen für den laufenden Geschäftstag (Vortag) bleibt möglich", () => {
+  // Fr 27.11.2026, 00:20 Berlin = Do 26.11., 23:20 UTC. Do hat Öffnung 09:00-01:00 -> Geschäftstag ist noch Donnerstag
+  const night = new Date("2026-11-26T23:20:00Z");
+  assertEquals(businessDate(night, real), "2026-11-26");
+  assertEquals(checkSchedule("pickup", "2026-11-26", "00:55", night, real, []).ok, true); // 00:55 am Freitag früh, gehört zu Do
+  assertEquals(checkSchedule("pickup", "2026-11-26", "00:30", night, real, []).error, "too_early"); // Packzeit 30 Min
+  assertEquals(checkSchedule("pickup", "2026-11-25", "12:00", night, real, []).error, "date_in_past");
+  // ab 1:01 ist der Geschäftstag vorbei
+  const after = new Date("2026-11-27T00:30:00Z"); // 01:30 Berlin
+  assertEquals(businessDate(after, real), "2026-11-27");
+  assertEquals(checkSchedule("pickup", "2026-11-26", "00:55", after, real, []).error, "date_in_past");
+});
+
+Deno.test("Mengenlimit je Bestellung = 10", () => {
+  assertEquals(MAX_QTY_PER_ORDER, 10);
 });

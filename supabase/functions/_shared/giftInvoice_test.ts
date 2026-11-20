@@ -24,3 +24,12 @@ Deno.test("Rechnung: ohne Steuer-Aufteilung keine Anfrage", () => {
   assertEquals(buildGiftInvoiceRequest(order, [{ basket_name: "K", variant_label: "W", qty: 1, unit_price_cents: 9900, vat_split: null }]), null);
   assert(buildGiftInvoiceRequest(order, [{ basket_name: "K", variant_label: "W", qty: 1, unit_price_cents: 9900, vat_split: [{ rate: 19, share_bp: 10000 }] }]) !== null);
 });
+
+import { isStaleInvoiceClaim } from "./giftInvoice.ts";
+Deno.test("Rechnungs-Anspruch: verwaist erst nach 10 Minuten, echte ID nie", () => {
+  const now = 1_800_000_000_000;
+  assert(isStaleInvoiceClaim("pending", now));
+  assert(!isStaleInvoiceClaim(`pending:${now - 5 * 60_000}`, now));
+  assert(isStaleInvoiceClaim(`pending:${now - 11 * 60_000}`, now));
+  assert(!isStaleInvoiceClaim("a1b2c3d4-real-document-id", now));
+});

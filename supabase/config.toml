@@ -143,3 +143,9 @@ verify_jwt = false
 
 [functions.gift-expire-reservations]
 verify_jwt = false
+
+[functions.confirm-gift-reservation]
+verify_jwt = false
+
+[functions.gift-shop-config]
+verify_jwt = false

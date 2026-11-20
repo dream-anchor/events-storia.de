@@ -76,8 +76,8 @@ function BasketCard({ basket, onChanged, onEditVariant, onEditComponent }: {
 
   const toggleActive = async (active: boolean) => {
     if (active && (lmivMissing || !split)) {
-      const reasons = [lmivMissing ? "LMIV-Angaben sind noch nicht vollständig gegengelesen" : "", !split ? "die Steuer-Aufteilung (7 %/19 %) fehlt" : ""].filter(Boolean).join(" und ");
-      if (!confirm(`Achtung: ${reasons}. Der Korb darf so nicht live gehen. Trotzdem aktivieren?`)) return;
+      const reasons = [lmivMissing ? "LMIV-Angaben sind noch Schätzungen (nicht gegen das Etikett gegengelesen)" : "", !split ? "die Steuer-Aufteilung (7 %/19 %) fehlt" : ""].filter(Boolean).join(" und ");
+      if (!confirm(`Achtung: ${reasons}. Das ist vorerst erlaubt (Entscheidung Inhaber). Aktivieren?`)) return;
     }
     await update({ active }, active ? "Korb aktiviert" : "Korb deaktiviert");
   };
@@ -101,7 +101,7 @@ function BasketCard({ basket, onChanged, onEditVariant, onEditComponent }: {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-lg">{basket.name_de} <span className="text-sm font-normal text-muted-foreground">({basket.size_key})</span></CardTitle>
           <div className="flex items-center gap-2">
-            {lmivMissing && <Badge variant="destructive">LMIV unvollständig</Badge>}
+            {lmivMissing && <Badge variant="secondary">LMIV geschätzt</Badge>}
             {!split && <Badge variant="destructive">Steuer-Aufteilung fehlt</Badge>}
             <Label htmlFor={`active-${basket.id}`}>{basket.active ? "Live" : "Inaktiv"}</Label>
             <Switch id={`active-${basket.id}`} checked={basket.active} onCheckedChange={toggleActive} />
@@ -156,6 +156,18 @@ function VariantRow({ variant, onChanged, onEdit }: { variant: Variant; onChange
   const [target, setTarget] = useState(String(variant.stock_qty));
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const soldOut = !variant.stock_unlimited && variant.stock_qty === 0;
+  const fixed = !variant.stock_unlimited && variant.stock_qty > 0;
+
+  // Bestandsmodus (Inhaber 20.11.2026): Standard unbegrenzt; der Betreiber stellt auf ausverkauft / feste Menge und wieder frei
+  const setMode = async (mode: "unlimited" | "sold_out" | "fixed", qty?: number) => {
+    setBusy(true);
+    const { error } = await supabase.rpc("gift_set_stock_mode", { p_variant_id: variant.id, p_mode: mode, p_qty: qty });
+    setBusy(false);
+    if (error) { toast.error("Bestand nicht geändert", { description: error.message }); return; }
+    toast.success(mode === "unlimited" ? "Wieder freigegeben (unbegrenzt)" : mode === "sold_out" ? "Auf ausverkauft gestellt" : "Feste Menge gespeichert");
+    onChanged();
+  };
 
   const adjust = async (delta: number, why: string) => {
     if (delta === 0) return;
@@ -168,10 +180,10 @@ function VariantRow({ variant, onChanged, onEdit }: { variant: Variant; onChange
     onChanged();
   };
 
-  const setAbsolute = () => {
+  const setFixed = () => {
     const n = Number.parseInt(target, 10);
-    if (!Number.isInteger(n) || n < 0) { toast.error("Bestand muss eine Zahl ≥ 0 sein"); return; }
-    void adjust(n - variant.stock_qty, reason);
+    if (!Number.isInteger(n) || n < 0) { toast.error("Menge muss eine Zahl ≥ 0 sein"); return; }
+    void setMode("fixed", n);
   };
 
   const toggleActive = async (active: boolean) => {
@@ -185,15 +197,21 @@ function VariantRow({ variant, onChanged, onEdit }: { variant: Variant; onChange
       <div className="min-w-[10rem] flex-1">
         <p className="font-medium">{variant.label_de}</p>
         <p className="text-xs text-muted-foreground">
-          Bestand: <strong>{variant.stock_qty}</strong>{" "}
-          <Badge variant={variant.lmiv_verified_at ? "outline" : "destructive"} className="ml-1">{variant.lmiv_verified_at ? "LMIV geprüft" : "LMIV offen"}</Badge>
+          Bestand: <strong>{variant.stock_unlimited ? "unbegrenzt" : soldOut ? "AUSVERKAUFT" : `feste Menge ${variant.stock_qty}`}</strong>{" "}
+          <Badge variant={variant.lmiv_verified_at ? "outline" : "secondary"} className="ml-1">{variant.lmiv_verified_at ? "Angaben geprüft" : "Angaben geschätzt"}</Badge>
         </p>
       </div>
-      <Button type="button" size="icon" variant="outline" aria-label="Bestand minus 1" disabled={busy || variant.stock_qty <= 0} onClick={() => adjust(-1, reason)}>−</Button>
-      <Button type="button" size="icon" variant="outline" aria-label="Bestand plus 1" disabled={busy} onClick={() => adjust(1, reason)}>+</Button>
-      <Input className="w-20" aria-label="Neuer Bestand" inputMode="numeric" value={target} onChange={(e) => setTarget(e.target.value)} />
-      <Input className="w-44" aria-label="Grund (Protokoll)" placeholder="Grund (z. B. Lieferung)" value={reason} onChange={(e) => setReason(e.target.value)} />
-      <Button type="button" variant="outline" disabled={busy} onClick={setAbsolute}>Bestand setzen</Button>
+      {variant.stock_unlimited && <Button type="button" variant="destructive" disabled={busy} onClick={() => setMode("sold_out")}>Ausverkauft setzen</Button>}
+      {!variant.stock_unlimited && <Button type="button" variant="default" disabled={busy} onClick={() => setMode("unlimited")}>Wieder freigeben (unbegrenzt)</Button>}
+      {fixed && (
+        <>
+          <Button type="button" size="icon" variant="outline" aria-label="Menge minus 1" disabled={busy} onClick={() => adjust(-1, reason)}>−</Button>
+          <Button type="button" size="icon" variant="outline" aria-label="Menge plus 1" disabled={busy} onClick={() => adjust(1, reason)}>+</Button>
+          <Input className="w-44" aria-label="Grund (Protokoll)" placeholder="Grund (z. B. Lieferung)" value={reason} onChange={(e) => setReason(e.target.value)} />
+        </>
+      )}
+      <Input className="w-20" aria-label="Feste Menge" inputMode="numeric" value={target} onChange={(e) => setTarget(e.target.value)} />
+      <Button type="button" variant="outline" disabled={busy} onClick={setFixed}>Feste Menge setzen</Button>
       <Button type="button" variant="outline" onClick={onEdit}>Pflichtangaben Wein</Button>
       <div className="flex items-center gap-2"><Switch checked={variant.active} onCheckedChange={toggleActive} aria-label="Variante aktiv" /></div>
     </div>
@@ -236,7 +254,7 @@ function VariantLmivDialog({ variant, onClose, onSaved }: { variant: Variant | n
           <div><Label htmlFor="v-bot">Abfüller / Lebensmittelunternehmer</Label><Input id="v-bot" value={f.bottler} onChange={(e) => setF({ ...f, bottler: e.target.value })} /></div>
           <div><Label htmlFor="v-org">Herkunft</Label><Input id="v-org" value={f.origin} onChange={(e) => setF({ ...f, origin: e.target.value })} /></div>
           <div className="flex items-center gap-2"><Checkbox id="v-sul" checked={f.sulfites} onCheckedChange={(v) => setF({ ...f, sulfites: v === true })} /><Label htmlFor="v-sul">enthält Sulfite</Label></div>
-          <div className="flex items-center gap-2"><Checkbox id="v-ver" checked={f.verified} onCheckedChange={(v) => setF({ ...f, verified: v === true })} /><Label htmlFor="v-ver">Gegen das Etikett gegengelesen (ohne Haken zeigt der Shop einen internen Hinweis)</Label></div>
+          <div className="flex items-center gap-2"><Checkbox id="v-ver" checked={f.verified} onCheckedChange={(v) => setF({ ...f, verified: v === true })} /><Label htmlFor="v-ver">Gegen das Etikett gegengelesen (ohne Haken zeigt der Shop die Angaben als Schätzung mit Etikett-Hinweis)</Label></div>
         </div>
         <DialogFooter><Button variant="outline" onClick={onClose}>Abbrechen</Button><Button onClick={save}>Speichern</Button></DialogFooter>
       </DialogContent>

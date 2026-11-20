@@ -1,17 +1,19 @@
 /**
- * Geschenkkorb-Shop: Mails (Kunde + Betrieb). Gemeinsam genutzt von create-gift-order ("vor Ort"-Reservierung),
- * handle-stripe-webhook (Zahlung) und gift-expire-reservations (Reservierung abgelaufen).
- * Idempotent über gift_orders.confirmation_sent_at / expiry_mail_sent_at.
+ * Geschenkkorb-Shop: Mails (Kunde + Betrieb). Gemeinsam genutzt von create-gift-order (Bestätigungslink "vor Ort"),
+ * confirm-gift-reservation (Reservierung bestätigt), handle-stripe-webhook (Zahlung) und gift-expire-reservations
+ * (Reservierung abgelaufen, Wiederholungen).
+ * Idempotent über gift_orders.optin_mail_sent_at / confirmation_sent_at / expiry_mail_sent_at.
  * Testbestellungen (is_test) gehen nur an die sichere Testadresse (test-safety.ts).
  */
 import { sendEmailWithFallback } from "./email-sender.ts";
 import { getSafeRecipientEmail, getSafeSubject } from "./test-safety.ts";
 import { formatEuro, type DeliveryWindow } from "./giftPricing.ts";
 import { GIFT_TEXTS, type Lang } from "./giftLegal.ts";
+import { CONFIRM_HOLD_MINUTES, safeShortName } from "./giftConfirm.ts";
 
 // deno-lint-ignore no-explicit-any
 type Supa = any;
-export type GiftMailKind = "paid" | "reserved" | "expired";
+export type GiftMailKind = "paid" | "reserved" | "expired" | "confirm";
 
 const FROM = "STORIA <info@events-storia.de>";
 const SITE = "https://www.events-storia.de";
@@ -74,6 +76,26 @@ function wrap(body: string): string {
   <p style="font-size:12px;color:#666;margin-top:24px">Speranza GmbH · STORIA · Karlstraße 47a · 80333 München · info@events-storia.de</p></div>`;
 }
 
+/**
+ * Double-Opt-in-Mail: enthält bewusst KEINEN frei wählbaren Text des Absenders (kein Spam-Relais): nur gekürzter,
+ * bereinigter Vorname-Anteil, unsere Produktnamen, validiertes Datum/Zeit und den Link. Keine Notiz, keine Adresse, keine Grußkarte.
+ */
+function optinMail(o: OrderRow, items: ItemRow[], confirmUrl: string): { subject: string; html: string } {
+  const lang = o.language;
+  const de = lang === "de";
+  const name = safeShortName(o.customer_name);
+  const list = items.map((i) => `<li>${i.qty} × ${esc(i.basket_name)} – ${esc(i.variant_label)}</li>`).join("");
+  return {
+    subject: de ? "Bitte bestätigen: Ihre Geschenkkorb-Reservierung bei STORIA" : "Please confirm: your gift basket reservation at STORIA",
+    html: wrap(`<p>${de ? "Guten Tag" : "Hello"}${name ? ` ${esc(name)}` : ""},</p>
+      <p>${GIFT_TEXTS.optinIntro[lang]}</p>
+      <ul>${list}</ul>
+      <p>${de ? "Abholung" : "Pickup"}: ${fmtDate(o.handover_date, lang)}, ${esc(o.handover_time)}${de ? " Uhr" : ""}</p>
+      <p style="margin:24px 0"><a href="${esc(confirmUrl)}" style="background:#9a1b1f;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:bold">${de ? "Reservierung bestätigen" : "Confirm reservation"}</a></p>
+      <p style="font-size:13px">${GIFT_TEXTS.optinHint[lang].replace("30", String(CONFIRM_HOLD_MINUTES))}</p>`),
+  };
+}
+
 function customerMail(kind: GiftMailKind, o: OrderRow, items: ItemRow[], windows: DeliveryWindow[]): { subject: string; html: string } {
   const lang = o.language;
   const de = lang === "de";
@@ -129,10 +151,16 @@ function operatorMail(kind: GiftMailKind, o: OrderRow, items: ItemRow[], windows
   };
 }
 
-export async function sendGiftMails(supabase: Supa, orderId: string, kind: GiftMailKind): Promise<void> {
+export interface SendGiftMailOptions {
+  /** nur kind "confirm": vollständiger Bestätigungslink inkl. Klartext-Token (nirgends gespeichert) */
+  confirmUrl?: string;
+}
+
+export async function sendGiftMails(supabase: Supa, orderId: string, kind: GiftMailKind, opts: SendGiftMailOptions = {}): Promise<void> {
   const { data: o } = await supabase.from("gift_orders").select("*").eq("id", orderId).maybeSingle();
   if (!o) { console.error("[GIFT-MAIL] order not found", orderId); return; }
-  const sentCol = kind === "expired" ? "expiry_mail_sent_at" : "confirmation_sent_at";
+  const sentCol = kind === "expired" ? "expiry_mail_sent_at" : kind === "confirm" ? "optin_mail_sent_at" : "confirmation_sent_at";
+  if (kind === "confirm" && !opts.confirmUrl) throw new Error("confirmUrl missing");
   if (o[sentCol]) return; // idempotent
 
   const { data: items } = await supabase.from("gift_order_items").select("basket_name, variant_label, qty, unit_price_cents").eq("order_id", orderId).order("created_at");
@@ -145,7 +173,7 @@ export async function sendGiftMails(supabase: Supa, orderId: string, kind: GiftM
   const { data: claimed } = await supabase.from("gift_orders").update({ [sentCol]: new Date().toISOString() }).eq("id", orderId).is(sentCol, null).select("id");
   if (!claimed || claimed.length === 0) return;
 
-  const cust = customerMail(kind, order, items ?? [], windows);
+  const cust = kind === "confirm" ? optinMail(order, items ?? [], opts.confirmUrl!) : customerMail(kind, order, items ?? [], windows);
   try {
     const r = await sendEmailWithFallback({
       from: FROM, to: getSafeRecipientEmail(order.customer_email, order.is_test), replyTo: "info@events-storia.de",
@@ -158,6 +186,7 @@ export async function sendGiftMails(supabase: Supa, orderId: string, kind: GiftM
     throw e;
   }
 
+  if (kind === "confirm") return; // Bestätigungslink geht nur an den Kunden; der Betrieb erfährt erst von der bestätigten Reservierung
   const op = operatorMail(kind, order, items ?? [], windows);
   try {
     await sendEmailWithFallback({ from: FROM, to: getSafeRecipientEmail(notify, order.is_test), subject: getSafeSubject(op.subject, order.is_test), html: op.html });
