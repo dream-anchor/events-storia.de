@@ -594,7 +594,7 @@
      },
      {
       "type": "p",
-      "text": "Reservieren Sie einen Korb mit Zahlung vor Ort, senden wir Ihnen eine E-Mail mit einem Bestätigungslink; erst mit dieser Bestätigung wird die Reservierung verbindlich. Um Scheinreservierungen zu verhindern, begrenzen wir die Zahl offener Reservierungen je E-Mail-Adresse und je Internetanschluss. Dafür speichern wir zu Ihrer Reservierung einen nicht umkehrbaren Hashwert Ihrer IP-Adresse, nicht die IP-Adresse selbst. Außerdem setzen wir dabei die Sicherheitsabfrage Turnstile der Cloudflare, Inc., USA, ein, die anhand technischer Merkmale Ihres Browsers und Ihrer IP-Adresse prüft, ob die Anfrage von einem Menschen stammt. Eine Übermittlung in die USA erfolgt auf Grundlage der EU-Standardvertragsklauseln."
+      "text": "Reservieren Sie einen Korb mit Zahlung vor Ort, senden wir Ihnen eine E-Mail mit einem Bestätigungslink; erst mit dieser Bestätigung wird die Reservierung verbindlich. Um Scheinreservierungen zu verhindern, begrenzen wir die Zahl offener Reservierungen je E-Mail-Adresse und je Internetanschluss. Dafür speichern wir zu Ihrer Reservierung einen nicht umkehrbaren Hashwert Ihrer IP-Adresse, nicht die IP-Adresse selbst."
      },
      {
       "type": "p",
