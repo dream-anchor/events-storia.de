@@ -11,6 +11,8 @@ interface OrderItem {
   name_en?: string;
   quantity: number;
   price: number;
+  /** Optional: Steuersatz dieser Position (Default 7, wie bisher für Catering). Geschenkkörbe: Satz je Anteil. */
+  taxRatePercentage?: number;
 }
 
 interface BillingAddress {
@@ -45,6 +47,10 @@ interface InvoiceRequest {
   deliveryAddress?: string;
   notes?: string;
   paymentMethod?: 'invoice' | 'stripe';
+  /** Optional: 'gift_basket' = Bestellung aus gift_orders (Geschenkkorb-Shop). Ohne Angabe: Catering/Event wie bisher. */
+  orderType?: 'gift_basket';
+  /** Optional: Steuersatz der Lieferung (Default 19). */
+  deliveryTaxRatePercentage?: number;
 }
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
@@ -167,8 +173,25 @@ serve(async (req) => {
                            (body as any).isEventBooking === true;
     
     let existingOrder: { id: string; order_number?: string; booking_number?: string; customer_email: string; total_amount: number } | null = null;
-    
-    if (isEventBooking) {
+    const isGiftOrder = body.orderType === 'gift_basket';
+
+    if (isGiftOrder) {
+      const { data: giftOrder } = await supabase
+        .from('gift_orders')
+        .select('id, order_number, customer_email, total_cents')
+        .eq('id', body.orderId)
+        .maybeSingle();
+      if (giftOrder) {
+        existingOrder = {
+          id: giftOrder.id,
+          order_number: giftOrder.order_number,
+          customer_email: giftOrder.customer_email,
+          total_amount: (giftOrder.total_cents || 0) / 100,
+        };
+      }
+    }
+
+    if (!isGiftOrder && isEventBooking) {
       const { data: eventOrder, error: eventLookupError } = await supabase
         .from('event_bookings')
         .select('id, booking_number, customer_email, total_amount')
@@ -185,7 +208,7 @@ serve(async (req) => {
       }
     }
     
-    if (!existingOrder) {
+    if (!existingOrder && !isGiftOrder) {
       const { data: cateringOrder, error: orderLookupError } = await supabase
         .from('catering_orders')
         .select('id, order_number, customer_email, total_amount')
@@ -330,7 +353,7 @@ serve(async (req) => {
           currency: 'EUR',
           // Brutto-Endpreis 1:1 übernehmen (7% MwSt für Speisen), keine Netto-Umrechnung.
           grossAmount: roundCurrency(item.price),
-          taxRatePercentage: 7
+          taxRatePercentage: item.taxRatePercentage ?? 7
         }
       });
     }
@@ -366,7 +389,7 @@ serve(async (req) => {
           currency: 'EUR',
           // Brutto-Endpreis 1:1 übernehmen (19% MwSt für Lieferung), keine Netto-Umrechnung.
           grossAmount: roundCurrency(body.deliveryCost),
-          taxRatePercentage: 19
+          taxRatePercentage: body.deliveryTaxRatePercentage ?? 19
         }
       });
     }
@@ -465,8 +488,10 @@ serve(async (req) => {
       }
       
       // Services included
-      lines.push('');
-      lines.push('ℹ️ Hinweis: Reinigung des Geschirrs ist im Preis inbegriffen.');
+      if (!isGiftOrder) {
+        lines.push('');
+        lines.push('ℹ️ Hinweis: Reinigung des Geschirrs ist im Preis inbegriffen.');
+      }
       
       return lines.join('\n');
     };
@@ -506,7 +531,7 @@ serve(async (req) => {
       // die Rechnungssumme wich dann von der bezahlten Summe ab (z. B. 564,56 € statt
       // 564,70 €). Gilt für Rechnung und Angebot (quotation) gleich.
       taxConditions: { taxType: 'gross' },
-      title: 'Catering-Rechnung', // Shop orders are always paid via Stripe
+      title: isGiftOrder ? 'Rechnung' : 'Catering-Rechnung', // Shop orders are always paid via Stripe
       introduction,
       remark,
       paymentConditions
@@ -582,19 +607,21 @@ serve(async (req) => {
 
     // Step 5: Update order with Lexoffice IDs and document type
     if (body.orderId) {
-      const updateData: Record<string, unknown> = {
-        lexoffice_invoice_id: documentId,
-        lexoffice_contact_id: contactId,
-        lexoffice_document_type: documentType
-      };
+      const updateData: Record<string, unknown> = isGiftOrder
+        ? { lexoffice_invoice_id: documentId }
+        : {
+            lexoffice_invoice_id: documentId,
+            lexoffice_contact_id: contactId,
+            lexoffice_document_type: documentType
+          };
       
       // If this is an invoice (paid), also update payment status
-      if (isInvoice && body.isPaid) {
+      if (!isGiftOrder && isInvoice && body.isPaid) {
         updateData.payment_status = 'paid';
       }
 
       // Update the correct table based on order type
-      const tableName = isEventBooking ? 'event_bookings' : 'catering_orders';
+      const tableName = isGiftOrder ? 'gift_orders' : isEventBooking ? 'event_bookings' : 'catering_orders';
       const { error: updateError } = await supabase
         .from(tableName)
         .update(updateData)
