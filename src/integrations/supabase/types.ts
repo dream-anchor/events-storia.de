@@ -2503,6 +2503,7 @@ export type Database = {
           price_delta_cents: number
           sort_order: number
           stock_qty: number
+          stock_unlimited: boolean
           updated_at: string
         }
         Insert: {
@@ -2524,6 +2525,7 @@ export type Database = {
           price_delta_cents?: number
           sort_order?: number
           stock_qty?: number
+          stock_unlimited?: boolean
           updated_at?: string
         }
         Update: {
@@ -2545,6 +2547,7 @@ export type Database = {
           price_delta_cents?: number
           sort_order?: number
           stock_qty?: number
+          stock_unlimited?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -2709,6 +2712,14 @@ export type Database = {
           age_confirmed_at: string | null
           cancelled_at: string | null
           client_ip_hash: string | null
+          alert_sent_at: string | null
+          confirm_token_hash: string | null
+          confirmed_at: string | null
+          invoice_attempts: number
+          mail_attempts: number
+          optin_mail_sent_at: string | null
+          reservation_until: string | null
+          restocked_at: string | null
           confirmation_sent_at: string | null
           created_at: string
           customer_email: string
@@ -2750,6 +2761,14 @@ export type Database = {
           age_confirmed_at?: string | null
           cancelled_at?: string | null
           client_ip_hash?: string | null
+          alert_sent_at?: string | null
+          confirm_token_hash?: string | null
+          confirmed_at?: string | null
+          invoice_attempts?: number
+          mail_attempts?: number
+          optin_mail_sent_at?: string | null
+          reservation_until?: string | null
+          restocked_at?: string | null
           confirmation_sent_at?: string | null
           created_at?: string
           customer_email: string
@@ -2791,6 +2810,14 @@ export type Database = {
           age_confirmed_at?: string | null
           cancelled_at?: string | null
           client_ip_hash?: string | null
+          alert_sent_at?: string | null
+          confirm_token_hash?: string | null
+          confirmed_at?: string | null
+          invoice_attempts?: number
+          mail_attempts?: number
+          optin_mail_sent_at?: string | null
+          reservation_until?: string | null
+          restocked_at?: string | null
           confirmation_sent_at?: string | null
           created_at?: string
           customer_email?: string
@@ -2842,7 +2869,6 @@ export type Database = {
           origin_lng: number
           pickup_hours: Json
           pickup_lead_minutes: number
-          round_up_to_cents: number
           tariff_tiers: Json
           updated_at: string
         }
@@ -2859,7 +2885,6 @@ export type Database = {
           origin_lng?: number
           pickup_hours?: Json
           pickup_lead_minutes?: number
-          round_up_to_cents?: number
           tariff_tiers?: Json
           updated_at?: string
         }
@@ -2876,7 +2901,6 @@ export type Database = {
           origin_lng?: number
           pickup_hours?: Json
           pickup_lead_minutes?: number
-          round_up_to_cents?: number
           tariff_tiers?: Json
           updated_at?: string
         }
@@ -7937,7 +7961,23 @@ export type Database = {
       }
       gift_admin_set_status: {
         Args: { p_order_id: string; p_status: string }
-        Returns: string
+        Returns: Json
+      }
+      gift_confirm_reservation: {
+        Args: { p_token_hash: string }
+        Returns: Json
+      }
+      gift_open_counts: {
+        Args: { p_email: string; p_ip_hash: string; p_payment_method: string }
+        Returns: Json
+      }
+      gift_set_stock_mode: {
+        Args: { p_mode: string; p_qty?: number; p_variant_id: string }
+        Returns: Json
+      }
+      gift_restock_order: {
+        Args: { p_order_id: string }
+        Returns: Json
       }
       gift_consume_stock: {
         Args: { p_order_id: string }

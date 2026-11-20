@@ -41,6 +41,10 @@ CREATE TABLE IF NOT EXISTS public.gift_basket_variants (
   label_de text NOT NULL,
   label_en text NOT NULL,
   image_url text,                               -- optional abweichendes Foto je Wein
+  -- Bestand (Inhaber 20.11.2026): STANDARD UNBEGRENZT (Körbe werden nachgemacht). Der Betreiber stellt im Admin je Variante
+  -- auf "ausverkauft" (stock_unlimited=false, stock_qty=0), "feste Menge" (false, qty>0) oder wieder "unbegrenzt" um
+  -- (nur über gift_set_stock_mode). Bei unbegrenzt gibt es keine Mengenprüfung und keinen Abzug; stock_qty bleibt dann ungenutzt.
+  stock_unlimited boolean NOT NULL DEFAULT true,
   stock_qty integer NOT NULL DEFAULT 0 CHECK (stock_qty >= 0),
   price_delta_cents integer NOT NULL DEFAULT 0 CHECK (price_delta_cents = 0),  -- derzeit kein Aufpreis
   -- LMIV (Art. 14 LMIV, Fernabsatz); leer bis Etikettenfotos abgetippt sind
@@ -87,11 +91,10 @@ CREATE TABLE IF NOT EXISTS public.gift_settings (
   origin_label text NOT NULL DEFAULT 'Karlstraße 47a, 80333 München',
   origin_lat numeric(9,6) NOT NULL DEFAULT 48.1431,
   origin_lng numeric(9,6) NOT NULL DEFAULT 11.5606,
-  -- Taxitarif, einfache Strecke, anteilig je Staffel (Entscheidung 6):
-  -- erste 7 km 2,70 EUR/km, nur Mehr-km 2,50 EUR/km
+  -- Taxitarif, einfache Strecke, anteilig je Staffel (Entscheidung 6, Inhaber 20.11.2026: exakt, KEIN Aufrunden):
+  -- erste 7 km 2,70 EUR/km, nur Mehr-km 2,50 EUR/km, Ergebnis kaufmännisch auf den Cent, Minimum 5,90 EUR
   tariff_tiers jsonb NOT NULL DEFAULT '[{"from_km":0,"per_km_cents":270},{"from_km":7,"per_km_cents":250}]'::jsonb,
   min_fee_cents integer NOT NULL DEFAULT 590,
-  round_up_to_cents integer NOT NULL DEFAULT 100,
   delivery_vat_rate numeric(4,1) NOT NULL DEFAULT 19,   -- Steuerberater bestätigen
   pickup_lead_minutes integer NOT NULL DEFAULT 30,      -- Packzeit bei Abholung "sofort"
   delivery_lead_days integer NOT NULL DEFAULT 1,
@@ -124,7 +127,7 @@ CREATE TABLE IF NOT EXISTS public.gift_orders (
   order_number text NOT NULL UNIQUE
     DEFAULT ('GK-' || to_char(now() AT TIME ZONE 'Europe/Berlin', 'YY') || '-' || lpad(nextval('public.gift_order_number_seq')::text, 5, '0')),
   status text NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending','reserved','paid','ready','handed_over','cancelled','expired')),
+    CHECK (status IN ('pending','awaiting_confirmation','reserved','paid','ready','handed_over','cancelled','expired','refunded')),
   payment_method text NOT NULL DEFAULT 'online' CHECK (payment_method IN ('online','on_site')),
   customer_name text NOT NULL,
   customer_email text NOT NULL,
@@ -155,7 +158,18 @@ CREATE TABLE IF NOT EXISTS public.gift_orders (
   confirmation_sent_at timestamptz,
   expiry_mail_sent_at timestamptz,
   is_test boolean NOT NULL DEFAULT false,
-  client_ip_hash text,                          -- SHA-256 der Client-IP (nur Missbrauchsgrenze "vor Ort"-Reservierungen)
+  client_ip_hash text,                          -- SHA-256 der Client-IP (Missbrauchsgrenze offener Reservierungen/Checkout-Holds); NULL nach Abschluss (Trigger unten)
+  -- Zahlung vor Ort = Double-Opt-in (Inhaber 20.11.2026, kein CAPTCHA): Status 'awaiting_confirmation' hält den Bestand
+  -- nur 30 Min; Bestätigungslink (Token einmalig, nur als SHA-256 gespeichert) -> 'reserved' mit Hold bis reservation_until.
+  confirm_token_hash text,
+  confirmed_at timestamptz,
+  reservation_until timestamptz,                -- Ende der Reservierung nach Bestätigung (Ladenschluss des Abholtags)
+  optin_mail_sent_at timestamptz,               -- Bestätigungslink-Mail an den Kunden
+  -- Wiederholversuche des Ablauf-Sweeps (gift-expire-reservations): max. 3, danach Betreiber-Alarm (alert_sent_at)
+  mail_attempts integer NOT NULL DEFAULT 0,
+  invoice_attempts integer NOT NULL DEFAULT 0,
+  alert_sent_at timestamptz,
+  restocked_at timestamptz,                     -- Marker: Bestand nach Storno/Erstattung wieder eingebucht (idempotent)
   lexoffice_invoice_id text,
   internal_note text,
   deleted_at timestamptz,
@@ -166,16 +180,17 @@ CREATE TABLE IF NOT EXISTS public.gift_orders (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS gift_orders_stripe_session_uidx ON public.gift_orders (stripe_session_id) WHERE stripe_session_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS gift_orders_status_date_idx ON public.gift_orders (status, handover_date);
--- Grenze offener Reservierungen "vor Ort" je E-Mail / je IP (create-gift-order)
-CREATE INDEX IF NOT EXISTS gift_orders_open_onsite_email_idx ON public.gift_orders (customer_email) WHERE status = 'reserved' AND payment_method = 'on_site';
-CREATE INDEX IF NOT EXISTS gift_orders_open_onsite_ip_idx ON public.gift_orders (client_ip_hash) WHERE status = 'reserved' AND payment_method = 'on_site' AND client_ip_hash IS NOT NULL;
+-- Grenze offener Reservierungen/Checkout-Holds je E-Mail / je IP (gift_open_counts, create-gift-order)
+CREATE INDEX IF NOT EXISTS gift_orders_open_email_idx ON public.gift_orders (customer_email) WHERE status IN ('pending','awaiting_confirmation','reserved');
+CREATE INDEX IF NOT EXISTS gift_orders_open_ip_idx ON public.gift_orders (client_ip_hash) WHERE status IN ('pending','awaiting_confirmation','reserved') AND client_ip_hash IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS gift_orders_confirm_token_uidx ON public.gift_orders (confirm_token_hash) WHERE confirm_token_hash IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.gift_order_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id uuid NOT NULL REFERENCES public.gift_orders(id) ON DELETE CASCADE,
   basket_id uuid NOT NULL REFERENCES public.gift_baskets(id),
   variant_id uuid NOT NULL REFERENCES public.gift_basket_variants(id),
-  qty integer NOT NULL CHECK (qty BETWEEN 1 AND 20),
+  qty integer NOT NULL CHECK (qty BETWEEN 1 AND 10),     -- max. 10 Körbe je Bestellung (Missbrauchsgrenze)
   unit_price_cents integer NOT NULL CHECK (unit_price_cents > 0),
   vat_split jsonb,
   basket_name text NOT NULL,                    -- Snapshots
@@ -219,6 +234,21 @@ BEGIN
     EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()', t || '_updated_at', t);
   END LOOP;
 END $$;
+
+-- ── Datenschutz: IP-Hash löschen, sobald die Bestellung abgeschlossen ist ──────
+-- (Datenschutz-Erklärung § 29/30, Inhaber 20.11.2026): client_ip_hash dient nur der Missbrauchsgrenze offener Bestellungen und wird
+-- NULL, sobald der Status abgeschlossen ist (übergeben / storniert / verfallen / erstattet). Trigger = gilt für jeden Pfad
+-- (Admin-RPC, Webhook, Ablauf-Sweep, Aufräumen in create-gift-order); der Sweep räumt zusätzlich Altbestände auf.
+CREATE OR REPLACE FUNCTION public.gift_orders_clear_ip_hash() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.status IN ('handed_over','cancelled','expired','refunded') THEN
+    NEW.client_ip_hash := NULL;
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS gift_orders_clear_ip_hash ON public.gift_orders;
+CREATE TRIGGER gift_orders_clear_ip_hash BEFORE INSERT OR UPDATE ON public.gift_orders
+  FOR EACH ROW EXECUTE FUNCTION public.gift_orders_clear_ip_hash();
 
 -- ── RLS + GRANTs ───────────────────────────────────────────────────────────
 -- anon: nichts. authenticated: nur über Policies (admin/staff). service_role: alles.
@@ -294,3 +324,7 @@ GRANT INSERT (id, basket_id, key, label_de, label_en, image_url, price_delta_cen
 GRANT UPDATE (basket_id, key, label_de, label_en, image_url, price_delta_cents, net_content, abv_percent,
               bottler, origin, contains_sulfites, lmiv_verified_at, sort_order, active, deleted_at)
   ON public.gift_basket_variants TO authenticated;
+-- Kein Löschen von Körben/Weinvarianten (Bestellpositionen verweisen darauf; ON DELETE CASCADE würde Bestand/Katalog still
+-- mitnehmen): Ausblenden über active=false bzw. deleted_at (Soft-Delete). Die ALL-Policies bleiben, DELETE hat kein Tabellenrecht.
+REVOKE DELETE ON public.gift_basket_variants FROM authenticated;
+REVOKE DELETE ON public.gift_baskets FROM authenticated;

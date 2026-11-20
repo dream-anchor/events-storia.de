@@ -2,27 +2,106 @@
 -- Geschenkkorb-Shop, Teil 2/3: RPCs (Bestand, öffentlicher Katalog, Admin-Statuswechsel)
 -- Voraussetzung: Migration 20261120100000_gift_baskets_schema.sql
 --
--- Bestandsmodell: verfügbar = stock_qty - Summe aktiver Holds (status 'held', expires_at > now()).
+-- Bestandsmodell: Standard UNBEGRENZT (stock_unlimited, Inhaber 20.11.2026): keine Mengenprüfung, kein Abzug.
+-- Bei fester Menge/ausverkauft: verfügbar = stock_qty - Summe aktiver Holds (status 'held', expires_at > now()).
 -- stock_qty sinkt erst bei Zahlung (gift_consume_stock) bzw. bei Übergabe (Zahlung vor Ort).
+-- Zahlung vor Ort = Double-Opt-in: awaiting_confirmation (Hold 30 Min) -> gift_confirm_reservation -> reserved.
 -- Race-Schutz: Variantenzeilen werden in fester Reihenfolge (ORDER BY id) mit FOR UPDATE gesperrt.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ── Abgelaufene Holds freigeben; liefert die Bestellungen, die dadurch verfallen ──
+-- Sperrreihenfolge (überall gleich, kein Deadlock): ZUERST die Bestellung (ORDER BY id), DANACH deren Holds.
+-- Verfällt: pending (Stripe nicht abgeschlossen), awaiting_confirmation (Bestätigungslink nicht angeklickt, 30 Min),
+-- reserved (nicht abgeholt bis Ladenschluss). Der Sweep läuft per pg_cron (unten) und zusätzlich lazy aus create-gift-order.
 CREATE OR REPLACE FUNCTION public.gift_sweep_expired_holds()
 RETURNS TABLE (order_id uuid, payment_method text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+#variable_conflict use_column
+DECLARE r record;
 BEGIN
-  UPDATE public.gift_stock_holds h
-     SET status = 'released'
-   WHERE h.status = 'held' AND h.expires_at <= now();
+  FOR r IN
+    SELECT o.id, o.payment_method
+      FROM public.gift_orders o
+     WHERE o.status IN ('pending','awaiting_confirmation','reserved')
+       AND (
+         EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = o.id AND h.status = 'held' AND h.expires_at <= now())
+         OR (NOT EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = o.id AND h.status = 'held')
+             AND EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = o.id AND h.status = 'released'))
+       )
+     ORDER BY o.id
+       FOR UPDATE OF o
+  LOOP
+    UPDATE public.gift_stock_holds h SET status = 'released'
+     WHERE h.order_id = r.id AND h.status = 'held' AND h.expires_at <= now();
 
-  RETURN QUERY
-  UPDATE public.gift_orders o
-     SET status = 'expired'
-   WHERE o.status IN ('pending','reserved')
-     AND NOT EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = o.id AND h.status = 'held')
-     AND EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = o.id AND h.status = 'released')
-  RETURNING o.id, o.payment_method;
+    IF NOT EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = r.id AND h.status = 'held') THEN
+      UPDATE public.gift_orders SET status = 'expired' WHERE id = r.id;
+      order_id := r.id; payment_method := r.payment_method;
+      RETURN NEXT;
+    END IF;
+  END LOOP;
+
+  -- Datenschutz: IP-Hash abgeschlossener Bestellungen löschen (der Trigger erledigt es beim Statuswechsel, hier Altbestände)
+  UPDATE public.gift_orders SET client_ip_hash = NULL
+   WHERE client_ip_hash IS NOT NULL AND status IN ('handed_over','cancelled','expired','refunded');
+END $$;
+
+-- ── Offene Reservierungen/Checkout-Holds je E-Mail und je IP zählen (Missbrauchsgrenze) ──
+-- "Offen" = Status pending/awaiting_confirmation/reserved UND mindestens ein NOCH GÜLTIGER Hold (expires_at > now()):
+-- abgelaufene oder unbestätigt verfallene Bestellungen zählen nie mit, auch wenn der Sweep noch nicht gelaufen ist.
+-- Echte Bestellungen (is_test = false). Zählt p_payment_method getrennt (online | on_site).
+CREATE OR REPLACE FUNCTION public.gift_open_counts(p_payment_method text, p_email text, p_ip_hash text)
+RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  WITH open_orders AS (
+    SELECT o.customer_email, o.client_ip_hash
+      FROM public.gift_orders o
+     WHERE o.payment_method = p_payment_method
+       AND o.status IN ('pending','awaiting_confirmation','reserved')
+       AND NOT o.is_test
+       AND EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = o.id AND h.status = 'held' AND h.expires_at > now())
+  )
+  SELECT jsonb_build_object(
+    'by_email', (SELECT count(*) FROM open_orders WHERE customer_email = p_email),
+    'by_ip',    CASE WHEN p_ip_hash IS NULL THEN 0 ELSE (SELECT count(*) FROM open_orders WHERE client_ip_hash = p_ip_hash) END
+  );
+$$;
+
+-- ── Double-Opt-in: Bestätigungslink einlösen ("vor Ort zahlen") ─────────────
+-- Token wird nur als SHA-256 gespeichert; p_token_hash = Hash des Links. Ergebnis status:
+--   confirmed         erster Klick: Hold wird bis reservation_until (Ladenschluss Abholtag) verlängert, Status 'reserved'
+--   already_confirmed Link wurde schon eingelöst (Idempotenz, zweiter Klick ändert nichts)
+--   expired           30 Min überschritten / Bestellung verfallen oder storniert
+--   invalid           unbekannter Token
+-- Sperrreihenfolge: Bestellung, dann Holds.
+CREATE OR REPLACE FUNCTION public.gift_confirm_reservation(p_token_hash text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE o public.gift_orders%ROWTYPE;
+BEGIN
+  IF p_token_hash IS NULL OR length(p_token_hash) <> 64 THEN
+    RETURN jsonb_build_object('status', 'invalid');
+  END IF;
+  SELECT * INTO o FROM public.gift_orders WHERE confirm_token_hash = p_token_hash FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('status', 'invalid'); END IF;
+
+  IF o.confirmed_at IS NOT NULL THEN
+    RETURN jsonb_build_object('status', 'already_confirmed', 'order_id', o.id);
+  END IF;
+  IF o.status <> 'awaiting_confirmation' THEN
+    RETURN jsonb_build_object('status', 'expired', 'order_id', o.id);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = o.id AND h.status = 'held' AND h.expires_at > now())
+     OR o.reservation_until IS NULL OR o.reservation_until <= now() THEN
+    UPDATE public.gift_stock_holds SET status = 'released' WHERE order_id = o.id AND status = 'held';
+    UPDATE public.gift_orders SET status = 'expired' WHERE id = o.id;
+    RETURN jsonb_build_object('status', 'expired', 'order_id', o.id);
+  END IF;
+
+  UPDATE public.gift_stock_holds SET expires_at = o.reservation_until WHERE order_id = o.id AND status = 'held';
+  UPDATE public.gift_orders SET status = 'reserved', confirmed_at = now() WHERE id = o.id;
+  RETURN jsonb_build_object('status', 'confirmed', 'order_id', o.id);
 END $$;
 
 -- ── Reservieren (Abbruch mit 'sold_out', wenn eine Variante nicht reicht) ──
@@ -50,7 +129,7 @@ BEGIN
       SELECT (i->>'variant_id')::uuid AS variant_id, sum((i->>'qty')::integer) AS qty
         FROM jsonb_array_elements(p_items) i GROUP BY 1
     )
-    SELECT v.id, v.stock_qty, req.qty
+    SELECT v.id, v.stock_qty, v.stock_unlimited, req.qty
       FROM public.gift_basket_variants v
       JOIN req ON req.variant_id = v.id
      ORDER BY v.id
@@ -65,12 +144,14 @@ BEGIN
       RAISE EXCEPTION 'sold_out' USING DETAIL = r.id::text;
     END IF;
 
-    SELECT r.stock_qty - COALESCE(sum(h.qty), 0) INTO v_available
-      FROM public.gift_stock_holds h
-     WHERE h.variant_id = r.id AND h.status = 'held' AND h.expires_at > now() AND h.order_id <> p_order_id;
+    IF NOT r.stock_unlimited THEN
+      SELECT r.stock_qty - COALESCE(sum(h.qty), 0) INTO v_available
+        FROM public.gift_stock_holds h
+       WHERE h.variant_id = r.id AND h.status = 'held' AND h.expires_at > now() AND h.order_id <> p_order_id;
 
-    IF v_available < r.qty THEN
-      RAISE EXCEPTION 'sold_out' USING DETAIL = r.id::text;
+      IF v_available < r.qty THEN
+        RAISE EXCEPTION 'sold_out' USING DETAIL = r.id::text;
+      END IF;
     END IF;
 
     INSERT INTO public.gift_stock_holds (order_id, variant_id, qty, expires_at)
@@ -94,6 +175,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   r record;
   v_stock integer;
+  v_unlimited boolean;
   v_other integer;
   v_free integer;
   v_deduct integer;
@@ -112,7 +194,14 @@ BEGIN
      ORDER BY h.variant_id
        FOR UPDATE OF h
   LOOP
-    SELECT stock_qty INTO v_stock FROM public.gift_basket_variants WHERE id = r.variant_id FOR UPDATE;
+    SELECT stock_qty, stock_unlimited INTO v_stock, v_unlimited FROM public.gift_basket_variants WHERE id = r.variant_id FOR UPDATE;
+
+    IF v_unlimited THEN
+      -- unbegrenzter Bestand: kein Abzug, nie "oversold"; Hold nur als verbraucht markieren (Idempotenz)
+      UPDATE public.gift_stock_holds SET status = 'consumed' WHERE id = r.id;
+      v_any := true;
+      CONTINUE;
+    END IF;
 
     IF r.status = 'released' OR r.expires_at <= now() THEN
       -- Späte Zahlung: frei ist, was nach Abzug aller anderen aktiven Holds übrig ist
@@ -167,11 +256,43 @@ BEGIN
   RETURN v_new;
 END $$;
 
--- ── Statuswechsel im Admin (inkl. Bestandslogik für "vor Ort zahlen") ──────
-CREATE OR REPLACE FUNCTION public.gift_admin_set_status(p_order_id uuid, p_status text)
-RETURNS text
+-- ── Bestandsmodus je Variante (Admin): unlimited | sold_out | fixed ───────────
+-- unlimited = Standard (keine Mengenprüfung); sold_out = fest 0 (Shop zeigt "ausverkauft"); fixed = feste Menge p_qty.
+-- Wieder freigeben = unlimited oder fixed. Protokoll in gift_stock_log (reason mode_<modus>, delta = Mengenänderung).
+CREATE OR REPLACE FUNCTION public.gift_set_stock_mode(p_variant_id uuid, p_mode text, p_qty integer DEFAULT NULL)
+RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE o public.gift_orders%ROWTYPE;
+DECLARE
+  v public.gift_basket_variants%ROWTYPE;
+  v_new integer;
+BEGIN
+  IF NOT (auth.role() = 'service_role' OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff')) THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+  IF p_mode NOT IN ('unlimited','sold_out','fixed') THEN RAISE EXCEPTION 'invalid_mode'; END IF;
+  IF p_mode = 'fixed' AND (p_qty IS NULL OR p_qty < 0) THEN RAISE EXCEPTION 'invalid_qty'; END IF;
+  SELECT * INTO v FROM public.gift_basket_variants WHERE id = p_variant_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'variant_not_found'; END IF;
+
+  v_new := CASE p_mode WHEN 'sold_out' THEN 0 WHEN 'fixed' THEN p_qty ELSE v.stock_qty END;
+  UPDATE public.gift_basket_variants
+     SET stock_unlimited = (p_mode = 'unlimited'), stock_qty = v_new
+   WHERE id = p_variant_id;
+  INSERT INTO public.gift_stock_log (variant_id, delta, reason, created_by)
+  VALUES (p_variant_id, v_new - v.stock_qty, 'mode_' || p_mode, auth.uid());
+  RETURN jsonb_build_object('mode', p_mode, 'stock_qty', v_new);
+END $$;
+
+-- ── Statuswechsel im Admin (inkl. Bestandslogik für "vor Ort zahlen") ──────
+-- Rückgabe {"status":…, "oversold":bool}: oversold = bei Übergabe/Bezahlung vor Ort war nicht mehr die volle Menge
+-- verfügbar (z. B. Bestand im Admin gesenkt) -> das Admin-UI weist darauf hin.
+CREATE OR REPLACE FUNCTION public.gift_admin_set_status(p_order_id uuid, p_status text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  o public.gift_orders%ROWTYPE;
+  v_consume jsonb;
+  v_oversold boolean := false;
 BEGIN
   IF NOT (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff')) THEN
     RAISE EXCEPTION 'forbidden';
@@ -183,14 +304,15 @@ BEGIN
        (o.status = 'paid'     AND p_status IN ('ready','handed_over','cancelled'))
     OR (o.status = 'reserved' AND p_status IN ('ready','handed_over','cancelled'))
     OR (o.status = 'ready'    AND p_status IN ('handed_over','cancelled'))
-    OR (o.status = 'pending'  AND p_status = 'cancelled')
+    OR (o.status IN ('pending','awaiting_confirmation') AND p_status = 'cancelled')
   ) THEN
     RAISE EXCEPTION 'invalid_transition % -> %', o.status, p_status;
   END IF;
 
   IF p_status = 'handed_over' THEN
     IF o.payment_method = 'on_site' THEN
-      PERFORM public.gift_consume_stock(o.id);  -- Zahlung + Bestandsabgang bei Übergabe
+      v_consume := public.gift_consume_stock(o.id);  -- Zahlung + Bestandsabgang bei Übergabe
+      v_oversold := COALESCE((v_consume->>'oversold')::boolean, false);
       UPDATE public.gift_orders SET paid_at = COALESCE(paid_at, now()) WHERE id = o.id;
     END IF;
     UPDATE public.gift_orders SET handed_over_at = now() WHERE id = o.id;
@@ -200,7 +322,48 @@ BEGIN
   END IF;
 
   UPDATE public.gift_orders SET status = p_status WHERE id = o.id;
-  RETURN p_status;
+  RETURN jsonb_build_object('status', p_status, 'oversold', v_oversold);
+END $$;
+
+-- ── Wieder einbuchen nach Storno/Erstattung (Admin), idempotent über gift_orders.restocked_at ──
+-- Bucht genau die Mengen zurück, die gift_consume_stock für diese Bestellung abgebucht hat (Protokoll 'consume'),
+-- nicht die Bestellmenge (bei Überverkauf wurde weniger abgebucht). Zweiter Aufruf ist ein No-Op.
+CREATE OR REPLACE FUNCTION public.gift_restock_order(p_order_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  o public.gift_orders%ROWTYPE;
+  r record;
+  v_units integer := 0;
+BEGIN
+  IF NOT (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff')) THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+  SELECT * INTO o FROM public.gift_orders WHERE id = p_order_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'order_not_found'; END IF;
+  IF o.status NOT IN ('cancelled','refunded') THEN RAISE EXCEPTION 'invalid_status %', o.status; END IF;
+  IF o.restocked_at IS NOT NULL THEN
+    RETURN jsonb_build_object('restocked', false, 'units', 0, 'already', true);
+  END IF;
+
+  FOR r IN
+    SELECT l.variant_id, -sum(l.delta) AS qty
+      FROM public.gift_stock_log l
+      JOIN public.gift_basket_variants bv ON bv.id = l.variant_id AND NOT bv.stock_unlimited   -- unbegrenzt: nichts abgebucht, nichts einzubuchen
+     WHERE l.order_id = o.id AND l.reason = 'consume'
+     GROUP BY l.variant_id
+     ORDER BY l.variant_id
+  LOOP
+    IF r.qty > 0 THEN
+      UPDATE public.gift_basket_variants SET stock_qty = stock_qty + r.qty WHERE id = r.variant_id;
+      INSERT INTO public.gift_stock_log (variant_id, delta, reason, order_id, created_by)
+      VALUES (r.variant_id, r.qty, 'restock_after_cancel', o.id, auth.uid());
+      v_units := v_units + r.qty;
+    END IF;
+  END LOOP;
+
+  UPDATE public.gift_orders SET restocked_at = now() WHERE id = o.id;
+  RETURN jsonb_build_object('restocked', v_units > 0, 'units', v_units, 'already', false);
 END $$;
 
 -- ── Öffentlicher Katalog (nur aktive Körbe/Varianten, keine Interna) ───────
@@ -217,9 +380,10 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
       'variants', COALESCE((
         SELECT jsonb_agg(jsonb_build_object(
           'id', v.id, 'key', v.key, 'label_de', v.label_de, 'label_en', v.label_en, 'image_url', v.image_url,
-          'available', greatest(v.stock_qty - COALESCE((
+          'unlimited', v.stock_unlimited,
+          'available', CASE WHEN v.stock_unlimited THEN NULL ELSE greatest(v.stock_qty - COALESCE((
               SELECT sum(h.qty) FROM public.gift_stock_holds h
-               WHERE h.variant_id = v.id AND h.status = 'held' AND h.expires_at > now()), 0), 0),
+               WHERE h.variant_id = v.id AND h.status = 'held' AND h.expires_at > now()), 0), 0) END,
           'net_content', v.net_content, 'abv_percent', v.abv_percent, 'bottler', v.bottler,
           'origin', v.origin, 'contains_sulfites', v.contains_sulfites,
           'lmiv_complete', (v.lmiv_verified_at IS NOT NULL)
@@ -264,7 +428,11 @@ REVOKE ALL ON FUNCTION public.gift_sweep_expired_holds() FROM PUBLIC, anon, auth
 REVOKE ALL ON FUNCTION public.gift_reserve_stock(uuid, jsonb, timestamptz) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.gift_consume_stock(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.gift_release_stock(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.gift_open_counts(text, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.gift_confirm_reservation(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.gift_sweep_expired_holds() TO service_role;
+GRANT EXECUTE ON FUNCTION public.gift_open_counts(text, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.gift_confirm_reservation(text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.gift_reserve_stock(uuid, jsonb, timestamptz) TO service_role;
 GRANT EXECUTE ON FUNCTION public.gift_consume_stock(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.gift_release_stock(uuid) TO service_role;
@@ -273,6 +441,10 @@ REVOKE ALL ON FUNCTION public.gift_adjust_stock(uuid, integer, text, uuid) FROM 
 GRANT EXECUTE ON FUNCTION public.gift_adjust_stock(uuid, integer, text, uuid) TO authenticated, service_role;
 REVOKE ALL ON FUNCTION public.gift_admin_set_status(uuid, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.gift_admin_set_status(uuid, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.gift_set_stock_mode(uuid, text, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.gift_set_stock_mode(uuid, text, integer) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.gift_restock_order(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.gift_restock_order(uuid) TO authenticated;
 
 REVOKE ALL ON FUNCTION public.gift_public_catalog() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.gift_public_settings() FROM PUBLIC;
@@ -280,17 +452,34 @@ GRANT EXECUTE ON FUNCTION public.gift_public_catalog() TO anon, authenticated, s
 GRANT EXECUTE ON FUNCTION public.gift_public_settings() TO anon, authenticated, service_role;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- VORBEREITUNG (auskommentiert, wie purge-retention): Sweep abgelaufener Holds per pg_cron.
--- Ohne Cron werden Holds trotzdem bei jedem Reserve-Aufruf und im Katalog (expires_at > now())
--- korrekt ignoriert; der Cron löst nur das Verfallen der Bestellung + die Kundenmail
--- ("Reservierung abgelaufen") über die Edge Function gift-expire-reservations aus.
--- Aktivieren erst nach Freigabe, Service-Key als Vault-Secret 'gift_expire_cron_service_key':
---
--- select cron.schedule('gift-expire-reservations', '*/10 * * * *', $$
---   select net.http_post(
---     url := 'https://sovlfqncotxcjqseeawp.supabase.co/functions/v1/gift-expire-reservations',
---     headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer ' ||
---       (select decrypted_secret from vault.decrypted_secrets where name = 'gift_expire_cron_service_key')),
---     body := '{}'::jsonb);
--- $$);
+-- Cron (aktiv): Ablauf-Sweep. Muster wie 20260416192913 (pg_cron + pg_net, idempotent: erst unschedule).
+--  1) gift-sweep-holds (alle 5 Min, reines SQL, braucht KEIN Secret): gibt abgelaufene Holds/Bestellungen frei
+--     (unbestätigte Reservierungen nach 30 Min, nicht abgeholte nach Ladenschluss, nicht bezahlte Checkouts).
+--     Der Bestand wird zusätzlich schon jetzt korrekt gezählt (expires_at > now() im Katalog/Reserve), und create-gift-order
+--     ruft den Sweep lazy vor jeder Bestellung auf; der Cron sorgt dafür, dass Status/Admin-Liste aktuell bleiben.
+--  2) gift-expire-reservations (alle 10 Min, Edge Function): "Reservierung abgelaufen"-Mail, Wiederholung fehlgeschlagener
+--     Bestätigungsmails/Rechnungen (max. 3 Versuche, danach Betreiber-Alarm). Aufruf mit Header x-gift-cron-secret.
+--     EINMALIG nötig: Vault-Secret 'gift_cron_secret' anlegen (select vault.create_secret('<zufälliger Wert>', 'gift_cron_secret'))
+--     und denselben Wert als Function-Secret GIFT_CRON_SECRET setzen. Ohne Secret antwortet die Function 401 (Job 1 läuft trotzdem).
 -- ═══════════════════════════════════════════════════════════════════════════
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+DO $$
+DECLARE j bigint;
+BEGIN
+  FOR j IN SELECT jobid FROM cron.job WHERE jobname IN ('gift-sweep-holds', 'gift-expire-reservations') LOOP
+    PERFORM cron.unschedule(j);
+  END LOOP;
+END $$;
+
+SELECT cron.schedule('gift-sweep-holds', '*/5 * * * *', $cron$ SELECT public.gift_sweep_expired_holds(); $cron$);
+
+SELECT cron.schedule('gift-expire-reservations', '*/10 * * * *', $cron$
+  SELECT net.http_post(
+    url := 'https://sovlfqncotxcjqseeawp.supabase.co/functions/v1/gift-expire-reservations',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-gift-cron-secret', COALESCE((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'gift_cron_secret'), '')),
+    body := '{}'::jsonb);
+$cron$);
