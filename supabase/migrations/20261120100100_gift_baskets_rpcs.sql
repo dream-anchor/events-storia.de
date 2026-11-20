@@ -458,10 +458,34 @@ GRANT EXECUTE ON FUNCTION public.gift_public_settings() TO anon, authenticated, 
 --     Der Bestand wird zusätzlich schon jetzt korrekt gezählt (expires_at > now() im Katalog/Reserve), und create-gift-order
 --     ruft den Sweep lazy vor jeder Bestellung auf; der Cron sorgt dafür, dass Status/Admin-Liste aktuell bleiben.
 --  2) gift-expire-reservations (alle 10 Min, Edge Function): "Reservierung abgelaufen"-Mail, Wiederholung fehlgeschlagener
---     Bestätigungsmails/Rechnungen (max. 3 Versuche, danach Betreiber-Alarm). Aufruf mit Header x-gift-cron-secret.
---     EINMALIG nötig: Vault-Secret 'gift_cron_secret' anlegen (select vault.create_secret('<zufälliger Wert>', 'gift_cron_secret'))
---     und denselben Wert als Function-Secret GIFT_CRON_SECRET setzen. Ohne Secret antwortet die Function 401 (Job 1 läuft trotzdem).
+--     Bestätigungsmails/Rechnungen (max. 3 Versuche, danach Betreiber-Alarm). Aufruf OHNE Secret (Lovable darf keine
+--     Migrationen mit Secret-Zugriff einspielen). Die Function ist idempotent, Wiederholungen sind je Bestellung auf 3
+--     begrenzt, und ohne Service-Role-Key läuft sie höchstens alle 4 Minuten (gift_claim_cron_run).
 -- ═══════════════════════════════════════════════════════════════════════════
+-- Drossel für den Ablauf-Sweep (Aufrufe ohne Service-Role-Key, z. B. pg_cron): höchstens ein Lauf je p_min_seconds.
+CREATE TABLE IF NOT EXISTS public.gift_cron_runs (
+  name text PRIMARY KEY,
+  last_run_at timestamptz NOT NULL
+);
+ALTER TABLE public.gift_cron_runs ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.gift_claim_cron_run(p_name text, p_min_seconds integer)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE v_claimed boolean;
+BEGIN
+  INSERT INTO public.gift_cron_runs (name, last_run_at) VALUES (p_name, now())
+  ON CONFLICT (name) DO UPDATE SET last_run_at = now()
+    WHERE public.gift_cron_runs.last_run_at < now() - make_interval(secs => p_min_seconds)
+  RETURNING true INTO v_claimed;
+  RETURN COALESCE(v_claimed, false);
+END $fn$;
+REVOKE ALL ON FUNCTION public.gift_claim_cron_run(text, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.gift_claim_cron_run(text, integer) TO service_role;
+
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
@@ -478,8 +502,6 @@ SELECT cron.schedule('gift-sweep-holds', '*/5 * * * *', $cron$ SELECT public.gif
 SELECT cron.schedule('gift-expire-reservations', '*/10 * * * *', $cron$
   SELECT net.http_post(
     url := 'https://sovlfqncotxcjqseeawp.supabase.co/functions/v1/gift-expire-reservations',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-gift-cron-secret', COALESCE((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'gift_cron_secret'), '')),
+    headers := '{"Content-Type": "application/json"}'::jsonb,
     body := '{}'::jsonb);
 $cron$);

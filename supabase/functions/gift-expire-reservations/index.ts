@@ -5,7 +5,9 @@
 //  3. Wiederholung fehlgeschlagener Mails und Rechnungen, je Bestellung max. 3 Versuche (mail_attempts / invoice_attempts),
 //     danach Betreiber-Alarm: Bestätigungslink-Mail (neuer Token), Bestell-/Reservierungsbestätigung, LexOffice-Rechnung
 //     (verwaiste `pending:<ms>`-Ansprüche älter 10 Min werden übernommen, siehe ensureGiftInvoice).
-// Aufruf: Header `x-gift-cron-secret` = Function-Secret GIFT_CRON_SECRET (pg_cron liest es aus dem Vault) oder Bearer Service-Role-Key.
+// Aufruf: pg_cron ohne Secret (Lovable darf keine Migrationen mit Vault-Zugriff einspielen). Ohne Service-Role-Key bzw.
+// optionales GIFT_CRON_SECRET läuft der Sweep höchstens alle 4 Minuten (gift_claim_cron_run); er ist idempotent und
+// Wiederholungen sind je Bestellung auf 3 begrenzt, ein fremder Aufruf kann also nichts Zusätzliches auslösen.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { sendGiftMails } from "../_shared/giftMail.ts";
@@ -30,12 +32,16 @@ serve(async (req) => {
   const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const cronSecret = Deno.env.get("GIFT_CRON_SECRET") ?? "";
-  // verify_jwt = false (Cron hat keinen Nutzer-JWT) -> nur Cron-Secret oder Service-Role-Key dürfen aufrufen
-  const okSecret = safeEqual(req.headers.get("x-gift-cron-secret") ?? "", cronSecret);
+  // verify_jwt = false (Cron hat keinen Nutzer-JWT). Mit Cron-Secret oder Service-Role-Key sofort, sonst gedrosselt.
+  const okSecret = cronSecret !== "" && safeEqual(req.headers.get("x-gift-cron-secret") ?? "", cronSecret);
   const okBearer = safeEqual(req.headers.get("Authorization") ?? "", `Bearer ${serviceKey}`);
-  if (!okSecret && !okBearer) return json({ error: "unauthorized" }, 401);
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey, { auth: { persistSession: false } });
+  if (!okSecret && !okBearer) {
+    const { data: claimed, error: claimErr } = await supabase.rpc("gift_claim_cron_run", { p_name: "gift-expire-reservations", p_min_seconds: 240 });
+    if (claimErr) return json({ error: "claim_failed" }, 500);
+    if (claimed !== true) return json({ skipped: "too_soon" }, 429);
+  }
   const stats = { expired: 0, expiry_mails: 0, mail_retries: 0, optin_retries: 0, invoice_retries: 0, alerts: 0 };
   const errors: string[] = [];
   const step = async (name: string, fn: () => Promise<void>) => {
