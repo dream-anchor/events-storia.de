@@ -41,6 +41,8 @@ const Anfrage = lazy(() => import("./pages/Anfrage"));
 const Restzahlung = lazy(() => import("./pages/Restzahlung"));
 const Gutschein = lazy(() => import("./pages/Gutschein"));
 const GutscheinDanke = lazy(() => import("./pages/GutscheinDanke"));
+const GiftOrder = lazy(() => import("./pages/GiftOrder"));
+const GiftThanks = lazy(() => import("./pages/GiftThanks"));
 const Danke = lazy(() => import("./pages/Danke"));
 
 // Legal Pages (lazy)
@@ -202,6 +204,14 @@ const App = () => {
                     <Route path="/gutschein/danke" element={<GutscheinDanke />} />
                     <Route path="/en/voucher" element={<Gutschein />} />
                     <Route path="/en/voucher/thanks" element={<GutscheinDanke />} />
+
+                    {/* Geschenkkorb-Shop (noindex; Landingpage liegt auf ristorantestoria.de) */}
+                    <Route path="/geschenkkoerbe" element={<GiftOrder />} />
+                    <Route path="/geschenkkoerbe/bestellung" element={<GiftOrder />} />
+                    <Route path="/geschenkkoerbe/danke" element={<GiftThanks />} />
+                    <Route path="/en/geschenkkoerbe" element={<GiftOrder />} />
+                    <Route path="/en/geschenkkoerbe/bestellung" element={<GiftOrder />} />
+                    <Route path="/en/geschenkkoerbe/danke" element={<GiftThanks />} />
 
                     {/* Legal */}
                     <Route path="/impressum" element={<Impressum />} />

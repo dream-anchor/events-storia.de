@@ -123,6 +123,11 @@ serve(async (req) => {
 
     const input = parseInput(await req.json().catch(() => ({})));
     const now = new Date();
+    // Testbestellung: Stripe-Testschlüssel ODER ausdrücklich angefordert UND interne Adresse (Mails gehen dann an die Testadresse,
+    // keine LexOffice-Rechnung). Ein Kunde kann sich so nicht selbst "testen", um Rechnung/Mails zu umgehen.
+    const isTest =
+      (Deno.env.get("STRIPE_SECRET_KEY") ?? "").startsWith("sk_test_") ||
+      (input.test && /@(monot\.com|events-storia\.de|ristorantestoria\.de)$/i.test(input.customer.email));
 
     // ── 1) Katalog aus der DB (nie aus dem Client) ───────────────────────────
     const { data: variants, error: vErr } = await supabase
@@ -208,7 +213,7 @@ serve(async (req) => {
         agb_accepted_at: now.toISOString(),
         agb_version: GIFT_AGB_VERSION,
         language: input.language,
-        is_test: input.test,
+        is_test: isTest,
       })
       .select("id, order_number")
       .single();

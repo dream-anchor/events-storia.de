@@ -8,6 +8,13 @@
 /** Wird beim Bestellen gespeichert (gift_orders.agb_version). Beim Livegang auf die freigegebene AGB-Version setzen. */
 export const GIFT_AGB_VERSION = "agb-2026-10+geschenkkoerbe-ENTWURF";
 
+/**
+ * Gate für den Livegang: solange false, zeigt die Bestellseite einen deutlichen internen Hinweis
+ * "Rechtstexte nicht freigegeben". Erst auf true setzen, wenn AGB-Teil Geschenkkörbe, Widerruf und
+ * Datenschutz-Ergänzung anwaltlich geprüft und live sind (Bauplan Einheit S5).
+ */
+export const GIFT_LEGAL_APPROVED = false;
+
 export type Lang = "de" | "en";
 
 export const GIFT_TEXTS = {
