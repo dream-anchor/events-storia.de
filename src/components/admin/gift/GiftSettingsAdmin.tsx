@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Json, Tables } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -117,7 +117,7 @@ function SettingsCard({ settings, onChanged }: { settings: Settings; onChanged: 
     const { error } = await supabase.from("gift_settings").update({
       tariff_tiers: newTiers, min_fee_cents: euroToCents(minFee), round_up_to_cents: euroToCents(roundUp),
       pickup_lead_minutes: Number.parseInt(pickupLead, 10), delivery_lead_days: Number.parseInt(deliveryLead, 10),
-      hold_minutes: Number.parseInt(holdMinutes, 10), order_notify_email: notify.trim(), pickup_hours: cleanHours, delivery_windows: windows,
+      hold_minutes: Number.parseInt(holdMinutes, 10), order_notify_email: notify.trim(), pickup_hours: cleanHours, delivery_windows: windows as unknown as Json,
     }).eq("id", 1);
     if (error) { toast.error("Speichern fehlgeschlagen", { description: error.message }); return; }
     toast.success("Einstellungen gespeichert");
