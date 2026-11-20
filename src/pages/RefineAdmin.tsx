@@ -6,6 +6,7 @@ import { supabaseAuthProvider } from "@/providers/refine-auth-provider";
 import { Dashboard, EventsList, OrdersList, MenuItemsList, PackagesList, PackageEdit, LocationEdit, EventBookingsList, EventBookingEditor, Settings, ConversionDashboard } from "@/components/admin/refine";
 import { LexOfficeInvoicesList } from "@/components/admin/refine/LexOfficeInvoicesList";
 import { VouchersList } from "@/components/admin/refine/VouchersList";
+import { GiftBasketsAdmin } from "@/components/admin/refine/GiftBasketsAdmin";
 import { CateringOrderEditor } from "@/components/admin/refine/CateringOrderEditor";
 import { SmartInquiryEditor } from "@/components/admin/refine/InquiryEditor";
 import { OfferSendPreview } from "@/components/admin/refine/InquiryEditor/OfferSendPreview";
@@ -137,6 +138,7 @@ export const RefineAdminApp = () => {
         <Route path="gutscheine">
           <Route index element={<VouchersList />} />
         </Route>
+        <Route path="geschenkkoerbe" element={<GiftBasketsAdmin />} />
         <Route path="menu">
           <Route index element={<MenuItemsList />} />
         </Route>
