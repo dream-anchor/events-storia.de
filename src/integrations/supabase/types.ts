@@ -2644,6 +2644,21 @@ export type Database = {
         }
         Relationships: []
       }
+      gift_cron_runs: {
+        Row: {
+          last_run_at: string
+          name: string
+        }
+        Insert: {
+          last_run_at: string
+          name: string
+        }
+        Update: {
+          last_run_at?: string
+          name?: string
+        }
+        Relationships: []
+      }
       gift_order_items: {
         Row: {
           basket_id: string
@@ -7955,6 +7970,51 @@ export type Database = {
       }
       get_public_offer: { Args: { offer_id: string }; Returns: Json }
       get_public_offer_by_slug: { Args: { slug: string }; Returns: Json }
+      gift_adjust_stock: {
+        Args: {
+          p_delta: number
+          p_order_id?: string
+          p_reason?: string
+          p_variant_id: string
+        }
+        Returns: number
+      }
+      gift_admin_set_status: {
+        Args: { p_order_id: string; p_status: string }
+        Returns: Json
+      }
+      gift_claim_cron_run: {
+        Args: { p_min_seconds: number; p_name: string }
+        Returns: boolean
+      }
+      gift_confirm_reservation: {
+        Args: { p_token_hash: string }
+        Returns: Json
+      }
+      gift_consume_stock: { Args: { p_order_id: string }; Returns: Json }
+      gift_open_counts: {
+        Args: { p_email: string; p_ip_hash: string; p_payment_method: string }
+        Returns: Json
+      }
+      gift_public_catalog: { Args: never; Returns: Json }
+      gift_public_settings: { Args: never; Returns: Json }
+      gift_release_stock: { Args: { p_order_id: string }; Returns: number }
+      gift_reserve_stock: {
+        Args: { p_expires_at: string; p_items: Json; p_order_id: string }
+        Returns: undefined
+      }
+      gift_restock_order: { Args: { p_order_id: string }; Returns: Json }
+      gift_set_stock_mode: {
+        Args: { p_mode: string; p_qty?: number; p_variant_id: string }
+        Returns: Json
+      }
+      gift_sweep_expired_holds: {
+        Args: never
+        Returns: {
+          order_id: string
+          payment_method: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

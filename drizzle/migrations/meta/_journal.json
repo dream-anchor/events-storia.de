@@ -8,6 +8,20 @@
       "when": 1795215474079,
       "tag": "0000_gift_baskets_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795215962660,
+      "tag": "0001_gift_baskets_rpcs",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795216057025,
+      "tag": "0002_gift_baskets_seed",
+      "breakpoints": true
     }
   ]
 }
