@@ -2,14 +2,14 @@
 
 Stand: 20.11.2026 · Status: **Entwurf zur Prüfung durch den Anwalt (Antoine klärt den Wortlaut, Entscheidungen 20.11.2026 Punkt 8 + 9).**
 Nichts davon ist in `src/content/agb-2026-10.json`, `Widerrufsbelehrung.tsx` oder die Shop-Seiten eingebaut. Der Shop zeigt bis zur
-Freigabe einen internen Hinweis (`GIFT_LEGAL_APPROVED = false` in `supabase/functions/_shared/giftLegal.ts`). Die kurzen Hinweistexte im Shop
+Freigabe keine Bestellungen (Server-Env `GIFT_LEGAL_APPROVED`, Status ans Frontend über die Function `gift-shop-config`). Die kurzen Hinweistexte im Shop
 und in den Mails stehen ebenfalls dort (an einer Stelle) und sind dieselben wie unten in § 24e/§ 24f.
 
 **Livegang des Geschenkkorb-Shops erst mit: (1) vollständigen LMIV-Angaben (Etikettenfotos von Antoine), (2) freigegebenen Rechtstexten
 (dieser Entwurf nach Anwaltsprüfung), (3) Steuer-Aufteilung 7 %/19 % vom Steuerberater, (4) bestätigten Abholzeiten/Ladenschluss.**
 
-## Entscheidung Antoine (20.11.2026, Punkt 9)
-Widerruf **nur bis zur Abholung bzw. Übergabe**, danach keine Rücknahme. So im AGB-Teil (Entwurf) und auf der Bestellseite umgesetzt.
+## Entscheidung Antoine (20.11.2026, ersetzt Punkt 9)
+Bei Geschenkkörben gilt das **gesetzliche Widerrufsrecht (14 Tage ab Erhalt der Ware)**; der Kunde trägt die Rücksendekosten; ausgenommen sind **geöffnete versiegelte Lebensmittel** (§ 312g Abs. 2 Nr. 3 BGB). Kurzhinweis im Shop und in den Mails mit Link auf Widerrufsbelehrung und AGB § 41; es gibt keine Checkbox „Verzicht auf Widerruf“. (Die früher vorgesehene Fassung „Widerruf nur bis Abholung“ ist entfallen; Risiko 1 unten ist damit im Kern erledigt.)
 
 ## Rechtliche Risiken, die der Anwalt klären muss (nicht von uns entscheidbar)
 1. **Beginn der Widerrufsfrist (§ 356 Abs. 2 Nr. 1 BGB):** Bei Warenlieferung beginnt die Frist erst mit Erhalt der Ware und läuft 14 Tage danach.
@@ -17,8 +17,7 @@ Widerruf **nur bis zur Abholung bzw. Übergabe**, danach keine Rücknahme. So im
    gesetzlicher Ausschlussgrund greift (§ 312g Abs. 2 BGB). Zu prüfen: Nr. 2 (schnell verderbliche Waren / rasch überschrittenes Verfallsdatum —
    gilt für haltbare Körbe voraussichtlich nicht für alle Bestandteile), Nr. 3 (versiegelte Waren, die aus Gründen des Gesundheitsschutzes/der
    Hygiene nicht zur Rückgabe geeignet sind, wenn die Versiegelung nach der Lieferung entfernt wurde — Lebensmittel), Nr. 1 (nach Kundenspezifikation
-   angefertigt — nur bei individualisierter Zusammenstellung). Möglicher Weg: Widerruf bis Abholung/Übergabe uneingeschränkt, danach nur für
-   unversehrte, nicht geöffnete Teile, oder gesetzliche Belehrung mit klarer Hinweisformulierung zu den Ausschlussgründen.
+   angefertigt — nur bei individualisierter Zusammenstellung). Möglicher Weg: (Entschieden 20.11.2026: gesetzliches Widerrufsrecht mit Ausschluss geöffneter versiegelter Lebensmittel, siehe oben.)
 2. **Abholung im Geschäft:** Wird bei Abholung vor Ort übergeben, ist die Frage, ob überhaupt ein Fernabsatzvertrag mit Widerrufsrecht für die
    Zeit nach Übergabe besteht (Vertragsschluss online = Fernabsatz, Übergabe vor Ort ändert das nicht automatisch).
 3. **Alkohol/Jugendschutz (§ 9 JuSchG):** Abgabe von Wein/Crémant ab 16. Altersprüfung bei Übergabe vertraglich regeln; reine Checkbox reicht bei
@@ -51,7 +50,7 @@ wenn STORIA die Bestellung per E-Mail bestätigt (Bestellbestätigung in Textfor
 ### § 24c Preise, Lieferpreis
 (1) Alle Preise sind Endpreise in Euro inklusive gesetzlicher Umsatzsteuer.
 (2) Lieferung erfolgt gegen eine Liefergebühr nach Entfernung (einfache Straßenstrecke ab Karlstraße 47a): erste 7 km je 2,70 €, jeder weitere Kilometer 2,50 €,
-mindestens 5,90 €, aufgerundet auf volle Euro. Vor Abgabe der Bestellung wird der voraussichtliche Preis angezeigt; der verbindliche Gesamtpreis wird bei der Bestellung
+mindestens 5,90 €, exakt auf den Cent berechnet (kein Aufrunden). Vor Abgabe der Bestellung wird der voraussichtliche Preis angezeigt; der verbindliche Gesamtpreis wird bei der Bestellung
 berechnet und vor Zahlung angezeigt.
 (3) Abholung in der Karlstraße 47a ist kostenfrei.
 
@@ -67,11 +66,11 @@ gewählten Zeitfenster; ein Anspruch auf eine bestimmte Uhrzeit besteht nicht. S
 die Übergabe wegen fehlender Altersberechtigung nicht erfolgen, gilt die Lieferung als gescheitert; § 24g Abs. 3 gilt entsprechend.
 (3) Wird bei Lieferung niemand angetroffen, versucht STORIA die Übergabe nach Absprache erneut; Mehrkosten trägt der Kunde, wenn er die Nichtübergabe zu vertreten hat.
 
-### § 24f Widerruf (Entwurf nach Entscheidung 20.11.2026 — Anwaltsprüfung erforderlich)
-**Variante laut Antoine:** Der Kunde kann seine Bestellung **nur bis zur Abholung bzw. Übergabe** des Geschenkkorbs widerrufen. Nach Abholung bzw. Übergabe ist eine Rücknahme
-ausgeschlossen.
-*Hinweis für den Anwalt:* siehe Risiko 1. Eine tragfähige Fassung braucht entweder einen gesetzlichen Ausschlussgrund oder eine Widerrufsbelehrung mit 14-Tage-Frist ab Erhalt für
-nicht ausgeschlossene Bestandteile.
+### § 24f Widerruf (Entwurf nach Entscheidung 20.11.2026 — Anwaltsprüfung erforderlich; maßgeblich die AGB 2026-11, § 41)
+(1) Es gilt das gesetzliche Widerrufsrecht: Der Kunde kann den Vertrag innerhalb von 14 Tagen ab Erhalt der Ware (Abholung bzw. Lieferung) ohne Angabe von Gründen widerrufen.
+(2) Die unmittelbaren Kosten der Rücksendung trägt der Kunde.
+(3) Das Widerrufsrecht besteht nicht bei versiegelten Waren, die aus Gründen des Gesundheitsschutzes oder der Hygiene nicht zur Rückgabe geeignet sind, wenn ihre Versiegelung nach der Lieferung entfernt wurde (§ 312g Abs. 2 Nr. 3 BGB), also nicht für geöffnete versiegelte Lebensmittel.
+(4) Einzelheiten, Muster-Widerrufsformular und Rückzahlung: Widerrufsbelehrung.
 
 ### § 24g Stornierung, Mängel
 (1) Stornierung durch den Kunden vor Zahlung/Abholung ist kostenfrei (siehe § 24f); für bereits gezahlte Bestellungen erstattet STORIA über Stripe.

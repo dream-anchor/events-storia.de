@@ -99,7 +99,7 @@ function optinMail(o: OrderRow, items: ItemRow[], confirmUrl: string): { subject
 function customerMail(kind: GiftMailKind, o: OrderRow, items: ItemRow[], windows: DeliveryWindow[]): { subject: string; html: string } {
   const lang = o.language;
   const de = lang === "de";
-  const links = `<p style="font-size:13px"><a href="${SITE}/agb/">${de ? "AGB" : "Terms"}</a> · <a href="${SITE}/widerrufsbelehrung/">${de ? "Widerrufsbelehrung" : "Withdrawal information"}</a></p>`;
+  const links = `<p style="font-size:13px"><a href="${SITE}${de ? "/agb/" : "/en/terms/"}">${de ? "AGB" : "Terms"}</a> · <a href="${SITE}${de ? "/widerrufsbelehrung/" : "/en/cancellation-policy/"}">${de ? "Widerrufsbelehrung" : "Withdrawal information"}</a></p>`;
   const common = `${itemsTable(items, o, lang)}
     <p><b>${de ? "Übergabe" : "Handover"}:</b> ${handoverText(o, lang, windows)}</p>
     ${o.gift_message ? `<p><b>${de ? "Grußkarte" : "Gift card message"}:</b><br>${esc(o.gift_message).replace(/\n/g, "<br>")}</p>` : ""}

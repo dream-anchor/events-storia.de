@@ -18,8 +18,8 @@ export type Lang = "de" | "en";
 
 export const GIFT_TEXTS = {
   withdrawal: {
-    de: "Widerruf: Sie können Ihre Bestellung nur bis zur Abholung bzw. Übergabe des Geschenkkorbs widerrufen. Nach der Abholung bzw. Übergabe ist eine Rücknahme ausgeschlossen.",
-    en: "Withdrawal: You may withdraw your order only until the gift basket has been collected or handed over. Once collected or handed over, returns are excluded.",
+    de: "Widerruf: Es gilt das gesetzliche Widerrufsrecht (14 Tage ab Erhalt der Ware); die Rücksendekosten trägt der Kunde. Ausgenommen sind geöffnete versiegelte Lebensmittel (§ 312g Abs. 2 Nr. 3 BGB). Einzelheiten in der Widerrufsbelehrung und in § 41 der AGB.",
+    en: "Withdrawal: The statutory right of withdrawal applies (14 days from receipt of the goods); the customer bears the cost of returning them. Opened sealed food is excluded (Section 312g (2) no. 3 German Civil Code). Details in the withdrawal information and in Section 41 of the Terms.",
   },
   age: {
     de: "Wein und Crémant werden nur an Personen ab 16 Jahren abgegeben. Die Übergabe (Abholung und Lieferung) erfolgt nur an Personen ab 16 Jahren; bei Zweifeln bitten wir um einen Altersnachweis.",
