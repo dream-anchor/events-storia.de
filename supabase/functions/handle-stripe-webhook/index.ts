@@ -5,6 +5,9 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
 import { sendEmailWithFallback } from '../_shared/email-sender.ts';
 import { buildVoucherPdf, generateVoucherCode } from '../_shared/voucher-pdf.ts';
+import { isGiftSessionMetadata } from '../_shared/giftWebhook.ts';
+import { sendGiftMails } from '../_shared/giftMail.ts';
+import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
 import {
   buildOrderPayload,
   enqueueMaestroHandoff,
@@ -107,8 +110,13 @@ serve(async (req) => {
       await handleChargeDisputeCreated(supabase, dispute);
       await maestroEnqueueDispute(supabase, dispute, event.id);
     } else if (event.type === "checkout.session.expired") {
-      logStep("Checkout session expired", { sessionId: (event.data.object as Stripe.Checkout.Session).id });
-      // Could update order status to 'expired' here if needed
+      const expiredSession = event.data.object as Stripe.Checkout.Session;
+      logStep("Checkout session expired", { sessionId: expiredSession.id });
+      if (isGiftSessionMetadata(expiredSession.metadata)) {
+        // Geschenkkorb: Bestand-Hold freigeben, Bestellung verfallen lassen
+        await handleGiftSessionEnded(supabase, expiredSession, "expired");
+      }
+      // Alle anderen Bestellarten: unverändert (nur Log)
     } else {
       logStep("Unhandled event type", { type: event.type });
     }
@@ -123,7 +131,8 @@ serve(async (req) => {
     // P2: Bei transienten Fehlern (Timeouts, 5xx bei LexOffice/DB) → 500 zurück,
     // damit Stripe automatisch retryen kann. Bei permanenten/logischen Fehlern
     // → 200, damit keine Endlos-Retries entstehen.
-    const transient = /timeout|timed out|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN|fetch failed|network|503|502|504|too many connections|deadlock/i.test(msg);
+    // Geschenkkorb-Verarbeitungsfehler (DB/RPC) immer 500: Stripe wiederholt, die Verarbeitung ist idempotent
+    const transient = error instanceof GiftRetryError || /timeout|timed out|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN|fetch failed|network|503|502|504|too many connections|deadlock/i.test(msg);
     return new Response(JSON.stringify({ received: !transient, error: msg }), {
       status: transient ? 500 : 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -173,6 +182,9 @@ async function processCheckoutPaid(
   if (orderType === "catering" && orderNumber) {
     // ━━━ CATERING ORDER PAYMENT ━━━
     await handleCateringPayment(supabase, session, orderNumber, metadata);
+  } else if (isGiftSessionMetadata(metadata)) {
+    // ━━━ GESCHENKKORB-SHOP (order_type=gift_basket) ━━━
+    await handleGiftPayment(supabase, session, metadata);
   } else if (metadata.option_id && metadata.inquiry_id) {
     // ━━━ EVENT OFFER PAYMENT ━━━
     await handleEventOfferPayment(supabase, stripe, session, metadata);
@@ -199,6 +211,151 @@ async function processCheckoutPaid(
   }
 
   return { skippedUnpaid: false };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GESCHENKKORB-SHOP: Zahlung / Verfall (Tabellen gift_*, Edge Function create-gift-order)
+//
+// Idempotent: Status 'paid' wird nicht erneut verarbeitet, Mails/Rechnung haben eigene Marker
+// (confirmation_sent_at, lexoffice_invoice_id), sodass Stripe-Wiederholungen nichts doppeln.
+// Maestro-Handoff läuft unverändert über maestroEnqueuePayment (metadata.order_number = GK-…).
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/** Fehler bei der Verarbeitung einer Geschenkkorb-Zahlung/-Session: Webhook antwortet 500, damit Stripe erneut zustellt. */
+class GiftRetryError extends Error {}
+
+async function handleGiftPayment(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  session: Stripe.Checkout.Session,
+  metadata: Record<string, string>,
+) {
+  const giftOrderId = metadata.gift_order_id;
+  logStep("Processing gift basket payment", { giftOrderId, sessionId: session.id });
+
+  const { data: order, error: fetchErr } = await supabase
+    .from("gift_orders")
+    .select("*")
+    .eq("id", giftOrderId)
+    .maybeSingle();
+  if (fetchErr) throw new GiftRetryError(`gift order lookup failed: ${fetchErr.message}`); // -> HTTP 500, Stripe wiederholt
+  if (!order) {
+    logStep("ERROR: gift order not found", { giftOrderId });
+    await sendOperatorAlert(
+      `Geschenkkorb: Zahlung ohne Bestellung · Session ${session.id}`,
+      `<p>Zahlung eingegangen, aber keine Bestellung <code>${esc(giftOrderId)}</code> gefunden. Bitte prüfen/erstatten.</p>`,
+    );
+    return;
+  }
+
+  const alreadyPaid = ["paid", "ready", "handed_over"].includes(order.status);
+  if (!alreadyPaid) {
+    // Plausibilitätsprüfung VOR jeder Bestätigung: falsche Session oder abweichender Betrag werden nie automatisch als bezahlt gebucht.
+    const problems: string[] = [];
+    if (order.stripe_session_id && order.stripe_session_id !== session.id) {
+      problems.push(`SESSION ABWEICHEND: Stripe ${session.id}, gespeichert ${order.stripe_session_id}`);
+    }
+    if (typeof session.amount_total !== "number" || session.amount_total !== order.total_cents) {
+      problems.push(`BETRAG ABWEICHEND: Stripe ${session.amount_total} ct, Bestellung ${order.total_cents} ct`);
+    }
+    if (problems.length > 0) {
+      const note = [order.internal_note, `${new Date().toISOString()} Zahlung NICHT automatisch bestätigt: ${problems.join("; ")}`].filter(Boolean).join("\n");
+      const { error: noteErr } = await supabase.from("gift_orders").update({ internal_note: note }).eq("id", order.id);
+      if (noteErr) throw new GiftRetryError(`gift order note failed: ${noteErr.message}`);
+      await sendOperatorAlert(
+        `Geschenkkorb ${order.order_number}: Zahlung prüfen (NICHT bestätigt)`,
+        `<p>${problems.map(esc).join("<br>")}</p><p>Bestellung ${esc(order.order_number)} (${esc(order.customer_name)}, ${esc(order.customer_email)}) bleibt unbestätigt, Bestand nicht abgebucht, keine Mail/Rechnung. Bitte in Stripe prüfen und manuell erstatten oder bestätigen.</p>`,
+      );
+      return;
+    }
+
+    const notes: string[] = [];
+    if (order.status === "cancelled" || order.status === "expired") {
+      notes.push(`Zahlung nach Status "${order.status}" eingegangen`);
+    }
+    if (!order.stripe_session_id) {
+      await supabase.from("gift_orders").update({ stripe_session_id: session.id }).eq("id", order.id);
+    }
+
+    // Bestand dekrementieren (idempotent); Fehler -> Exception -> Stripe wiederholt
+    const { data: consume, error: consumeErr } = await supabase.rpc("gift_consume_stock", { p_order_id: order.id });
+    if (consumeErr) throw new GiftRetryError(`gift_consume_stock failed: ${consumeErr.message}`);
+    if (consume?.oversold) notes.push("ÜBERVERKAUF: Ware nicht mehr verfügbar – Kunde kontaktieren oder erstatten");
+
+    const { error: updErr } = await supabase
+      .from("gift_orders")
+      .update({
+        status: "paid",
+        paid_at: new Date().toISOString(),
+        stripe_payment_intent_id: (session.payment_intent as string) || null,
+        internal_note: notes.length ? [order.internal_note, ...notes].filter(Boolean).join("\n") : order.internal_note,
+      })
+      .eq("id", order.id);
+    if (updErr) throw new GiftRetryError(`gift order update failed: ${updErr.message}`);
+    order.internal_note = notes.length ? notes.join("; ") : order.internal_note;
+
+    if (notes.length) {
+      await sendOperatorAlert(
+        `Geschenkkorb ${order.order_number}: Prüfung nötig`,
+        `<p>${notes.map(esc).join("<br>")}</p><p>Bestellung: ${esc(order.order_number)}, Kunde: ${esc(order.customer_name)} (${esc(order.customer_email)})</p>`,
+      );
+    }
+  } else {
+    logStep("Gift order already paid, ensuring mails/invoice only", { orderNumber: order.order_number });
+  }
+
+  // Bestätigungsmail (Kunde + Betrieb) – eigene Idempotenz; Fehler blockiert den Webhook nicht
+  try {
+    await sendGiftMails(supabase, order.id, "paid");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    logStep("Gift confirmation mail failed (non-fatal)", { error: msg });
+    await sendOperatorAlert(`Geschenkkorb ${order.order_number}: Bestätigungsmail fehlgeschlagen`, `<p>${esc(msg)}</p><p>Bitte Kunde manuell informieren.</p>`);
+  }
+
+  // Rechnung (LexOffice), nur echte Bestellungen mit vorhandener Steuer-Aufteilung. Anspruch/Verwaisung/Aufruf: ensureGiftInvoice
+  // (gemeinsam mit dem Ablauf-Sweep, der fehlgeschlagene Rechnungen bis zu 3x wiederholt).
+  if (!order.is_test) {
+    const inv = await ensureGiftInvoice(supabase, order);
+    if (inv.outcome === "created") {
+      logStep("Gift invoice created", { orderNumber: order.order_number });
+    } else if (inv.outcome === "claimed_elsewhere") {
+      logStep("Gift invoice already claimed/created, skipping", { orderNumber: order.order_number });
+    } else if (inv.outcome === "no_vat_split") {
+      await sendOperatorAlert(
+        `Geschenkkorb ${order.order_number}: Rechnung manuell erstellen`,
+        "<p>Keine Steuer-Aufteilung (7 %/19 %) am Korb hinterlegt (Steuerberater). Rechnung wurde NICHT automatisch erzeugt.</p>",
+      );
+    } else {
+      logStep("Gift invoice failed (non-fatal, Sweep wiederholt)", { error: inv.error });
+      await sendOperatorAlert(`Geschenkkorb ${order.order_number}: Rechnung fehlgeschlagen`, `<p>${esc(inv.error)}</p><p>Der Ablauf-Sweep versucht es bis zu 3-mal erneut.</p>`);
+    }
+  }
+}
+
+/** Session abgelaufen / Async-Zahlung fehlgeschlagen: Hold freigeben und offene Bestellung beenden (nie eine bezahlte). */
+async function handleGiftSessionEnded(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  session: Stripe.Checkout.Session,
+  newStatus: "expired" | "cancelled",
+) {
+  const giftOrderId = session.metadata?.gift_order_id;
+  if (!giftOrderId) return;
+  const { data: updated, error } = await supabase
+    .from("gift_orders")
+    .update({ status: newStatus, ...(newStatus === "cancelled" ? { cancelled_at: new Date().toISOString() } : {}) })
+    .eq("id", giftOrderId)
+    .eq("status", "pending")
+    .select("id");
+  if (error) throw new GiftRetryError(`gift order status update failed: ${error.message}`);
+  if (updated && updated.length > 0) {
+    const { error: relErr } = await supabase.rpc("gift_release_stock", { p_order_id: giftOrderId });
+    if (relErr) throw new GiftRetryError(`gift_release_stock failed: ${relErr.message}`);
+    logStep("Gift order ended, stock released", { giftOrderId, newStatus });
+  } else {
+    logStep("Gift order not pending (already paid/ended), nothing to release", { giftOrderId });
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -229,6 +386,12 @@ async function processCheckoutFailed(
   });
 
   const reflected: string[] = [];
+
+  // 0) Geschenkkorb: Hold freigeben, Bestellung stornieren (kein Eintrag in den übrigen Tabellen)
+  if (isGiftSessionMetadata(metadata)) {
+    await handleGiftSessionEnded(supabase, session, "cancelled");
+    reflected.push(`gift_orders:${metadata.gift_order_id}`);
+  }
 
   // 1) v2_payments (Angebot / Multi-Option / Prepayment / Balance) — Enum kennt 'failed'.
   //    Falls für diese Session bereits eine Zeile existiert (i.d.R. wird sie erst
@@ -474,6 +637,23 @@ async function handleChargeRefunded(
     }
   }
 
+  // gift_orders (Geschenkkorb): volle Erstattung -> Status 'refunded' (nur bezahlte/bereite/übergebene Bestellungen),
+  // Teil-Erstattung nur als Notiz. Bestand wird NICHT automatisch zurückgebucht (Admin: "Bestand wieder einbuchen").
+  {
+    const { data: rows } = await supabase
+      .from("gift_orders")
+      .select("id, status, internal_note, order_number")
+      .eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      if (row.status === "refunded") continue; // idempotent
+      const update: Record<string, unknown> = { internal_note: appendNote(row.internal_note, note) };
+      if (fully && ["paid", "ready", "handed_over"].includes(row.status)) update.status = "refunded";
+      const { error: gErr } = await supabase.from("gift_orders").update(update).eq("id", row.id);
+      if (gErr) throw new GiftRetryError(`gift order refund mirror failed: ${gErr.message}`); // -> HTTP 500, Stripe wiederholt
+      reflected.push(`gift_orders:${row.id}`);
+    }
+  }
+
   // TODO(A3): LexOffice-Storno anstoßen. void-lexoffice-invoice existiert, ist
   // aber admin-auth-gated und daher nicht aus dem Webhook (Service-Role) aufrufbar.
   // Optionen: (a) void-lexoffice-invoice um einen service-role-tauglichen,
@@ -553,6 +733,16 @@ async function handleChargeDisputeCreated(
           },
         });
       }
+    }
+  }
+
+  // gift_orders: nur Notiz (Dispute ≠ Verlust, Status bleibt)
+  if (piId) {
+    const { data: rows } = await supabase.from("gift_orders").select("id, internal_note").eq("stripe_payment_intent_id", piId);
+    for (const row of rows ?? []) {
+      const { error: gErr } = await supabase.from("gift_orders").update({ internal_note: appendNote(row.internal_note, note) }).eq("id", row.id);
+      if (gErr) throw new GiftRetryError(`gift order dispute note failed: ${gErr.message}`);
+      reflected.push(`gift_orders:${row.id}`);
     }
   }
 
