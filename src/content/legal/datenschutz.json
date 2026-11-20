@@ -164,7 +164,7 @@
      },
      {
       "type": "p",
-      "text": "Zur Berechnung der Lieferentfernung übermitteln wir die Lieferadresse an den Dienst openrouteservice der Heidelberg Institute for Geoinformation Technology (HeiGIT) gGmbH, Heidelberg."
+      "text": "Zur Berechnung der Lieferentfernung und der Liefergebühr übermitteln wir die Lieferadresse an den Dienst openrouteservice (Abschnitt 29). Für Geschenkkörbe gilt ergänzend Abschnitt 30."
      },
      {
       "type": "p",
@@ -398,7 +398,7 @@
      },
      {
       "type": "p",
-      "text": "Stand: 28. Oktober 2026"
+      "text": "Stand: 20. November 2026"
      }
     ]
    }
@@ -564,6 +564,41 @@
      {
       "type": "p",
       "text": "Fragen zur Anwendung und zum Datenschutz richten Sie bitte an info@ristorantestoria.de. Die Nutzungshinweise für die Anwendung finden Sie unter https://www.events-storia.de/agb/#storia-gbp-sync."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Lieferberechnung und Geschenkkorb-Shop",
+  "sections": [
+   {
+    "title": "29. OpenRouteService (Entfernungsberechnung Lieferung)",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Wählen Sie im Online-Shop von events-storia.de eine Lieferung (Catering, Pizza oder Geschenkkörbe), berechnen wir die Straßenentfernung von unserem Restaurant zur Lieferadresse und daraus die Liefergebühr. Dafür übermitteln wir ausschließlich die Lieferadresse an den Dienst openrouteservice der HeiGIT gGmbH (Heidelberg Institute for Geoinformation Technology), Schloss-Wolfsbrunnenweg 33, 69118 Heidelberg. Die Anfrage stellt unser Server; Ihre IP-Adresse, Ihr Name und Ihre Kontaktdaten werden dabei nicht an HeiGIT übertragen."
+     },
+     {
+      "type": "p",
+      "text": "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO, weil wir die Liefergebühr für Ihre Bestellung nur so ermitteln können. HeiGIT hat seinen Sitz in Deutschland. Nach seiner Datenschutzerklärung speichert HeiGIT Zugriffsdaten in Server-Logfiles und verarbeitet Daten nur so lange, wie es für den jeweiligen Zweck erforderlich ist; eine feste Speicherdauer für Anfragen nennt HeiGIT nicht. Einzelheiten: heigit.org/privacy-policy."
+     }
+    ]
+   },
+   {
+    "title": "30. Geschenkkörbe: Bestellung, Reservierung und Missbrauchsschutz",
+    "blocks": [
+     {
+      "type": "p",
+      "text": "Für Bestellungen von Geschenkkörben verarbeiten wir Name, Kontaktdaten, gegebenenfalls Lieferadresse und Empfänger, den Text einer Grußkarte, Termin, Zahlungsart und Ihre Bestätigung der Altersgrenze (Art. 6 Abs. 1 lit. b DSGVO). Online-Zahlungen wickelt Stripe ab (Abschnitt 11), E-Mails versenden wir nach Abschnitt 14."
+     },
+     {
+      "type": "p",
+      "text": "Reservieren Sie einen Korb mit Zahlung vor Ort, senden wir Ihnen eine E-Mail mit einem Bestätigungslink; erst mit dieser Bestätigung wird die Reservierung verbindlich. Um Scheinreservierungen zu verhindern, begrenzen wir die Zahl offener Reservierungen je E-Mail-Adresse und je Internetanschluss. Dafür speichern wir zu Ihrer Reservierung einen nicht umkehrbaren Hashwert Ihrer IP-Adresse, nicht die IP-Adresse selbst."
+     },
+     {
+      "type": "p",
+      "text": "Rechtsgrundlage für Hashwert und Sicherheitsabfrage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist der Schutz unseres Warenbestands und unserer Dienste vor Missbrauch. Den Hashwert speichern wir nur bis zum Abschluss der Bestellung, also bis zur Abholung oder bis die Reservierung verfällt."
      }
     ]
    }
