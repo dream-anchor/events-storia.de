@@ -292,6 +292,18 @@ async function handleGiftPayment(
 
   // Rechnung (LexOffice), nur echte Bestellungen mit vorhandener Steuer-Aufteilung
   if (!order.lexoffice_invoice_id && !order.is_test) {
+    // Anspruch markieren (gleichzeitige Webhook-Wiederholungen dürfen keine zweite Rechnung erzeugen);
+    // create-lexoffice-invoice überschreibt den Platzhalter mit der echten Dokument-ID.
+    const { data: claim } = await supabase
+      .from("gift_orders")
+      .update({ lexoffice_invoice_id: "pending" })
+      .eq("id", order.id)
+      .is("lexoffice_invoice_id", null)
+      .select("id");
+    if (!claim || claim.length === 0) {
+      logStep("Gift invoice already claimed by another delivery, skipping", { orderNumber: order.order_number });
+      return;
+    }
     try {
       const { data: items } = await supabase
         .from("gift_order_items")
@@ -300,6 +312,7 @@ async function handleGiftPayment(
         .order("created_at");
       const request = buildGiftInvoiceRequest(order, items ?? []);
       if (!request) {
+        await supabase.from("gift_orders").update({ lexoffice_invoice_id: null }).eq("id", order.id).eq("lexoffice_invoice_id", "pending");
         await sendOperatorAlert(
           `Geschenkkorb ${order.order_number}: Rechnung manuell erstellen`,
           "<p>Keine Steuer-Aufteilung (7 %/19 %) am Korb hinterlegt (Steuerberater). Rechnung wurde NICHT automatisch erzeugt.</p>",
@@ -311,7 +324,7 @@ async function handleGiftPayment(
           body: JSON.stringify(request),
         });
         const result = await res.json().catch(() => ({}));
-        if (!res.ok || result?.success === false) {
+        if (!res.ok || result?.success === false || result?.skipped) {
           throw new Error(`create-lexoffice-invoice: ${res.status} ${JSON.stringify(result).slice(0, 300)}`);
         }
         logStep("Gift invoice created", { orderNumber: order.order_number });
@@ -319,6 +332,7 @@ async function handleGiftPayment(
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logStep("Gift invoice failed (non-fatal)", { error: msg });
+      await supabase.from("gift_orders").update({ lexoffice_invoice_id: null }).eq("id", order.id).eq("lexoffice_invoice_id", "pending");
       await sendOperatorAlert(`Geschenkkorb ${order.order_number}: Rechnung fehlgeschlagen`, `<p>${esc(msg)}</p>`);
     }
   }
