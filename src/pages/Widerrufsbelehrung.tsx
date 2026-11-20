@@ -85,6 +85,12 @@ const Widerrufsbelehrung = () => {
                 beschriebene 14-tägige Widerrufsrecht zu. Es erlischt nicht bereits mit der Erstellung
                 oder dem Versand des Gutscheins.
               </p>
+              <p className="mt-4">
+                <strong>Geschenkkörbe:</strong> Bestellungen von Geschenkkörben aus unserem Online-Shop
+                können Sie nur bis zur Abholung bzw. Übergabe des Geschenkkorbs widerrufen. Nach der
+                Abholung bzw. Übergabe ist eine Rücknahme ausgeschlossen (§ 41 unserer{" "}
+                <LocalizedLink to="legal.terms" className="text-primary hover:underline">AGB</LocalizedLink>).
+              </p>
             </section>
 
             <section>
@@ -140,7 +146,7 @@ const Widerrufsbelehrung = () => {
 
             <section className="mt-12 pt-8 border-t border-border">
               <p className="text-sm text-muted-foreground">
-                Stand: 28. September 2026
+                Stand: 20. November 2026
               </p>
             </section>
           </div>

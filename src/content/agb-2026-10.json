@@ -17,7 +17,8 @@
         "sub": [
          "Veranstaltungen in unserem Restaurant sowie Catering und Veranstaltungsleistungen an einem Ort des Kunden aufgrund eines individuellen Angebots (Teil B),",
          "Bestellungen über unseren Online-Shop für Catering, Pizza und Lieferung (Teil C),",
-         "Tischreservierungen im Restaurant (Teil D)."
+         "Tischreservierungen im Restaurant (Teil D),",
+         "Bestellungen von Geschenkkörben über unseren Online-Shop (Teil G)."
         ]
        },
        {
@@ -197,7 +198,7 @@
     "blocks": [
      {
       "type": "p",
-      "text": "Verbrauchern steht bei Verträgen über die Lieferung von Speisen und Getränken sowie über Veranstaltungsleistungen, die zu einem bestimmten Termin erbracht werden, kein Widerrufsrecht zu (§ 312g Abs. 2 Nr. 9 BGB, bei schnell verderblichen Speisen zusätzlich Nr. 2). Für Absagen gelten stattdessen § 13 (Veranstaltungen), § 23 (Online-Shop) und § 27 (Reservierungen). Für Gutscheine gilt das Widerrufsrecht nach § 32."
+      "text": "Verbrauchern steht bei Verträgen über die Lieferung von Speisen und Getränken sowie über Veranstaltungsleistungen, die zu einem bestimmten Termin erbracht werden, kein Widerrufsrecht zu (§ 312g Abs. 2 Nr. 9 BGB, bei schnell verderblichen Speisen zusätzlich Nr. 2). Für Absagen gelten stattdessen § 13 (Veranstaltungen), § 23 (Online-Shop) und § 27 (Reservierungen). Für Gutscheine gilt das Widerrufsrecht nach § 32, für Geschenkkörbe abweichend von Satz 1 § 41."
      }
     ]
    },
@@ -408,7 +409,7 @@
     "blocks": [
      {
       "type": "p",
-      "text": "Teil C gilt für Bestellungen über den Online-Shop auf events-storia.de (z. B. Platten, Buffets, Aufläufe, warme Gerichte, Fingerfood, Pizza, Desserts), die wir liefern oder die der Kunde abholt. Für im Shop gebuchte Eventpakete gilt Teil B."
+      "text": "Teil C gilt für Bestellungen über den Online-Shop auf events-storia.de (z. B. Platten, Buffets, Aufläufe, warme Gerichte, Fingerfood, Pizza, Desserts), die wir liefern oder die der Kunde abholt. Für im Shop gebuchte Eventpakete gilt Teil B. Für Geschenkkörbe gilt Teil G."
      }
     ]
    },
@@ -778,7 +779,192 @@
      },
      {
       "type": "p",
-      "text": "Stand: 28. September 2026 · Version AGB-2026-10"
+      "text": "Stand: 20. November 2026 · Version AGB-2026-11"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "title": "Teil G – Online-Shop: Geschenkkörbe",
+  "sections": [
+   {
+    "title": "§ 36 Geltung",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Teil G gilt für Bestellungen von STORIA-Geschenkkörben (z. B. „Dolce Vita“, „Sapori d’Italia“, „Gran Selezione“) über den Online-Shop auf events-storia.de. Ergänzend gelten Teil A und Teil F.",
+        "sub": []
+       },
+       {
+        "text": "Teil C (§§ 18–24) gilt für Geschenkkörbe nicht. Insbesondere gelten die dortigen Regelungen zu Liefergebiet, Mindestbestellwert, Hin- und Rückfahrt, Geschirr und Leihgeräten sowie die Stornierungsstufen nicht.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 37 Angebot, Vorrat und Vertragsschluss",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Abbildungen und Beschreibungen im Shop sind kein Angebot im Rechtssinn. Inhalt und Weinsorte sind je Korb im Shop beschrieben. Wir verkaufen nur, solange der Vorrat reicht; ausverkaufte Körbe oder Weinsorten sind im Shop nicht bestellbar.",
+        "sub": []
+       },
+       {
+        "text": "Der Kunde wählt Korb, Menge, Abholung oder Lieferung, Termin und Zahlungsart und kann alle Angaben vor dem Absenden prüfen und korrigieren.",
+        "sub": []
+       },
+       {
+        "text": "Zahlung online: Mit Klick auf die Schaltfläche „zahlungspflichtig bestellen“ gibt der Kunde ein verbindliches Angebot ab. Der Vertrag kommt mit dem erfolgreichen Zahlungsabschluss und unserer Bestellbestätigung per E-Mail zustande.",
+        "sub": []
+       },
+       {
+        "text": "Zahlung bei Abholung vor Ort: Mit Klick auf die Schaltfläche „verbindlich reservieren“ gibt der Kunde ein Angebot ab. Wir senden ihm daraufhin eine E-Mail mit einem Bestätigungslink. Erst wenn der Kunde die Reservierung über diesen Link bestätigt, wird sie verbindlich und der Vertrag kommt zustande. Ohne diese Bestätigung wird kein Korb für ihn zurückgelegt.",
+        "sub": []
+       },
+       {
+        "text": "Ist ein Korb oder die gewählte Weinsorte bei Eingang der Bestellung nicht mehr vorrätig, kommt kein Vertrag zustande. Wir informieren den Kunden unverzüglich und erstatten bereits geleistete Zahlungen unverzüglich.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 38 Preise und Liefergebühr",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Die Preise der Körbe stehen im Shop. Alle Preise sind Endpreise in Euro einschließlich der gesetzlichen Umsatzsteuer.",
+        "sub": []
+       },
+       {
+        "text": "Für die Lieferung berechnen wir eine Liefergebühr in Anlehnung an den Taxitarif. Maßgeblich ist die einfache Straßenstrecke von der Karlstraße 47a, 80333 München, zur Lieferadresse (ohne Rückfahrt): für die ersten 7 Kilometer 2,70 € je Kilometer, für jeden weiteren Kilometer 2,50 €, mindestens 5,90 €, jeweils einschließlich Umsatzsteuer. Die Gebühr wird aus der ermittelten Entfernung auf den Cent genau berechnet. Ein Entfernungslimit besteht nicht.",
+        "sub": []
+       },
+       {
+        "text": "Vor Abgabe der Bestellung zeigt der Shop die voraussichtliche Liefergebühr an. Den verbindlichen Gesamtpreis berechnen wir bei der Bestellung anhand der Lieferadresse; er wird vor der Zahlung angezeigt.",
+        "sub": []
+       },
+       {
+        "text": "Die Abholung in der Karlstraße 47a, 80333 München, ist kostenfrei.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 39 Zahlung und Reservierung",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Online bezahlt der Kunde per Karte über Stripe (§ 4 Abs. 1). Andere Online-Zahlungsarten wie SEPA-Lastschrift, Klarna oder Kauf auf Rechnung stehen für Geschenkkörbe nicht zur Verfügung.",
+        "sub": []
+       },
+       {
+        "text": "Bei Abholung kann der Kunde stattdessen vor Ort bezahlen.",
+        "sub": []
+       },
+       {
+        "text": "Bei Zahlung vor Ort legen wir den Korb ab der Bestätigung über den E-Mail-Link (§ 37 Abs. 4) bis zum Ladenschluss des gewählten Abholtags (§ 40 Abs. 1) für den Kunden zurück. Holt der Kunde den Korb bis dahin nicht ab, erlischt die Reservierung, der Korb geht automatisch in den Verkauf zurück, und wir informieren den Kunden per E-Mail. Ein Anspruch auf den Korb besteht danach nicht mehr.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 40 Abholung, Lieferung und Altersgrenze",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Abholung: in der Karlstraße 47a, 80333 München, am gewählten Tag während unserer Öffnungszeiten, Montag bis Freitag von 9:00 bis 1:00 Uhr, Samstag und Sonntag von 12:00 bis 1:00 Uhr. Ladenschluss ist jeweils 1:00 Uhr in der Nacht nach dem Abholtag. Ist der Korb vorrätig, kann er auch am Bestelltag nach Ablauf der im Shop angezeigten Packzeit abgeholt werden.",
+        "sub": []
+       },
+       {
+        "text": "Lieferung: frühestens am Tag nach der Bestellung im gewählten Zeitfenster. Einen Anspruch auf eine bestimmte Uhrzeit innerhalb des Zeitfensters hat der Kunde nicht. Sperrtage (z. B. Betriebsferien, Feiertage) sind im Shop nicht wählbar.",
+        "sub": []
+       },
+       {
+        "text": "Wein und Crémant geben wir nur an Personen ab 16 Jahren ab. Abholung und Lieferung erfolgen daher nur an Personen ab 16 Jahren; wir dürfen einen Altersnachweis verlangen. Kann der Korb deshalb nicht übergeben werden, gilt die Übergabe als gescheitert; § 42 Abs. 3 gilt entsprechend.",
+        "sub": []
+       },
+       {
+        "text": "Treffen wir bei der Lieferung niemanden an, versuchen wir den Kunden zu erreichen und die Übergabe nach Absprache erneut. Mehrkosten trägt der Kunde, wenn er die gescheiterte Übergabe zu vertreten hat.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 41 Widerruf",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Der Kunde kann seine Bestellung nur bis zur Abholung bzw. Übergabe des Geschenkkorbs widerrufen. Nach der Abholung bzw. Übergabe ist eine Rücknahme ausgeschlossen.",
+        "sub": []
+       },
+       {
+        "text": "Den Widerruf erklärt der Kunde in Textform (z. B. per E-Mail an info@events-storia.de) oder telefonisch. Bereits geleistete Zahlungen erstatten wir unverzüglich, spätestens binnen 14 Tagen, über dasselbe Zahlungsmittel.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 42 Stornierung, Mängel und gescheiterte Übergabe",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Bis zur Abholung bzw. Übergabe kann der Kunde seine Bestellung kostenfrei stornieren (§ 41). Bereits online gezahlte Beträge erstatten wir über Stripe.",
+        "sub": []
+       },
+       {
+        "text": "Es gelten die gesetzlichen Mängelrechte. Der Kunde meldet erkennbare Mängel oder fehlende Bestandteile bitte möglichst bald an info@events-storia.de oder telefonisch; seine gesetzlichen Rechte bleiben davon unberührt. Für Kaufleute gilt die Untersuchungs- und Rügepflicht nach § 377 HGB.",
+        "sub": []
+       },
+       {
+        "text": "Scheitert die Übergabe aus Gründen, die der Kunde zu vertreten hat, können wir Ersatz der Lieferkosten verlangen.",
+        "sub": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "§ 43 Lebensmittelinformationen",
+    "blocks": [
+     {
+      "type": "ol",
+      "items": [
+       {
+        "text": "Die Pflichtangaben zu den Bestandteilen der Körbe (insbesondere Bezeichnung, Zutaten mit hervorgehobenen Allergenen, Nettofüllmenge, Alkoholgehalt, Name und Anschrift des Lebensmittelunternehmers sowie, soweit vorgeschrieben, die Herkunft) stehen im Shop vor Abgabe der Bestellung.",
+        "sub": []
+       },
+       {
+        "text": "Diese Angaben machen wir nach bestem Wissen auf Grundlage der Herstellerangaben. Maßgeblich sind die Angaben auf dem Etikett des jeweiligen Produkts; dort stehen auch Mindesthaltbarkeitsdatum und Lagerhinweise. Für Allergien gilt im Übrigen § 5.",
+        "sub": []
+       }
+      ]
      }
     ]
    }
