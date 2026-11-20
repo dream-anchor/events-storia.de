@@ -6,6 +6,8 @@ import { Gift, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TurnstileWidget } from "@/components/gift/TurnstileWidget";
+import { turnstileEnabled } from "@/lib/gift/turnstile";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -94,6 +96,7 @@ const GiftOrder = () => {
   const [quote, setQuote] = useState<QuoteState>({ status: "idle" });
   const [ageOk, setAgeOk] = useState(false);
   const [agbOk, setAgbOk] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [deepNotes, setDeepNotes] = useState<DeepLinkNote[]>([]);
   const [now, setNow] = useState(() => new Date());
@@ -252,6 +255,7 @@ const GiftOrder = () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return t.valEmail;
     if (!ageOk) return t.valAge;
     if (!agbOk) return t.valAgb;
+    if (form.paymentMethod === "on_site" && turnstileEnabled && !turnstileToken) return t.err.turnstile_failed;
     return null;
   };
 
@@ -276,7 +280,7 @@ const GiftOrder = () => {
         age_confirmed: ageOk,
         agb_accepted: agbOk,
         language: lang,
-        test: params.get("test") === "1",
+        turnstile_token: form.paymentMethod === "on_site" ? turnstileToken : undefined,
       });
       if (result.url) {
         window.location.href = result.url;
@@ -398,7 +402,7 @@ const GiftOrder = () => {
                       <>
                         <Label htmlFor="gift-time">{t.time}</Label>
                         <select id="gift-time" className={selectClass} value={form.time} onChange={(e) => set("time", e.target.value)} disabled={slots.length === 0}>
-                          {slots.map((s) => <option key={s} value={s}>{s}</option>)}
+                          {slots.map((s) => <option key={s} value={s}>{s}{s < "06:00" ? (lang === "de" ? " (nach Mitternacht)" : " (after midnight)") : ""}</option>)}
                         </select>
                         {slots.length === 0 && form.date && !blackedOut && <p className="mt-1 text-sm text-destructive">{t.noSlots}</p>}
                       </>
@@ -480,7 +484,12 @@ const GiftOrder = () => {
                         <RadioGroupItem value="on_site" id="pay-onsite" />
                         <Label htmlFor="pay-onsite">{t.payOnSite}</Label>
                       </div>
-                      {form.paymentMethod === "on_site" && <p className="ml-6 mt-1 text-sm text-muted-foreground">{t.payOnSiteHint}</p>}
+                      {form.paymentMethod === "on_site" && (
+                        <div className="ml-6">
+                          <p className="mt-1 text-sm text-muted-foreground">{t.payOnSiteHint}</p>
+                          <TurnstileWidget lang={lang} onToken={setTurnstileToken} />
+                        </div>
+                      )}
                     </div>
                   )}
                 </RadioGroup>

@@ -131,7 +131,8 @@ serve(async (req) => {
     // P2: Bei transienten Fehlern (Timeouts, 5xx bei LexOffice/DB) → 500 zurück,
     // damit Stripe automatisch retryen kann. Bei permanenten/logischen Fehlern
     // → 200, damit keine Endlos-Retries entstehen.
-    const transient = /timeout|timed out|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN|fetch failed|network|503|502|504|too many connections|deadlock/i.test(msg);
+    // Geschenkkorb-Verarbeitungsfehler (DB/RPC) immer 500: Stripe wiederholt, die Verarbeitung ist idempotent
+    const transient = error instanceof GiftRetryError || /timeout|timed out|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN|fetch failed|network|503|502|504|too many connections|deadlock/i.test(msg);
     return new Response(JSON.stringify({ received: !transient, error: msg }), {
       status: transient ? 500 : 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -220,6 +221,17 @@ async function processCheckoutPaid(
 // Maestro-Handoff läuft unverändert über maestroEnqueuePayment (metadata.order_number = GK-…).
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+const GIFT_INVOICE_CLAIM_TTL_MS = 10 * 60_000;
+/** true, wenn lexoffice_invoice_id nur ein verwaister Anspruch ist ("pending" ohne Zeit oder "pending:<ms>" älter als TTL). */
+function isStaleInvoiceClaim(v: string): boolean {
+  if (v === "pending") return true;
+  const m = /^pending:(\d+)$/.exec(v);
+  return !!m && Date.now() - Number(m[1]) > GIFT_INVOICE_CLAIM_TTL_MS;
+}
+
+/** Fehler bei der Verarbeitung einer Geschenkkorb-Zahlung/-Session: Webhook antwortet 500, damit Stripe erneut zustellt. */
+class GiftRetryError extends Error {}
+
 async function handleGiftPayment(
   // deno-lint-ignore no-explicit-any
   supabase: any,
@@ -234,7 +246,7 @@ async function handleGiftPayment(
     .select("*")
     .eq("id", giftOrderId)
     .maybeSingle();
-  if (fetchErr) throw new Error(`gift order lookup failed: ${fetchErr.message}`); // transient -> Stripe retry
+  if (fetchErr) throw new GiftRetryError(`gift order lookup failed: ${fetchErr.message}`); // -> HTTP 500, Stripe wiederholt
   if (!order) {
     logStep("ERROR: gift order not found", { giftOrderId });
     await sendOperatorAlert(
@@ -246,17 +258,36 @@ async function handleGiftPayment(
 
   const alreadyPaid = ["paid", "ready", "handed_over"].includes(order.status);
   if (!alreadyPaid) {
+    // Plausibilitätsprüfung VOR jeder Bestätigung: falsche Session oder abweichender Betrag werden nie automatisch als bezahlt gebucht.
+    const problems: string[] = [];
+    if (order.stripe_session_id && order.stripe_session_id !== session.id) {
+      problems.push(`SESSION ABWEICHEND: Stripe ${session.id}, gespeichert ${order.stripe_session_id}`);
+    }
+    if (typeof session.amount_total !== "number" || session.amount_total !== order.total_cents) {
+      problems.push(`BETRAG ABWEICHEND: Stripe ${session.amount_total} ct, Bestellung ${order.total_cents} ct`);
+    }
+    if (problems.length > 0) {
+      const note = [order.internal_note, `${new Date().toISOString()} Zahlung NICHT automatisch bestätigt: ${problems.join("; ")}`].filter(Boolean).join("\n");
+      const { error: noteErr } = await supabase.from("gift_orders").update({ internal_note: note }).eq("id", order.id);
+      if (noteErr) throw new GiftRetryError(`gift order note failed: ${noteErr.message}`);
+      await sendOperatorAlert(
+        `Geschenkkorb ${order.order_number}: Zahlung prüfen (NICHT bestätigt)`,
+        `<p>${problems.map(esc).join("<br>")}</p><p>Bestellung ${esc(order.order_number)} (${esc(order.customer_name)}, ${esc(order.customer_email)}) bleibt unbestätigt, Bestand nicht abgebucht, keine Mail/Rechnung. Bitte in Stripe prüfen und manuell erstatten oder bestätigen.</p>`,
+      );
+      return;
+    }
+
     const notes: string[] = [];
     if (order.status === "cancelled" || order.status === "expired") {
       notes.push(`Zahlung nach Status "${order.status}" eingegangen`);
     }
-    if (typeof session.amount_total === "number" && session.amount_total !== order.total_cents) {
-      notes.push(`BETRAG ABWEICHEND: Stripe ${session.amount_total} ct, Bestellung ${order.total_cents} ct`);
+    if (!order.stripe_session_id) {
+      await supabase.from("gift_orders").update({ stripe_session_id: session.id }).eq("id", order.id);
     }
 
     // Bestand dekrementieren (idempotent); Fehler -> Exception -> Stripe wiederholt
     const { data: consume, error: consumeErr } = await supabase.rpc("gift_consume_stock", { p_order_id: order.id });
-    if (consumeErr) throw new Error(`gift_consume_stock failed: ${consumeErr.message}`);
+    if (consumeErr) throw new GiftRetryError(`gift_consume_stock failed: ${consumeErr.message}`);
     if (consume?.oversold) notes.push("ÜBERVERKAUF: Ware nicht mehr verfügbar – Kunde kontaktieren oder erstatten");
 
     const { error: updErr } = await supabase
@@ -268,7 +299,7 @@ async function handleGiftPayment(
         internal_note: notes.length ? [order.internal_note, ...notes].filter(Boolean).join("\n") : order.internal_note,
       })
       .eq("id", order.id);
-    if (updErr) throw new Error(`gift order update failed: ${updErr.message}`);
+    if (updErr) throw new GiftRetryError(`gift order update failed: ${updErr.message}`);
     order.internal_note = notes.length ? notes.join("; ") : order.internal_note;
 
     if (notes.length) {
@@ -291,15 +322,14 @@ async function handleGiftPayment(
   }
 
   // Rechnung (LexOffice), nur echte Bestellungen mit vorhandener Steuer-Aufteilung
-  if (!order.lexoffice_invoice_id && !order.is_test) {
-    // Anspruch markieren (gleichzeitige Webhook-Wiederholungen dürfen keine zweite Rechnung erzeugen);
-    // create-lexoffice-invoice überschreibt den Platzhalter mit der echten Dokument-ID.
-    const { data: claim } = await supabase
-      .from("gift_orders")
-      .update({ lexoffice_invoice_id: "pending" })
-      .eq("id", order.id)
-      .is("lexoffice_invoice_id", null)
-      .select("id");
+  if ((!order.lexoffice_invoice_id || isStaleInvoiceClaim(order.lexoffice_invoice_id)) && !order.is_test) {
+    // Anspruch mit Zeitstempel markieren (gleichzeitige Webhook-Wiederholungen dürfen keine zweite Rechnung erzeugen);
+    // create-lexoffice-invoice überschreibt den Anspruch mit der echten Dokument-ID. Ein Anspruch, der länger als
+    // GIFT_INVOICE_CLAIM_TTL_MS besteht (Funktion abgestürzt), gilt als verwaist und wird übernommen.
+    const claimToken = `pending:${Date.now()}`;
+    let q = supabase.from("gift_orders").update({ lexoffice_invoice_id: claimToken }).eq("id", order.id);
+    q = order.lexoffice_invoice_id ? q.eq("lexoffice_invoice_id", order.lexoffice_invoice_id) : q.is("lexoffice_invoice_id", null);
+    const { data: claim } = await q.select("id");
     if (!claim || claim.length === 0) {
       logStep("Gift invoice already claimed by another delivery, skipping", { orderNumber: order.order_number });
       return;
@@ -312,7 +342,7 @@ async function handleGiftPayment(
         .order("created_at");
       const request = buildGiftInvoiceRequest(order, items ?? []);
       if (!request) {
-        await supabase.from("gift_orders").update({ lexoffice_invoice_id: null }).eq("id", order.id).eq("lexoffice_invoice_id", "pending");
+        await supabase.from("gift_orders").update({ lexoffice_invoice_id: null }).eq("id", order.id).eq("lexoffice_invoice_id", claimToken);
         await sendOperatorAlert(
           `Geschenkkorb ${order.order_number}: Rechnung manuell erstellen`,
           "<p>Keine Steuer-Aufteilung (7 %/19 %) am Korb hinterlegt (Steuerberater). Rechnung wurde NICHT automatisch erzeugt.</p>",
@@ -332,7 +362,7 @@ async function handleGiftPayment(
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logStep("Gift invoice failed (non-fatal)", { error: msg });
-      await supabase.from("gift_orders").update({ lexoffice_invoice_id: null }).eq("id", order.id).eq("lexoffice_invoice_id", "pending");
+      await supabase.from("gift_orders").update({ lexoffice_invoice_id: null }).eq("id", order.id).eq("lexoffice_invoice_id", claimToken);
       await sendOperatorAlert(`Geschenkkorb ${order.order_number}: Rechnung fehlgeschlagen`, `<p>${esc(msg)}</p>`);
     }
   }
@@ -353,10 +383,10 @@ async function handleGiftSessionEnded(
     .eq("id", giftOrderId)
     .eq("status", "pending")
     .select("id");
-  if (error) throw new Error(`gift order status update failed: ${error.message}`);
+  if (error) throw new GiftRetryError(`gift order status update failed: ${error.message}`);
   if (updated && updated.length > 0) {
     const { error: relErr } = await supabase.rpc("gift_release_stock", { p_order_id: giftOrderId });
-    if (relErr) throw new Error(`gift_release_stock failed: ${relErr.message}`);
+    if (relErr) throw new GiftRetryError(`gift_release_stock failed: ${relErr.message}`);
     logStep("Gift order ended, stock released", { giftOrderId, newStatus });
   } else {
     logStep("Gift order not pending (already paid/ended), nothing to release", { giftOrderId });

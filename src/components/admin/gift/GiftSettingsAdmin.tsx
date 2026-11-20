@@ -110,8 +110,9 @@ function SettingsCard({ settings, onChanged }: { settings: Settings; onChanged: 
     try {
       parseTariff({ tariff_tiers: newTiers, min_fee_cents: euroToCents(minFee), round_up_to_cents: euroToCents(roundUp) });
     } catch { toast.error("Tarif ungültig (Beträge und Schwelle prüfen)"); return; }
+    if (!(Number.parseInt(holdMinutes, 10) >= 36)) { toast.error("Bestand-Reservierung: mindestens 36 Minuten (Stripe-Sitzung läuft 31 Minuten)"); return; }
     const cleanHours: PickupHours = {};
-    for (const [d, h] of Object.entries(hours)) if (h && /^\d{2}:\d{2}$/.test(h.open) && /^\d{2}:\d{2}$/.test(h.close) && h.open < h.close) cleanHours[d] = h;
+    for (const [d, h] of Object.entries(hours)) if (h && /^\d{2}:\d{2}$/.test(h.open) && /^\d{2}:\d{2}$/.test(h.close) && h.open !== h.close) cleanHours[d] = h; // Ende vor Beginn = über Mitternacht (z. B. 09:00-01:00)
     if (windows.length === 0 || windows.some((w) => !/^[a-z0-9-]+$/.test(w.key) || !w.label_de.trim() || !w.label_en.trim())) { toast.error("Lieferfenster: Schlüssel (a-z, 0-9, -) und beide Bezeichnungen angeben"); return; }
 
     const { error } = await supabase.from("gift_settings").update({
@@ -146,7 +147,7 @@ function SettingsCard({ settings, onChanged }: { settings: Settings; onChanged: 
         </fieldset>
 
         <fieldset>
-          <legend className="mb-1 text-sm font-semibold">Abholzeiten je Wochentag (leer = geschlossen; „bis" ist zugleich das Ende der Reservierung bei Zahlung vor Ort)</legend>
+          <legend className="mb-1 text-sm font-semibold">Abholzeiten je Wochentag (leer = geschlossen; „bis" ist zugleich das Ende der Reservierung bei Zahlung vor Ort; Ende vor Beginn, z. B. 09:00 bis 01:00, gilt als Ende in der Nacht nach dem Geschäftstag)</legend>
           <div className="space-y-2">
             {DAYS.map((name, d) => {
               const h = hours[String(d)];

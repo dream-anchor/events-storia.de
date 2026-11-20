@@ -111,3 +111,51 @@ Deno.test("Abholslots: heute erst ab Jetzt + Packzeit", () => {
   assertEquals(slots[slots.length - 1], "22:00");
   assertEquals(pickupSlots("2026-11-29", NOW, settings, []), []);
 });
+
+// Echte Öffnungszeiten (Inhaber 20.11.2026): Mo-Fr 9:00-1:00 Uhr, Sa-So 12:00-1:00 Uhr (über Mitternacht)
+const real: ScheduleSettings = {
+  ...settings,
+  pickup_hours: {
+    "0": { open: "12:00", close: "01:00" }, "1": { open: "09:00", close: "01:00" }, "2": { open: "09:00", close: "01:00" },
+    "3": { open: "09:00", close: "01:00" }, "4": { open: "09:00", close: "01:00" }, "5": { open: "09:00", close: "01:00" },
+    "6": { open: "12:00", close: "01:00" },
+  },
+};
+
+Deno.test("Abholung über Mitternacht: Zeiten nach 0:00 gehören zum Geschäftstag", () => {
+  assertEquals(checkSchedule("pickup", "2026-11-27", "23:45", NOW, real, []).ok, true);
+  assertEquals(checkSchedule("pickup", "2026-11-27", "00:30", NOW, real, []).ok, true);
+  assertEquals(checkSchedule("pickup", "2026-11-27", "01:00", NOW, real, []).ok, true);
+  assertEquals(checkSchedule("pickup", "2026-11-27", "01:15", NOW, real, []).error, "closed");
+  assertEquals(checkSchedule("pickup", "2026-11-27", "08:45", NOW, real, []).error, "closed");
+  assertEquals(checkSchedule("pickup", "2026-11-29", "12:00", NOW, real, []).ok, true); // Sonntag offen ab 12
+  assertEquals(checkSchedule("pickup", "2026-11-29", "11:45", NOW, real, []).error, "closed");
+  // Ladenschluss = 01:00 am Folgetag (MEZ -> 00:00 UTC)
+  const c = checkSchedule("pickup", "2026-11-27", "13:00", NOW, real, []);
+  assertEquals(c.closing_at?.toISOString(), "2026-11-28T00:00:00.000Z");
+});
+
+Deno.test("Abholung über Mitternacht: heute Abend, Packzeit gilt auch nach 0:00", () => {
+  // 26.11.2026, 23:50 Berlin = 22:50 UTC: 00:10 (Folgetag) ist zu früh, 00:30 geht
+  const late = new Date("2026-11-26T22:50:00Z");
+  assertEquals(checkSchedule("pickup", "2026-11-26", "00:10", late, real, []).error, "too_early");
+  assertEquals(checkSchedule("pickup", "2026-11-26", "00:30", late, real, []).ok, true);
+  assertEquals(checkSchedule("pickup", "2026-11-26", "10:00", late, real, []).error, "too_early");
+});
+
+Deno.test("Abholslots über Mitternacht", () => {
+  const slots = pickupSlots("2026-11-27", NOW, real, []);
+  assertEquals(slots[0], "09:00");
+  assertEquals(slots[slots.length - 1], "01:00");
+  assert(slots.includes("23:45") && slots.includes("00:00"));
+  assertEquals(pickupSlots("2026-11-29", NOW, real, [])[0], "12:00");
+});
+
+Deno.test("MwSt.: Aufteilung Inhaber 85 % zu 7 %, 15 % zu 19 % (Wein)", () => {
+  const split = [{ rate: 7, share_bp: 8500 }, { rate: 19, share_bp: 1500 }];
+  assert(isValidVatSplit(split));
+  assertEquals(splitGrossByVat(24900, split), [{ rate: 7, gross_cents: 21165 }, { rate: 19, gross_cents: 3735 }]);
+  assertEquals(splitGrossByVat(9900, split), [{ rate: 7, gross_cents: 8415 }, { rate: 19, gross_cents: 1485 }]);
+  const b = computeVatBreakdown([{ unit_price_cents: 13900, qty: 1, vat_split: split }], null);
+  assertEquals(b!.reduce((s, l) => s + l.gross_cents, 0), 13900);
+});

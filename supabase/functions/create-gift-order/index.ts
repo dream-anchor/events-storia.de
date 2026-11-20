@@ -9,6 +9,8 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
+  addDays,
+  berlinParts,
   checkSchedule,
   computeDeliveryFeeCents,
   computeVatBreakdown,
@@ -23,6 +25,7 @@ import { loadBlackoutDates, loadGiftSettings } from "../_shared/giftSettings.ts"
 import { GIFT_AGB_VERSION } from "../_shared/giftLegal.ts";
 import { sendGiftMails } from "../_shared/giftMail.ts";
 import { reportEdgeError } from "../_shared/reportError.ts";
+import { hashIp, verifyTurnstile } from "../_shared/giftTurnstile.ts";
 
 const log = (s: string, d?: unknown) => console.log(`[CREATE-GIFT-ORDER] ${s}${d ? " " + JSON.stringify(d) : ""}`);
 
@@ -49,8 +52,17 @@ interface OrderInput {
   payment_method: "online" | "on_site";
   gift_message: string;
   language: "de" | "en";
-  test: boolean;
+  turnstile_token: string;
 }
+
+/** Zahlung "vor Ort" (Reservierung ohne Anzahlung): Missbrauchsgrenzen (Mail-Spam-Relais, Bestandsblockade). */
+const ON_SITE_MAX_DAYS_AHEAD = 14;
+const ON_SITE_MAX_QTY = 5;
+const ON_SITE_MAX_OPEN_PER_EMAIL = 2;
+const ON_SITE_MAX_OPEN_PER_IP = 2;
+/** Stripe-Session = Erstellung + 31 Min (Minimum 30); der Hold muss sie überdauern. */
+const STRIPE_SESSION_MINUTES = 31;
+const MIN_HOLD_MINUTES = 36;
 
 function parseInput(b: Record<string, unknown>): OrderInput {
   const bad = (field: string) => new HttpError(400, "invalid_input", { field });
@@ -103,7 +115,7 @@ function parseInput(b: Record<string, unknown>): OrderInput {
     payment_method,
     gift_message: clean(b.gift_message, 500),
     language: b.language === "en" ? "en" : "de",
-    test: b.test === true,
+    turnstile_token: typeof b.turnstile_token === "string" ? b.turnstile_token : "",
   };
 }
 
@@ -123,11 +135,12 @@ serve(async (req) => {
 
     const input = parseInput(await req.json().catch(() => ({})));
     const now = new Date();
-    // Testbestellung: Stripe-Testschlüssel ODER ausdrücklich angefordert UND interne Adresse (Mails gehen dann an die Testadresse,
-    // keine LexOffice-Rechnung). Ein Kunde kann sich so nicht selbst "testen", um Rechnung/Mails zu umgehen.
-    const isTest =
-      (Deno.env.get("STRIPE_SECRET_KEY") ?? "").startsWith("sk_test_") ||
-      (input.test && /@(monot\.com|events-storia\.de|ristorantestoria\.de)$/i.test(input.customer.email));
+    // Testmodus NUR über den Stripe-Testschlüssel (sk_test_). Nie über Client-Angaben oder die eingetippte Adresse:
+    // sonst könnte ein Kunde sich "testen" und Rechnung/Gate umgehen.
+    const isTest = (Deno.env.get("STRIPE_SECRET_KEY") ?? "").startsWith("sk_test_");
+
+    // Livegang-Gate: solange die Rechtstexte nicht freigegeben sind, nimmt der Server keine echten Bestellungen an
+    if (!isTest && Deno.env.get("GIFT_LEGAL_APPROVED") !== "true") throw new HttpError(403, "not_available");
 
     // ── 1) Katalog aus der DB (nie aus dem Client) ───────────────────────────
     const { data: variants, error: vErr } = await supabase
@@ -163,6 +176,17 @@ serve(async (req) => {
     const blackout = await loadBlackoutDates(supabase, input.date >= "2000-01-01" ? input.date : "2000-01-01");
     const sched = checkSchedule(input.handover, input.date, input.time, now, settings.schedule, blackout);
     if (!sched.ok) throw new HttpError(400, "invalid_schedule", { reason: sched.error });
+
+    // ── 2b) Zahlung vor Ort: Missbrauchsgrenzen (vor jeder Schreiboperation) ─────
+    let ipHash: string | null = null;
+    if (input.payment_method === "on_site") {
+      const today = berlinParts(now).date;
+      if (input.date > addDays(today, ON_SITE_MAX_DAYS_AHEAD)) throw new HttpError(400, "on_site_too_far_ahead", { max_days: ON_SITE_MAX_DAYS_AHEAD });
+      if (input.items.reduce((s, i) => s + i.qty, 0) > ON_SITE_MAX_QTY) throw new HttpError(400, "on_site_quantity_limit", { max_qty: ON_SITE_MAX_QTY });
+      const ts = await verifyTurnstile(input.turnstile_token, clientIp(req), Deno.env.get("TURNSTILE_SECRET_KEY"), isTest);
+      if (!ts.ok) throw new HttpError(ts.code === "turnstile_not_configured" ? 503 : 400, ts.code);
+      ipHash = await hashIp(clientIp(req), Deno.env.get("GIFT_IP_PEPPER") ?? "");
+    }
 
     // ── 3) Liefergebühr NEU berechnen (zweiter ORS-Aufruf) ───────────────────
     let distanceKm: number | null = null;
@@ -214,6 +238,7 @@ serve(async (req) => {
         agb_version: GIFT_AGB_VERSION,
         language: input.language,
         is_test: isTest,
+        client_ip_hash: ipHash,
       })
       .select("id, order_number")
       .single();
@@ -235,7 +260,7 @@ serve(async (req) => {
     if (iErr) throw new Error(`items_insert_failed: ${iErr.message}`);
 
     // ── 5) Bestand reservieren (Hold) ────────────────────────────────────────
-    const holdUntil = onSite ? sched.closing_at! : new Date(now.getTime() + settings.hold_minutes * 60_000);
+    const holdUntil = onSite ? sched.closing_at! : new Date(Date.now() + Math.max(settings.hold_minutes, MIN_HOLD_MINUTES) * 60_000);
     const { error: rErr } = await supabase.rpc("gift_reserve_stock", {
       p_order_id: order.id,
       p_items: lines.map((l) => ({ variant_id: l.variant_id, qty: l.qty })),
@@ -246,6 +271,19 @@ serve(async (req) => {
       throw new Error(`reserve_failed: ${rErr.message}`);
     }
     holdPlaced = true;
+
+    // ── 5b) Grenze offener Reservierungen je E-Mail / IP (nach dem Anlegen geprüft: gleichzeitige Anfragen sehen sich gegenseitig) ──
+    if (onSite) {
+      const open = (col: string, val: string) =>
+        supabase.from("gift_orders").select("id", { count: "exact", head: true })
+          .eq("payment_method", "on_site").eq("status", "reserved").eq("is_test", false).eq(col, val);
+      const byEmail = await open("customer_email", input.customer.email);
+      const byIp = ipHash ? await open("client_ip_hash", ipHash) : { count: 0, error: null };
+      if (byEmail.error || byIp.error) throw new Error(`open_reservation_count_failed: ${(byEmail.error ?? byIp.error)?.message}`);
+      if ((byEmail.count ?? 0) > ON_SITE_MAX_OPEN_PER_EMAIL || (byIp.count ?? 0) > ON_SITE_MAX_OPEN_PER_IP) {
+        throw new HttpError(429, "too_many_open_reservations");  // catch räumt Hold + Bestellung auf, bevor eine Mail rausgeht
+      }
+    }
 
     // ── 6a) Zahlung vor Ort: Reservierung bestätigen ─────────────────────────
     if (onSite) {
@@ -292,7 +330,8 @@ serve(async (req) => {
       customer_email: input.customer.email,
       client_reference_id: order.order_number,
       line_items: lineItems,
-      expires_at: Math.floor(now.getTime() / 1000) + 30 * 60, // Stripe-Minimum; Hold läuft 5 Min länger
+      payment_method_types: ["card"], // nur sofortige Zahlarten: SEPA & Co. würden den Hold überdauern (Bestand/Verfall)
+      expires_at: Math.floor(Date.now() / 1000) + STRIPE_SESSION_MINUTES * 60, // direkt vor dem Aufruf gerechnet (Stripe-Minimum 30 Min); Hold >= 36 Min
       locale: en ? "en" : "de",
       success_url: `${origin}${prefix}/geschenkkoerbe/danke?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}${prefix}/geschenkkoerbe/bestellung?cancelled=1`,
@@ -302,9 +341,10 @@ serve(async (req) => {
         order_number: order.order_number,
         customer_name: input.customer.name,
         language: input.language,
-        is_test: input.test ? "true" : "false",
+        is_test: isTest ? "true" : "false",
+        isTest: isTest ? "true" : "false",
       },
-      payment_intent_data: { metadata: { order_type: "gift_basket", order_number: order.order_number } },
+      payment_intent_data: { metadata: { order_type: "gift_basket", order_number: order.order_number, isTest: isTest ? "true" : "false" } },
     });
 
     await supabase.from("gift_orders").update({ stripe_session_id: session.id }).eq("id", order.id);

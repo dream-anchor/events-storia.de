@@ -19,8 +19,8 @@ export interface DeliveryAddress {
   city: string;
 }
 
-/** Luftlinie, ab der kein Routing-Aufruf mehr gemacht wird (Schutz vor ORS-Kostenmissbrauch, kein Liefergebiet). */
-export const MAX_AIR_DISTANCE_KM = 250;
+/** Technische Obergrenze der Luftlinie (Schutz vor Unsinnseingaben/ORS-Kosten). KEIN Liefergebiet: es gilt "kein Limit" (Inhaber 20.11.2026). */
+export const MAX_AIR_DISTANCE_KM = 2000;
 
 async function fetchJson(url: string, init: RequestInit = {}): Promise<unknown> {
   const ctrl = new AbortController();

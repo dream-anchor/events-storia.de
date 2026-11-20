@@ -55,7 +55,7 @@ export function GiftOrdersAdmin() {
 
   if (!orders) return <Loader2 className="h-5 w-5 animate-spin" aria-label="Lädt" />;
 
-  const windowLabel = (o: Order) => (o.handover === "pickup" ? `${o.handover_time} Uhr` : windows.find((w) => w.key === o.handover_time)?.label_de ?? o.handover_time ?? "");
+  const windowLabel = (o: Order) => (o.handover === "pickup" ? `${o.handover_time} Uhr${(o.handover_time ?? "99") < "06:00" ? " (nach Mitternacht)" : ""}` : windows.find((w) => w.key === o.handover_time)?.label_de ?? o.handover_time ?? "");
 
   return (
     <div className="space-y-4">

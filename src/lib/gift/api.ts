@@ -60,7 +60,8 @@ export interface CreateGiftOrderInput {
   age_confirmed: boolean;
   agb_accepted: boolean;
   language: "de" | "en";
-  test: boolean;
+  /** Cloudflare-Turnstile-Token; nur bei payment_method "on_site" nötig (serverseitig geprüft). */
+  turnstile_token?: string;
 }
 
 export interface CreateGiftOrderResult {

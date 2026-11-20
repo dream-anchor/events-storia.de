@@ -38,6 +38,13 @@ interface ItemRow { basket_name: string; variant_label: string; qty: number; uni
 function handoverText(o: OrderRow, lang: Lang, windows: DeliveryWindow[]): string {
   const when = fmtDate(o.handover_date, lang);
   if (o.handover === "pickup") {
+    // Zeiten vor 06:00 sind Slots nach Mitternacht (Öffnung bis 01:00): sie gehören zur Nacht NACH dem gewählten Tag
+    const night = (o.handover_time ?? "99") < "06:00";
+    if (night) {
+      return lang === "de"
+        ? `Abholung am ${when} um ${esc(o.handover_time)} Uhr (nach Mitternacht, also in der Nacht auf den Folgetag), STORIA, Karlstraße 47a, 80333 München`
+        : `Pickup on ${when} at ${esc(o.handover_time)} (after midnight, i.e. during the night into the next day), STORIA, Karlstraße 47a, 80333 Munich`;
+    }
     return lang === "de"
       ? `Abholung am ${when} um ${esc(o.handover_time)} Uhr, STORIA, Karlstraße 47a, 80333 München`
       : `Pickup on ${when} at ${esc(o.handover_time)}, STORIA, Karlstraße 47a, 80333 Munich`;

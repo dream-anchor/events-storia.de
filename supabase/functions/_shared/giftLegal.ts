@@ -27,8 +27,8 @@ export const GIFT_TEXTS = {
     en: "Wine and crémant are only supplied to persons aged 16 or over. Handover (pickup and delivery) is made only to persons aged 16 or over; we may ask for proof of age.",
   },
   ageCheckbox: {
-    de: "Ich bin mindestens 16 Jahre alt und nehme die Übergabe nur an Personen ab 16 Jahren zu.",
-    en: "I am at least 16 years old and the handover will only be made to persons aged 16 or over.",
+    de: "Ich bin mindestens 16 Jahre alt und bestätige, dass die Übergabe nur an Personen ab 16 Jahren erfolgt.",
+    en: "I confirm that I am at least 16 years old and that the handover will only be made to persons aged 16 or over.",
   },
   forecast: {
     de: "Voraussichtlicher Lieferpreis (einfache Strecke ab Karlstraße 47a). Der endgültige Preis wird bei der Bestellung berechnet.",

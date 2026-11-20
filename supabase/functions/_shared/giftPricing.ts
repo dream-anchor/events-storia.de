@@ -275,12 +275,18 @@ export function checkSchedule(
   const hours = s.pickup_hours[String(weekdayOf(date))];
   if (!hours) return { ok: false, error: "closed" };
   const t = toMinutes(time);
-  if (t < toMinutes(hours.open) || t > toMinutes(hours.close)) return { ok: false, error: "closed" };
-  if (date === nowB.date) {
-    if (nowB.minutes >= toMinutes(hours.close)) return { ok: false, error: "closed" };
-    if (t < nowB.minutes + s.pickup_lead_minutes) return { ok: false, error: "too_early" };
+  const open = toMinutes(hours.open);
+  const close = toMinutes(hours.close);
+  // Öffnungszeit über Mitternacht (close <= open, z. B. 09:00-01:00): Zeiten ab Öffnung gehören zum Kalendertag,
+  // Zeiten bis Ladenschluss (z. B. 00:30) zur Nacht NACH dem gewählten Geschäftstag.
+  const overnight = close <= open;
+  const slotDate = overnight && t < open ? addDays(date, 1) : date;
+  if (overnight ? !(t >= open || t <= close) : !(t >= open && t <= close)) return { ok: false, error: "closed" };
+  const slotAt = berlinToUtc(slotDate, time);
+  if (slotAt.getTime() < now.getTime() + s.pickup_lead_minutes * 60_000) {
+    return { ok: false, error: date === nowB.date ? "too_early" : "closed" };
   }
-  return { ok: true, closing_at: berlinToUtc(date, hours.close) };
+  return { ok: true, closing_at: berlinToUtc(overnight ? addDays(date, 1) : date, hours.close) };
 }
 
 /** Abholzeiten-Raster (15 Min) für einen Tag; leer, wenn geschlossen/Sperrtag/zu spät. */
@@ -288,8 +294,12 @@ export function pickupSlots(date: string, now: Date, s: ScheduleSettings, blacko
   const out: string[] = [];
   const hours = s.pickup_hours[String(weekdayOf(date))];
   if (!isIsoDate(date) || !hours) return out;
-  for (let t = toMinutes(hours.open); t <= toMinutes(hours.close); t += stepMinutes) {
-    const hhmm = `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+  const open = toMinutes(hours.open);
+  const close = toMinutes(hours.close);
+  const end = close <= open ? close + 24 * 60 : close; // über Mitternacht: bis Ladenschluss am Folgetag
+  for (let t = open; t <= end; t += stepMinutes) {
+    const m = t % (24 * 60);
+    const hhmm = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
     if (checkSchedule("pickup", date, hhmm, now, s, blackout).ok) out.push(hhmm);
   }
   return out;
