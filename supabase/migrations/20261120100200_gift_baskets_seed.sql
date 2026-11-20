@@ -3,72 +3,85 @@
 -- Idempotent (ON CONFLICT DO NOTHING / WHERE NOT EXISTS). Bestand 0, Körbe INAKTIV:
 -- Livegang erst, wenn LMIV-Angaben (Etikettenfotos), vat_split (Steuerberater), Abholzeiten
 -- und Rechtstexte (AGB-Teil Geschenkkörbe, Widerruf) vorliegen -> dann im Admin aktivieren.
--- Bestandteile ohne LMIV-Felder (leer, lmiv_verified_at NULL).
+-- LMIV-Angaben stammen aus der Recherche vom 20.11.2026 (Händler-/Datenbankangaben, Etikettenfotos; Vorgabe Inhaber:
+-- "suche Zutaten, leite Allergene ab und nimm das"). Sie sind NICHT gegen die Packung gegengelesen:
+-- lmiv_verified_at bleibt NULL, bis im Admin je Bestandteil/Wein bestätigt wird (Shop zeigt bis dahin den internen Hinweis).
+-- MwSt.-Aufteilung je Korb (Inhaber 20.11.2026): 15 % des Warenwerts zu 19 % (Wein), 85 % zu 7 % (Speisen).
 -- ═══════════════════════════════════════════════════════════════════════════
 
-INSERT INTO public.gift_baskets (slug, size_key, name_de, name_en, description_de, description_en, packaging_de, packaging_en, image_url, price_cents, sort_order, active)
+INSERT INTO public.gift_baskets (slug, size_key, name_de, name_en, description_de, description_en, packaging_de, packaging_en, image_url, price_cents, vat_split, sort_order, active)
 VALUES
  ('dolce-vita', 'klein', 'STORIA Geschenkkorb „Dolce Vita“', 'STORIA gift basket “Dolce Vita”',
   'Der kleine Geschenkkorb mit Wein und italienischen Spezialitäten.', 'The small gift basket with wine and Italian specialities.',
   'Geschenkkorb mit Geschenkfolie und Schleife', 'Gift basket with gift wrap and bow',
-  '/geschenkkoerbe/geschenkkorb-dolce-vita-bianco-toscana.webp', 9900, 1, false),
+  '/geschenkkoerbe/geschenkkorb-dolce-vita-bianco-toscana.webp', 9900, '[{"rate":7,"share_bp":8500},{"rate":19,"share_bp":1500}]'::jsonb, 1, false),
  ('sapori-d-italia', 'mittel', 'STORIA Geschenkkorb „Sapori d’Italia“', 'STORIA gift basket “Sapori d’Italia”',
   'Der mittlere Geschenkkorb mit Wein und italienischen Spezialitäten.', 'The medium gift basket with wine and Italian specialities.',
   'Weidenkorb mit Geschenkfolie und Schleife', 'Wicker basket with gift wrap and bow',
-  '/geschenkkoerbe/geschenkkorb-sapori-d-italia.webp', 13900, 2, false),
+  '/geschenkkoerbe/geschenkkorb-sapori-d-italia.webp', 13900, '[{"rate":7,"share_bp":8500},{"rate":19,"share_bp":1500}]'::jsonb, 2, false),
  ('gran-selezione', 'gross', 'STORIA Geschenkkorb „Gran Selezione“', 'STORIA gift basket “Gran Selezione”',
   'Der große Geschenkkorb mit Crémant und italienischen Spezialitäten.', 'The large gift basket with crémant and Italian specialities.',
   'Dekorierter Weidenkorb mit Geschenkfolie und Schleife', 'Decorated wicker basket with gift wrap and bow',
-  '/geschenkkoerbe/geschenkkorb-gran-selezione.webp', 24900, 3, false)
+  '/geschenkkoerbe/geschenkkorb-gran-selezione.webp', 24900, '[{"rate":7,"share_bp":8500},{"rate":19,"share_bp":1500}]'::jsonb, 3, false)
 ON CONFLICT (slug) DO NOTHING;
 
-INSERT INTO public.gift_basket_variants (basket_id, key, label_de, label_en, image_url, net_content, sort_order)
-SELECT b.id, v.key, v.label_de, v.label_en, v.image_url, '0,75 l', v.sort_order
+-- Weine: Alkoholgehalt = typischer Wert der Sorte (NICHT vom Etikett), Abfüller leer bis Etikettenfoto; Sulfite = ja.
+INSERT INTO public.gift_basket_variants (basket_id, key, label_de, label_en, image_url, net_content, abv_percent, origin, sort_order)
+SELECT b.id, v.key, v.label_de, v.label_en, v.image_url, '0,75 l', v.abv, v.origin, v.sort_order
   FROM (VALUES
-    ('dolce-vita', 'bianco-toscana', 'Bianco Toscana', 'Bianco Toscana', '/geschenkkoerbe/geschenkkorb-dolce-vita-bianco-toscana.webp', 1),
-    ('dolce-vita', 'moscato-dasti', 'Moscato d’Asti', 'Moscato d’Asti', '/geschenkkoerbe/geschenkkorb-dolce-vita-moscato-dasti.webp', 2),
-    ('sapori-d-italia', 'chianti-classico', 'Chianti Classico', 'Chianti Classico', NULL, 1),
-    ('sapori-d-italia', 'barolo', 'Barolo', 'Barolo', NULL, 2),
-    ('gran-selezione', 'cremant-rose', 'Crémant Rosé', 'Crémant Rosé', NULL, 1),
-    ('gran-selezione', 'cremant-dry', 'Crémant Dry', 'Crémant Dry', NULL, 2)
-  ) AS v(basket_slug, key, label_de, label_en, image_url, sort_order)
+    ('dolce-vita', 'bianco-toscana', 'Bianco Toscana', 'Bianco Toscana', '/geschenkkoerbe/geschenkkorb-dolce-vita-bianco-toscana.webp', 12.5, 'Italien', 1),
+    ('dolce-vita', 'moscato-dasti', 'Moscato d’Asti', 'Moscato d’Asti', '/geschenkkoerbe/geschenkkorb-dolce-vita-moscato-dasti.webp', 5.5, 'Italien', 2),
+    ('sapori-d-italia', 'chianti-classico-riserva', 'Chianti Classico Riserva', 'Chianti Classico Riserva', NULL, 13.5, 'Italien', 1),
+    ('sapori-d-italia', 'barolo', 'Barolo', 'Barolo', NULL, 14.0, 'Italien', 2),
+    ('gran-selezione', 'cremant-rose', 'Crémant Rosé', 'Crémant Rosé', NULL, 12.0, NULL, 1),
+    ('gran-selezione', 'cremant-dry', 'Crémant Dry', 'Crémant Dry', NULL, 12.0, NULL, 2)
+  ) AS v(basket_slug, key, label_de, label_en, image_url, abv, origin, sort_order)
   JOIN public.gift_baskets b ON b.slug = v.basket_slug
 ON CONFLICT (basket_id, key) DO NOTHING;
 
--- Bestandteile (ohne Wein: der steht je Variante). LMIV-Felder bewusst leer.
-INSERT INTO public.gift_basket_components (basket_id, sort_order, name_de, name_en)
-SELECT b.id, c.sort_order, c.name_de, c.name_en
+-- Bestandteile (ohne Wein: der steht je Variante). In JEDEM Korb zusätzlich V&S Frutti di Bosco, Sfogliatine, Pralinen (Inhaber 20.11.2026).
+-- Spuren-Hinweise stehen im Zutatentext, Allergene (14 LMIV-Allergene, Schlüssel englisch) in allergens.
+INSERT INTO public.gift_basket_components (basket_id, sort_order, name_de, name_en, quantity, ingredients_de, ingredients_en, allergens, net_content, food_business_operator, origin, label_photo_ref)
+SELECT b.id, c.sort_order, c.name_de, c.name_en, c.quantity, c.ingredients_de, c.ingredients_en, c.allergens, c.net_content, c.fbo, c.origin, c.photo
   FROM (VALUES
-    ('dolce-vita', 1, 'Mini-Panettone al Cioccolato', 'Mini panettone al cioccolato'),
-    ('dolce-vita', 2, 'Salame 4 Gnometti', 'Salame 4 Gnometti'),
-    ('dolce-vita', 3, 'Trüffelbutter', 'Truffle butter'),
-    ('dolce-vita', 4, 'Trüffelöl', 'Truffle oil'),
-    ('dolce-vita', 5, 'Strangozzi al Limone', 'Strangozzi al limone'),
-    ('sapori-d-italia', 1, 'Panettone, 500 g', 'Panettone, 500 g'),
-    ('sapori-d-italia', 2, 'Grana Padano Riserva, 20 Monate gereift', 'Grana Padano Riserva, aged 20 months'),
-    ('sapori-d-italia', 3, 'Salamini Piccante', 'Salamini piccante'),
-    ('sapori-d-italia', 4, 'Trüffelöl', 'Truffle oil'),
-    ('sapori-d-italia', 5, 'Feigen-Senfsoße', 'Fig mustard sauce'),
-    ('sapori-d-italia', 6, 'Grüne Oliven', 'Green olives'),
-    ('sapori-d-italia', 7, 'Grissini', 'Grissini'),
-    ('sapori-d-italia', 8, 'Pasta Tricolore', 'Pasta tricolore'),
-    ('gran-selezione', 1, 'Natives Bio-Olivenöl extra', 'Organic extra virgin olive oil'),
-    ('gran-selezione', 2, 'Italienisches Salami-Quartett', 'Italian salami quartet'),
-    ('gran-selezione', 3, 'Filotea Fettuccine al Tartufo', 'Filotea fettuccine al tartufo'),
-    ('gran-selezione', 4, 'Grüne Oliven', 'Green olives'),
-    ('gran-selezione', 5, 'Aceto Balsamico di Modena', 'Aceto balsamico di Modena'),
-    ('gran-selezione', 6, 'Feigen-Senfsoße', 'Fig mustard sauce'),
-    ('gran-selezione', 7, 'Panettone al Cioccolato, 750 g', 'Panettone al cioccolato, 750 g'),
-    ('gran-selezione', 8, 'Trüffelbutter', 'Truffle butter'),
-    ('gran-selezione', 9, 'Bio-Kräuter-Ursalz', 'Organic herb sea salt'),
-    ('gran-selezione', 10, 'Trüffelkäse', 'Truffle cheese'),
-    ('gran-selezione', 11, 'Kleine Pralinen', 'Small pralines')
-  ) AS c(basket_slug, sort_order, name_de, name_en)
+    ('dolce-vita', 1, 'Mini-Panettone al Cioccolato', 'Mini panettone al cioccolato', '100 g', 'Weizenmehl, Schokoladenstücke 15% (Zucker, Kakaomasse, Kakaobutter, Emulgator Sonnenblumenlecithin, natürliches Vanillearoma), Eier, Zucker, Butter, Vollmilchpulver, Eigelb, Natursauerteig (Weizenmehl, Wasser), Emulgatoren Mono- und Diglyceride von Speisefettsäuren, Glukosesirup, natürliche Aromen, Salz. Kann Spuren folgender Allergene enthalten: Schalenfrüchte, Soja.', 'Wheat flour, chocolate pieces 15% (sugar, cocoa mass, cocoa butter, emulsifier sunflower lecithin, natural vanilla flavouring), eggs, sugar, butter, whole milk powder, egg yolk, natural sourdough (wheat flour, water), emulsifiers mono- and diglycerides of fatty acids, glucose syrup, natural flavourings, salt. May contain traces of the following allergens: tree nuts, soy.', ARRAY['gluten','eggs','milk']::text[], '100 g', 'Paolo Lazzaroni & Figli S.p.A., Via Gorizia 41, 21047 Saronno (VA), Italien', 'Italien', 'Recherche 20.11.2026: Klein IMG_7729 (''PANETTONE ... CHOCOLATE 100 g 3.52 oz'', Chiostro-Logo)'),
+    ('dolce-vita', 2, 'Salame 4 Gnometti', 'Salame 4 Gnometti', NULL, 'Schweinefleisch, Speisesalz, Gewürze, Dextrose, Antioxidationsmittel, Starterkulturen, Konservierungsstoff (Nitritpökelsalz). Kann Spuren folgender Allergene enthalten: Milch.', 'Pork, salt, spices, dextrose, antioxidant, starter cultures, preservative (curing salt). May contain traces of the following allergens: milk.', ARRAY[]::text[], NULL, NULL, 'Italien', 'Recherche 20.11.2026: nicht sicher erkennbar'),
+    ('dolce-vita', 3, 'Trüffelbutter', 'Truffle butter', NULL, 'Butter, Sommertrüffel (ca. 1-3 %), Aroma, Salz', 'Butter, summer truffle, flavouring, salt', ARRAY['milk']::text[], NULL, NULL, NULL, 'Recherche 20.11.2026: nicht sicher erkennbar'),
+    ('dolce-vita', 4, 'Trüffelöl', 'Truffle oil', NULL, 'Olivenöl bzw. Sonnenblumenöl, Trüffelaroma', 'Olive oil or sunflower oil, truffle flavouring', ARRAY[]::text[], NULL, NULL, NULL, 'Recherche 20.11.2026: nicht sicher erkennbar'),
+    ('dolce-vita', 5, 'Strangozzi al Limone', 'Strangozzi al limone', NULL, 'Hartweizengrieß, Zitronenaroma/-schale. Kann Spuren folgender Allergene enthalten: Eier.', 'Durum wheat semolina, lemon flavouring/zest. May contain traces of the following allergens: eggs.', ARRAY['gluten']::text[], NULL, NULL, 'Italien', 'Recherche 20.11.2026: evtl. Klein IMG_7729 / hf_..200034 (Pasta im Hintergrund, Etikett nicht lesbar)'),
+    ('dolce-vita', 6, 'V&S Frutti di Bosco', 'V&S Frutti di Bosco', NULL, 'Zutatenliste laut Etikett ausstehend (Hersteller per Websuche nicht auffindbar)', 'Ingredient list according to the label to follow', ARRAY['gluten','eggs','milk']::text[], NULL, NULL, 'Italien', 'Recherche 20.11.2026: Foto Klein: V&S Frutti di Bosco (Produktart auf dem Foto nicht sicher: Fruchtaufstrich oder Feingebäck)'),
+    ('dolce-vita', 7, 'Sfogliatine', 'Sfogliatine (puff pastry)', NULL, 'Weizenmehl, Butter bzw. pflanzliche Fette, Zucker, Salz; ggf. Aprikosen-/Fruchtglasur. Kann Spuren folgender Allergene enthalten: Eier, Schalenfrüchte.', 'Wheat flour, butter or vegetable fats, sugar, salt; possibly apricot/fruit glaze. May contain traces of the following allergens: eggs, tree nuts.', ARRAY['gluten','milk']::text[], NULL, NULL, 'Italien', 'Recherche 20.11.2026: Foto Klein: ''Sfogliatine di pastafrolla'''),
+    ('dolce-vita', 8, 'Pralinen', 'Pralines', NULL, 'Zucker, Kakaobutter, Vollmilchpulver, Kakaomasse, pflanzliche Fette, Emulgator Sojalecithin, Aroma. Kann Spuren folgender Allergene enthalten: Schalenfrüchte, Gluten.', 'Sugar, cocoa butter, whole milk powder, cocoa mass, vegetable fats, emulsifier soya lecithin, flavouring. May contain traces of the following allergens: tree nuts, gluten.', ARRAY['milk','soy']::text[], NULL, NULL, NULL, 'Recherche 20.11.2026: Foto Klein/Gran: Pralinen'),
+    ('sapori-d-italia', 1, 'Panettone, 500 g', 'Panettone, 500 g', NULL, 'Weizenmehl, Sultaninen, kandierte Zitrusschalen, Eier, Butter, Zucker, Vollmilch, Sauerteig. Kann Spuren folgender Allergene enthalten: Schalenfrüchte, Soja.', 'Wheat flour, sultanas, candied citrus peel, eggs, butter, sugar, whole milk, sourdough. May contain traces of the following allergens: tree nuts, soy.', ARRAY['gluten','eggs','milk']::text[], NULL, 'Marke: Pineta (Anschrift laut Etikett ausstehend)', 'Italien', 'Recherche 20.11.2026: Mittel IMG_7727 (roter Karton ''Pineta Panettone Italian Cake'')'),
+    ('sapori-d-italia', 2, 'Grana Padano Riserva, 20 Monate gereift', 'Grana Padano Riserva, aged 20 months', NULL, 'Kuh-Rohmilch, Speisesalz, Lab, Konservierungsstoff Lysozym (aus Eiklar)', 'Raw cow''s milk, salt, rennet, preservative lysozyme (from egg white)', ARRAY['milk','eggs']::text[], NULL, 'Giovanni Ferrari (Anschrift nicht geprüft)', 'Italien (g.U.)', 'Recherche 20.11.2026: Mittel IMG_7727 (Etikett ''Grana Padano Riserva 20 Mesi'', Ferrari-Logo)'),
+    ('sapori-d-italia', 3, 'Salamini Piccante', 'Salamini piccante', NULL, 'Schweinefleisch, Speisesalz, Gewürze, Chili, Dextrose, Antioxidationsmittel, Starterkulturen, Nitritpökelsalz. Kann Spuren folgender Allergene enthalten: Milch.', 'Pork, salt, spices, chilli, dextrose, antioxidant, starter cultures, curing salt. May contain traces of the following allergens: milk.', ARRAY[]::text[], NULL, 'Marke: Beretta (Linie ''Sapori'' 1812) (Anschrift laut Etikett ausstehend)', 'Italien', 'Recherche 20.11.2026: Mittel IMG_7727 (Etikett ''Berella/Beretta ... 1812 ... SALA...'')'),
+    ('sapori-d-italia', 4, 'Trüffelöl', 'Truffle oil', 'ca. 250 ml (Händlerangabe, Flasche im Foto evtl. kleiner)', 'Olivenöl extra vergine ca. 98,5%, Aromen, getrocknete schwarze Trüffel 0,5% (Tuber aestivum Vitt.), ggf. natürliches Zitronenaroma', 'Olive oil or sunflower oil, truffle flavouring', ARRAY[]::text[], 'ca. 250 ml (Händlerangabe, Flasche im Foto evtl. kleiner)', 'Marke: Casa Rinaldi (Öl) (Anschrift laut Etikett ausstehend)', 'Italien', 'Recherche 20.11.2026: Mittel IMG_7727 (Flasche links, Etikett ''Condimento ... tartufo nero'')'),
+    ('sapori-d-italia', 5, 'Feigen-Senfsoße', 'Fig mustard sauce', '190 g (Händler)', 'Feigenpüree 50 %, Zucker, Wasser, Glukosesirup, Pektin, Branntweinessig, Senföl, Pfeffer, Salz', 'Fig purée 50%, sugar, water, glucose syrup, pectin, spirit vinegar, mustard oil, pepper, salt', ARRAY['mustard','sulfites']::text[], '190 g (Händler)', 'Wolfram Berge (Anschrift nicht geprüft)', 'Deutschland', 'Recherche 20.11.2026: Mittel IMG_7727 (Glas ''Grüne Feige'')'),
+    ('sapori-d-italia', 6, 'Grüne Oliven', 'Green olives', NULL, 'grüne Oliven, Wasser, Salz, Säuerungsmittel Milchsäure/Zitronensäure', 'Green olives, water, salt, acidity regulator (lactic acid/citric acid)', ARRAY[]::text[], NULL, 'Marke: Fruttato? (''Olive verdi in salamoia'', Aufdruck unscharf) (Anschrift laut Etikett ausstehend)', 'Italien', 'Recherche 20.11.2026: Mittel IMG_7727 (Glas)'),
+    ('sapori-d-italia', 7, 'Grissini', 'Grissini', '125 g (Händler)', 'Weizenmehl, natives Olivenöl extra 6,5 %, Hefe, Salz, Gerstenmalzextrakt, Weizenmalzmehl. Kann Spuren folgender Allergene enthalten: Sesam, Soja, Senf, Milch.', 'Wheat flour, extra virgin olive oil 6.5%, yeast, salt, barley malt extract, wheat malt flour. May contain traces of the following allergens: sesame, soy, mustard, milk.', ARRAY['gluten']::text[], '125 g (Händler)', 'Granforno (Anschrift nicht geprüft)', 'Italien', 'Recherche 20.11.2026: Mittel IMG_7727 (Karton ''Granforno Grissini Tradizionali, with extra virgin olive oil'')'),
+    ('sapori-d-italia', 8, 'Pasta Tricolore', 'Pasta tricolore', NULL, 'Hartweizengrieß, Spinat- und Tomatenpulver; ggf. Ei. Kann Spuren folgender Allergene enthalten: Eier.', 'Durum wheat semolina, spinach and tomato powder. May contain traces of the following allergens: eggs.', ARRAY['gluten']::text[], NULL, NULL, 'Italien', 'Recherche 20.11.2026: Mittel IMG_7727 (bunte Nester oben links)'),
+    ('sapori-d-italia', 9, 'V&S Frutti di Bosco', 'V&S Frutti di Bosco', NULL, 'Zutatenliste laut Etikett ausstehend (Hersteller per Websuche nicht auffindbar)', 'Ingredient list according to the label to follow', ARRAY['gluten','eggs','milk']::text[], NULL, NULL, 'Italien', 'Recherche 20.11.2026: Foto Klein: V&S Frutti di Bosco (Produktart auf dem Foto nicht sicher: Fruchtaufstrich oder Feingebäck)'),
+    ('sapori-d-italia', 10, 'Sfogliatine', 'Sfogliatine (puff pastry)', NULL, 'Weizenmehl, Butter bzw. pflanzliche Fette, Zucker, Salz; ggf. Aprikosen-/Fruchtglasur. Kann Spuren folgender Allergene enthalten: Eier, Schalenfrüchte.', 'Wheat flour, butter or vegetable fats, sugar, salt; possibly apricot/fruit glaze. May contain traces of the following allergens: eggs, tree nuts.', ARRAY['gluten','milk']::text[], NULL, NULL, 'Italien', 'Recherche 20.11.2026: Foto Klein: ''Sfogliatine di pastafrolla'''),
+    ('sapori-d-italia', 11, 'Pralinen', 'Pralines', NULL, 'Zucker, Kakaobutter, Vollmilchpulver, Kakaomasse, pflanzliche Fette, Emulgator Sojalecithin, Aroma. Kann Spuren folgender Allergene enthalten: Schalenfrüchte, Gluten.', 'Sugar, cocoa butter, whole milk powder, cocoa mass, vegetable fats, emulsifier soya lecithin, flavouring. May contain traces of the following allergens: tree nuts, gluten.', ARRAY['milk','soy']::text[], NULL, NULL, NULL, 'Recherche 20.11.2026: Foto Klein/Gran: Pralinen'),
+    ('gran-selezione', 1, 'Natives Bio-Olivenöl extra', 'Organic extra virgin olive oil', '500 ml (Händler)', '100 % Bio-Olivenöl nativ extra', '100% organic extra virgin olive oil', ARRAY[]::text[], '500 ml (Händler)', 'Deoleo Global S.A.U., Rivas-Vaciamadrid (Spanien) / Deoleo Deutschland GmbH', 'Italien (Händlerangabe)', 'Recherche 20.11.2026: Groß IMG_7724 (Flasche ''BERTOLLI BIO ...'')'),
+    ('gran-selezione', 2, 'Italienisches Salami-Quartett', 'Italian salami quartet', NULL, 'Schweinefleisch, Salz, Gewürze, Dextrose, Antioxidationsmittel, Nitritpökelsalz, Starterkulturen. Kann Spuren folgender Allergene enthalten: Milch.', 'Pork, salt, spices, dextrose, antioxidant, curing salt, starter cultures. May contain traces of the following allergens: milk.', ARRAY[]::text[], NULL, 'Marke: Casa Modena (Geschenkkarton) (Anschrift laut Etikett ausstehend)', 'Italien', 'Recherche 20.11.2026: Groß IMG_7724 (Karton ''Casa Modena'')'),
+    ('gran-selezione', 3, 'Filotea Fettuccine al Tartufo', 'Filotea fettuccine al tartufo', '250 g', 'Hartweizengrieß, Eier 30 %, Weizenmehl, schwarzer Trüffel 2 %. Kann Spuren folgender Allergene enthalten: Weichtiere, Senf, Soja.', 'Durum wheat semolina, eggs 30%, wheat flour, black truffle 2%. May contain traces of the following allergens: molluscs, mustard, soy.', ARRAY['gluten','eggs']::text[], '250 g', 'Filotea (Marche, Anschrift nicht geprüft)', 'Italien', 'Recherche 20.11.2026: Groß IMG_7724 (Packung ''FILOTEA ... FETTUCCINE'')'),
+    ('gran-selezione', 4, 'Grüne Oliven', 'Green olives', NULL, 'grüne Oliven, Wasser, Salz', 'Green olives, water, salt, acidity regulator (lactic acid/citric acid)', ARRAY[]::text[], NULL, NULL, NULL, 'Recherche 20.11.2026: Groß IMG_7724 (evtl. Glas rechts; nicht lesbar)'),
+    ('gran-selezione', 5, 'Aceto Balsamico di Modena', 'Aceto balsamico di Modena', NULL, 'Weinessig, Traubenmost (konzentriert), Zusatz Sulfite', 'Wine vinegar, grape must (concentrated), sulphites', ARRAY['sulfites']::text[], NULL, NULL, 'Modena, Italien (g.g.A.)', 'Recherche 20.11.2026: Groß IMG_7724 (Flasche mit orange-weißem Etikett)'),
+    ('gran-selezione', 6, 'Feigen-Senfsoße', 'Fig mustard sauce', NULL, 'Feigenpüree 50 %, Zucker, Wasser, Glukosesirup, Pektin, Branntweinessig, Senföl, Pfeffer, Salz', 'Fig purée 50%, sugar, water, glucose syrup, pectin, spirit vinegar, mustard oil, pepper, salt', ARRAY['mustard','sulfites']::text[], NULL, NULL, NULL, 'Recherche 20.11.2026: nicht sicher erkennbar'),
+    ('gran-selezione', 7, 'Panettone al Cioccolato, 750 g', 'Panettone al cioccolato, 750 g', NULL, 'Weizenmehl, Schokoladenstücke 15% (Zucker, Kakaomasse, Kakaobutter, Emulgator Sonnenblumenlecithin, natürliches Vanillearoma), Eier, Zucker, Butter, Vollmilchpulver, Eigelb, Natursauerteig (Weizenmehl, Wasser), Emulgatoren Mono- und Diglyceride von Speisefettsäuren, Glukosesirup, natürliche Aromen, Salz. Kann Spuren folgender Allergene enthalten: Schalenfrüchte, Soja.', 'Wheat flour, chocolate pieces 15% (sugar, cocoa mass, cocoa butter, emulsifier sunflower lecithin, natural vanilla flavouring), eggs, sugar, butter, whole milk powder, egg yolk, natural sourdough (wheat flour, water), emulsifiers mono- and diglycerides of fatty acids, glucose syrup, natural flavourings, salt. May contain traces of the following allergens: tree nuts, soy.', ARRAY['gluten','eggs','milk']::text[], NULL, 'Paolo Lazzaroni & Figli S.p.A., Via Gorizia 41, 21047 Saronno (VA), Italien', 'Italien', 'Recherche 20.11.2026: Groß IMG_7724 (Karton ''Chiostro ... Panettone'', Schokoladen-Text)'),
+    ('gran-selezione', 8, 'Trüffelbutter', 'Truffle butter', NULL, 'Butter, Sommertrüffel, Aroma, Salz', 'Butter, summer truffle, flavouring, salt', ARRAY['milk']::text[], NULL, NULL, NULL, 'Recherche 20.11.2026: evtl. Groß IMG_7724 (Päckchen ''...RANDE AL TARTUFO'')'),
+    ('gran-selezione', 9, 'Bio-Kräuter-Ursalz', 'Organic herb sea salt', '320 g', '82 % Ursalz, 16 % Kräuter (Petersilie, Liebstöckel, Bohnenkraut, Basilikum, Thymian), Sonnenblumenöl; bio. Kann Spuren folgender Allergene enthalten: Gluten, Sellerie, Senf.', '82% rock salt, 16% herbs (parsley, lovage, savory, basil, thyme), sunflower oil; organic. May contain traces of the following allergens: gluten, celery, mustard.', ARRAY[]::text[], '320 g', 'NovaTaste Austria GmbH für Wiberg', 'Österreich', 'Recherche 20.11.2026: Groß IMG_7724 (Dose ''Bio Ursalz Kräuter ... WIBERG 320 g'')'),
+    ('gran-selezione', 10, 'Trüffelkäse', 'Truffle cheese', NULL, 'Käse (Milch), Trüffel, Salz, ggf. Aroma', 'Cheese (milk), truffle, salt, possibly flavouring', ARRAY['milk']::text[], NULL, NULL, NULL, 'Recherche 20.11.2026: nicht erkennbar'),
+    ('gran-selezione', 11, 'Kleine Pralinen', 'Small pralines', NULL, 'Zucker, Kakaobutter, Vollmilchpulver, Kakaomasse, pflanzliche Fette, Emulgator Sojalecithin, Aroma. Kann Spuren folgender Allergene enthalten: Schalenfrüchte, Gluten.', 'Sugar, cocoa butter, whole milk powder, cocoa mass, vegetable fats, emulsifier soya lecithin, flavouring. May contain traces of the following allergens: tree nuts, gluten.', ARRAY['milk','soy']::text[], NULL, NULL, NULL, 'Recherche 20.11.2026: Groß IMG_7724 (Folienpralinen unten)'),
+    ('gran-selezione', 12, 'V&S Frutti di Bosco', 'V&S Frutti di Bosco', NULL, 'Zutatenliste laut Etikett ausstehend (Hersteller per Websuche nicht auffindbar)', 'Ingredient list according to the label to follow', ARRAY['gluten','eggs','milk']::text[], NULL, NULL, 'Italien', 'Recherche 20.11.2026: Foto Klein: V&S Frutti di Bosco (Produktart auf dem Foto nicht sicher: Fruchtaufstrich oder Feingebäck)'),
+    ('gran-selezione', 13, 'Sfogliatine', 'Sfogliatine (puff pastry)', NULL, 'Weizenmehl, Butter bzw. pflanzliche Fette, Zucker, Salz; ggf. Aprikosen-/Fruchtglasur. Kann Spuren folgender Allergene enthalten: Eier, Schalenfrüchte.', 'Wheat flour, butter or vegetable fats, sugar, salt; possibly apricot/fruit glaze. May contain traces of the following allergens: eggs, tree nuts.', ARRAY['gluten','milk']::text[], NULL, NULL, 'Italien', 'Recherche 20.11.2026: Foto Klein: ''Sfogliatine di pastafrolla''')
+  ) AS c(basket_slug, sort_order, name_de, name_en, quantity, ingredients_de, ingredients_en, allergens, net_content, fbo, origin, photo)
   JOIN public.gift_baskets b ON b.slug = c.basket_slug
  WHERE NOT EXISTS (SELECT 1 FROM public.gift_basket_components x WHERE x.basket_id = b.id);
 
--- Abholzeiten: PLATZHALTER nach Öffnungszeiten laut Strukturdaten der Website (Mo-Fr ab 09:00, Sa/So ab 12:00);
--- das Ende (Ladenschluss des Abholtags = Ende der Reservierung "vor Ort zahlen") ist VOR LIVEGANG von Antoine zu bestätigen.
+-- Abholzeiten = Öffnungszeiten (Inhaber 20.11.2026): Mo-Fr 9:00-1:00 Uhr, Sa-So 12:00-1:00 Uhr. close < open bedeutet
+-- "bis in die Nacht nach dem Geschäftstag" (giftPricing.ts); Ladenschluss = Ende der Reservierung "vor Ort zahlen".
 UPDATE public.gift_settings
-   SET pickup_hours = '{"0":{"open":"12:00","close":"22:00"},"1":{"open":"09:00","close":"22:00"},"2":{"open":"09:00","close":"22:00"},"3":{"open":"09:00","close":"22:00"},"4":{"open":"09:00","close":"22:00"},"5":{"open":"09:00","close":"22:00"},"6":{"open":"12:00","close":"22:00"}}'::jsonb
+   SET pickup_hours = '{"0":{"open":"12:00","close":"01:00"},"1":{"open":"09:00","close":"01:00"},"2":{"open":"09:00","close":"01:00"},"3":{"open":"09:00","close":"01:00"},"4":{"open":"09:00","close":"01:00"},"5":{"open":"09:00","close":"01:00"},"6":{"open":"12:00","close":"01:00"}}'::jsonb
  WHERE id = 1 AND pickup_hours = '{}'::jsonb;

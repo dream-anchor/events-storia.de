@@ -83,9 +83,11 @@ BEGIN
   END IF;
 END $$;
 
--- ── Bei Zahlung: Bestand dekrementieren (idempotent) ──────────────────────
+-- ── Bei Zahlung: Bestand dekrementieren (idempotent, parallel-sicher) ──────
 -- Liefert {"consumed":bool,"oversold":bool}. oversold = Kunde hat bezahlt, Ware aber nicht
--- (mehr) verfügbar (z. B. Hold war schon abgelaufen) -> Betreiber muss erstatten/nachliefern.
+-- (mehr) in voller Menge verfügbar (z. B. Hold war schon abgelaufen) -> Betreiber muss erstatten/nachliefern.
+-- Abgebucht wird dann nur der FREIE Anteil (nie Bestand, der durch fremde aktive Holds belegt ist, und nie < 0).
+-- Sperrreihenfolge (überall gleich, kein Deadlock): Bestellung -> Holds -> Variante.
 CREATE OR REPLACE FUNCTION public.gift_consume_stock(p_order_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -93,31 +95,44 @@ DECLARE
   r record;
   v_stock integer;
   v_other integer;
+  v_free integer;
+  v_deduct integer;
   v_any boolean := false;
   v_oversold boolean := false;
 BEGIN
+  -- Serialisiert parallele Aufrufe je Bestellung (Webhook-Wiederholung, Admin-Übergabe): der zweite Aufruf
+  -- sieht danach nur noch 'consumed'-Holds und bucht nichts doppelt ab.
+  PERFORM 1 FROM public.gift_orders WHERE id = p_order_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'order_not_found'; END IF;
+
   FOR r IN
     SELECT h.id, h.variant_id, h.qty, h.status, h.expires_at
       FROM public.gift_stock_holds h
      WHERE h.order_id = p_order_id AND h.status IN ('held','released')
      ORDER BY h.variant_id
+       FOR UPDATE OF h
   LOOP
     SELECT stock_qty INTO v_stock FROM public.gift_basket_variants WHERE id = r.variant_id FOR UPDATE;
 
     IF r.status = 'released' OR r.expires_at <= now() THEN
-      -- Späte Zahlung: nur wenn nach Abzug aller anderen aktiven Holds noch genug da ist
+      -- Späte Zahlung: frei ist, was nach Abzug aller anderen aktiven Holds übrig ist
       SELECT COALESCE(sum(qty), 0) INTO v_other
         FROM public.gift_stock_holds
        WHERE variant_id = r.variant_id AND status = 'held' AND expires_at > now() AND order_id <> p_order_id;
-      IF v_stock - v_other < r.qty THEN v_oversold := true; END IF;
-    ELSIF v_stock < r.qty THEN
-      v_oversold := true;   -- Bestand wurde zwischenzeitlich im Admin gesenkt
+      v_free := greatest(v_stock - v_other, 0);
+    ELSE
+      v_free := greatest(v_stock, 0);   -- eigener Hold gültig; unter Wert nur, wenn Bestand im Admin gesenkt wurde
     END IF;
 
-    UPDATE public.gift_basket_variants SET stock_qty = greatest(stock_qty - r.qty, 0) WHERE id = r.variant_id;
+    v_deduct := least(r.qty, v_free);
+    IF v_deduct < r.qty THEN v_oversold := true; END IF;
+
+    IF v_deduct > 0 THEN
+      UPDATE public.gift_basket_variants SET stock_qty = stock_qty - v_deduct WHERE id = r.variant_id;
+      INSERT INTO public.gift_stock_log (variant_id, delta, reason, order_id)
+      VALUES (r.variant_id, -v_deduct, 'consume', p_order_id);
+    END IF;
     UPDATE public.gift_stock_holds SET status = 'consumed' WHERE id = r.id;
-    INSERT INTO public.gift_stock_log (variant_id, delta, reason, order_id)
-    VALUES (r.variant_id, -r.qty, 'consume', p_order_id);
     v_any := true;
   END LOOP;
 

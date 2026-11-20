@@ -2708,6 +2708,7 @@ export type Database = {
           agb_version: string | null
           age_confirmed_at: string | null
           cancelled_at: string | null
+          client_ip_hash: string | null
           confirmation_sent_at: string | null
           created_at: string
           customer_email: string
@@ -2748,6 +2749,7 @@ export type Database = {
           agb_version?: string | null
           age_confirmed_at?: string | null
           cancelled_at?: string | null
+          client_ip_hash?: string | null
           confirmation_sent_at?: string | null
           created_at?: string
           customer_email: string
@@ -2788,6 +2790,7 @@ export type Database = {
           agb_version?: string | null
           age_confirmed_at?: string | null
           cancelled_at?: string | null
+          client_ip_hash?: string | null
           confirmation_sent_at?: string | null
           created_at?: string
           customer_email?: string

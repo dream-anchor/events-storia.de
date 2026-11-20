@@ -99,7 +99,8 @@ CREATE TABLE IF NOT EXISTS public.gift_settings (
   -- Fehlt ein Wochentag, ist an diesem Tag keine Abholung möglich.
   pickup_hours jsonb NOT NULL DEFAULT '{}'::jsonb,
   delivery_windows jsonb NOT NULL DEFAULT '[{"key":"vormittag","label_de":"Vormittag (9-13 Uhr)","label_en":"Morning (9am-1pm)"},{"key":"nachmittag","label_de":"Nachmittag (13-18 Uhr)","label_en":"Afternoon (1pm-6pm)"}]'::jsonb,
-  hold_minutes integer NOT NULL DEFAULT 35,             -- Stripe-Session 30 Min + Puffer
+  -- Hold muss die Stripe-Session (expires_at = Erstellung + 31 Min) sicher überdauern -> mind. 36 Min.
+  hold_minutes integer NOT NULL DEFAULT 40 CHECK (hold_minutes >= 36),
   order_notify_email text NOT NULL DEFAULT 'info@events-storia.de',
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -154,6 +155,7 @@ CREATE TABLE IF NOT EXISTS public.gift_orders (
   confirmation_sent_at timestamptz,
   expiry_mail_sent_at timestamptz,
   is_test boolean NOT NULL DEFAULT false,
+  client_ip_hash text,                          -- SHA-256 der Client-IP (nur Missbrauchsgrenze "vor Ort"-Reservierungen)
   lexoffice_invoice_id text,
   internal_note text,
   deleted_at timestamptz,
@@ -164,6 +166,9 @@ CREATE TABLE IF NOT EXISTS public.gift_orders (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS gift_orders_stripe_session_uidx ON public.gift_orders (stripe_session_id) WHERE stripe_session_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS gift_orders_status_date_idx ON public.gift_orders (status, handover_date);
+-- Grenze offener Reservierungen "vor Ort" je E-Mail / je IP (create-gift-order)
+CREATE INDEX IF NOT EXISTS gift_orders_open_onsite_email_idx ON public.gift_orders (customer_email) WHERE status = 'reserved' AND payment_method = 'on_site';
+CREATE INDEX IF NOT EXISTS gift_orders_open_onsite_ip_idx ON public.gift_orders (client_ip_hash) WHERE status = 'reserved' AND payment_method = 'on_site' AND client_ip_hash IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.gift_order_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -231,38 +236,51 @@ END $$;
 GRANT USAGE, SELECT ON SEQUENCE public.gift_order_number_seq TO service_role;
 
 -- Katalog + Sperrtage: Admin und Staff dürfen alles
+DROP POLICY IF EXISTS "gift_baskets admin staff" ON public.gift_baskets;
 CREATE POLICY "gift_baskets admin staff" ON public.gift_baskets FOR ALL
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+DROP POLICY IF EXISTS "gift_basket_variants admin staff" ON public.gift_basket_variants;
 CREATE POLICY "gift_basket_variants admin staff" ON public.gift_basket_variants FOR ALL
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+DROP POLICY IF EXISTS "gift_basket_components admin staff" ON public.gift_basket_components;
 CREATE POLICY "gift_basket_components admin staff" ON public.gift_basket_components FOR ALL
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+DROP POLICY IF EXISTS "gift_blackout_dates admin staff" ON public.gift_blackout_dates;
 CREATE POLICY "gift_blackout_dates admin staff" ON public.gift_blackout_dates FOR ALL
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
 -- Einstellungen: Staff lesen, nur Admin schreibt
+DROP POLICY IF EXISTS "gift_settings read" ON public.gift_settings;
 CREATE POLICY "gift_settings read" ON public.gift_settings FOR SELECT
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+DROP POLICY IF EXISTS "gift_settings admin write" ON public.gift_settings;
 CREATE POLICY "gift_settings admin write" ON public.gift_settings FOR UPDATE
   USING (public.has_role(auth.uid(), 'admin')) WITH CHECK (public.has_role(auth.uid(), 'admin'));
--- Bestellungen: Admin/Staff lesen und ändern (Status, Notiz); Anlegen/Löschen nur Service-Role
+-- Bestellungen: Admin/Staff lesen; direkt ändern nur die interne Notiz (Spaltenrecht unten).
+-- Statuswechsel laufen ausschließlich über gift_admin_set_status(). Anlegen/Löschen nur Service-Role
+DROP POLICY IF EXISTS "gift_orders read" ON public.gift_orders;
 CREATE POLICY "gift_orders read" ON public.gift_orders FOR SELECT
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+DROP POLICY IF EXISTS "gift_orders update" ON public.gift_orders;
 CREATE POLICY "gift_orders update" ON public.gift_orders FOR UPDATE
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+DROP POLICY IF EXISTS "gift_order_items read" ON public.gift_order_items;
 CREATE POLICY "gift_order_items read" ON public.gift_order_items FOR SELECT
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+DROP POLICY IF EXISTS "gift_stock_holds read" ON public.gift_stock_holds;
 CREATE POLICY "gift_stock_holds read" ON public.gift_stock_holds FOR SELECT
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
+DROP POLICY IF EXISTS "gift_stock_log read" ON public.gift_stock_log;
 CREATE POLICY "gift_stock_log read" ON public.gift_stock_log FOR SELECT
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff'));
 
 -- Schreibrechte einschränken (Grants oben sind großzügig, Policies sind die Sperre):
-REVOKE INSERT, DELETE ON public.gift_orders FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.gift_orders FROM authenticated;
+GRANT UPDATE (internal_note) ON public.gift_orders TO authenticated;   -- M8: Staff darf nur die Notiz direkt ändern
 REVOKE INSERT, UPDATE, DELETE ON public.gift_order_items FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.gift_stock_holds FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.gift_stock_log FROM authenticated;
