@@ -42,7 +42,7 @@ const Anfrage = lazy(() => import("./pages/Anfrage"));
 const Restzahlung = lazy(() => import("./pages/Restzahlung"));
 const Gutschein = lazy(() => import("./pages/Gutschein"));
 const GutscheinDanke = lazy(() => import("./pages/GutscheinDanke"));
-const GiftOrder = lazy(() => import("./pages/GiftOrder"));
+const GiftOrderRedirect = lazy(() => import("./pages/GiftOrderRedirect"));
 const GiftThanks = lazy(() => import("./pages/GiftThanks"));
 const GiftConfirm = lazy(() => import("./pages/GiftConfirm"));
 const Danke = lazy(() => import("./pages/Danke"));
@@ -208,13 +208,13 @@ const App = () => {
                     <Route path="/en/voucher" element={<Gutschein />} />
                     <Route path="/en/voucher/thanks" element={<GutscheinDanke />} />
 
-                    {/* Geschenkkorb-Shop (noindex; Landingpage liegt auf ristorantestoria.de) */}
-                    <Route path="/geschenkkoerbe" element={<GiftOrder />} />
-                    <Route path="/geschenkkoerbe/bestellung" element={<GiftOrder />} />
+                    {/* Geschenkkörbe: Kategorie-Seite /catering/geschenkkoerbe; alte Korb-Shop-URLs leiten um (noindex; Landingpage liegt auf ristorantestoria.de) */}
+                    <Route path="/geschenkkoerbe" element={<Navigate to="/catering/geschenkkoerbe/" replace />} />
+                    <Route path="/geschenkkoerbe/bestellung" element={<GiftOrderRedirect />} />
                     <Route path="/geschenkkoerbe/danke" element={<GiftThanks />} />
                     <Route path="/geschenkkoerbe/bestaetigen" element={<GiftConfirm />} />
-                    <Route path="/en/geschenkkoerbe" element={<GiftOrder />} />
-                    <Route path="/en/geschenkkoerbe/bestellung" element={<GiftOrder />} />
+                    <Route path="/en/geschenkkoerbe" element={<Navigate to="/en/catering/gift-baskets/" replace />} />
+                    <Route path="/en/geschenkkoerbe/bestellung" element={<GiftOrderRedirect />} />
                     <Route path="/en/geschenkkoerbe/danke" element={<GiftThanks />} />
                     <Route path="/en/geschenkkoerbe/bestaetigen" element={<GiftConfirm />} />
 
