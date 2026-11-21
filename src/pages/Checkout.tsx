@@ -1465,6 +1465,9 @@ const Checkout = () => {
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm truncate">{name}</p>
+                                  {item.kind === 'gift_basket' && (
+                                    <p className="text-xs text-muted-foreground truncate">{language === 'en' && item.variantLabelEn ? item.variantLabelEn : item.variantLabel}</p>
+                                  )}
                                   <p className="text-xs text-muted-foreground">{item.quantity}× {formatPrice(item.price)}</p>
                                 </div>
                                 <div className="flex items-center gap-1">
