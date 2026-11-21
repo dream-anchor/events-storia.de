@@ -11,6 +11,7 @@ import { PriceDisplayProvider } from "@/contexts/PriceDisplayContext";
 import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import GeschenkKoerbe from "./pages/catering/GeschenkKoerbe";
 import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
 import { AdminLoader } from "./components/admin/AdminLoader";
 import FloatingActions from "./components/FloatingActions";
@@ -176,6 +177,7 @@ const App = () => {
                     <Route path="/catering/buffet-auflauf" element={<BuffetAuflauf />} />
                     <Route path="/catering/pizze-napoletane" element={<PizzeNapoletane />} />
                     <Route path="/catering/desserts" element={<Desserts />} />
+                    <Route path="/catering/geschenkkoerbe" element={<GeschenkKoerbe />} />
                     <Route path="/events" element={<EventsImStoria />} />
                     {/* Redirects for old URLs */}
                     <Route path="/catering/flying-buffet" element={<EventsImStoria />} />
@@ -257,6 +259,7 @@ const App = () => {
                     <Route path="/en/catering/hot-dishes" element={<BuffetAuflauf />} />
                     <Route path="/en/catering/pizza-napoletana" element={<PizzeNapoletane />} />
                     <Route path="/en/catering/desserts" element={<Desserts />} />
+                    <Route path="/en/catering/gift-baskets" element={<GeschenkKoerbe />} />
                     <Route path="/en/events" element={<EventsImStoria />} />
 
                     {/* Checkout & Account EN */}

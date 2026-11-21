@@ -7,6 +7,7 @@ import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import { giftMaxForLine, isGiftItem } from '@/lib/gift/cartRules';
+import { formatEuro } from '@/lib/gift/pricing';
 import { 
   isLocationPackage, 
   getLocationPricingBreakdown,
@@ -15,9 +16,12 @@ import {
 } from '@/lib/eventPricing';
 
 const CartSheet = () => {
-  const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart, totalItems } = useCart();
+  const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart, totalItems, giftItemCount } = useCart();
   const { language } = useLanguage();
-  const { formatPrice } = usePriceDisplay();
+  const { formatPrice: formatPriceDisplay } = usePriceDisplay();
+  // Geschenkkörbe haben gemischte Steuersätze: sobald welche im Warenkorb sind, immer Bruttopreis
+  const formatPrice = (gross: number): string =>
+    giftItemCount > 0 ? formatEuro(Math.round(gross * 100), language === 'en' ? 'en' : 'de') : formatPriceDisplay(gross);
   const navigate = useNavigate();
   const { getPath } = useLocalizedPath();
 
