@@ -2727,7 +2727,6 @@ export type Database = {
           age_confirmed_at: string | null
           alert_sent_at: string | null
           cancelled_at: string | null
-          catering_order_number: string | null
           client_ip_hash: string | null
           confirm_token_hash: string | null
           confirmation_sent_at: string | null
@@ -2777,7 +2776,6 @@ export type Database = {
           age_confirmed_at?: string | null
           alert_sent_at?: string | null
           cancelled_at?: string | null
-          catering_order_number?: string | null
           client_ip_hash?: string | null
           confirm_token_hash?: string | null
           confirmation_sent_at?: string | null
@@ -2827,7 +2825,6 @@ export type Database = {
           age_confirmed_at?: string | null
           alert_sent_at?: string | null
           cancelled_at?: string | null
-          catering_order_number?: string | null
           client_ip_hash?: string | null
           confirm_token_hash?: string | null
           confirmation_sent_at?: string | null
