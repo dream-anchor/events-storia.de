@@ -6,6 +6,9 @@ import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import TrustBadges from "./TrustBadges";
 import { cn } from "@/lib/utils";
+import { isGiftItem } from "@/lib/gift/cartRules";
+import { GIFT_COPY } from "@/lib/gift/copy";
+import { formatEuroTruncated, formatMixedTotal } from "@/lib/gift/mixedCart";
 
 interface StickySummaryProps {
   deliveryCost?: number;
@@ -13,6 +16,8 @@ interface StickySummaryProps {
   chafingDishQuantity?: number;
   chafingDishPrice?: number;
   grandTotal: number;
+  /** Mischbestellung: Korb-Anteil (brutto, Anzeige); 0 = reine Catering-Bestellung */
+  giftSubtotal?: number;
   foodVat7?: number;
   deliveryVat19?: number;
   isDelivery?: boolean;
@@ -31,6 +36,7 @@ const StickySummary = ({
   chafingDishQuantity = 0,
   chafingDishPrice = 25,
   grandTotal,
+  giftSubtotal = 0,
   foodVat7 = 0,
   deliveryVat19 = 0,
   isDelivery = true,
@@ -40,9 +46,13 @@ const StickySummary = ({
   className,
   ctaButton,
 }: StickySummaryProps) => {
-  const { items, updateQuantity, removeFromCart, totalPrice } = useCart();
+  const { items, updateQuantity, removeFromCart, totalPrice, cateringSubtotal } = useCart();
   const { language } = useLanguage();
-  const { formatPrice, showGross, setShowGross } = usePriceDisplay();
+  const { formatPrice, formatPriceValue, showGross, setShowGross } = usePriceDisplay();
+  const hasGifts = giftSubtotal > 0;
+  // Mindestbestellwert/Aufschlag gelten nur für den Catering-Anteil; ohne Körbe unverändert totalPrice
+  const subtotalBase = hasGifts ? cateringSubtotal : totalPrice;
+  const giftText = GIFT_COPY[language === 'de' ? 'de' : 'en'];
 
   const chafingDishGross = chafingDishQuantity * chafingDishPrice;
 
@@ -80,7 +90,7 @@ const StickySummary = ({
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    {item.quantity}× {formatPrice(item.price)}
+                    {item.quantity}× {isGiftItem(item) ? formatEuroTruncated(item.price) : formatPrice(item.price)}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -151,8 +161,15 @@ const StickySummary = ({
             <span className="text-muted-foreground">
               {language === 'de' ? 'Zwischensumme' : 'Subtotal'}
             </span>
-            <span>{formatPrice(totalPrice)}</span>
+            <span>{formatPrice(subtotalBase)}</span>
           </div>
+
+          {hasGifts && (
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">{giftText.mixedGiftsLine}</span>
+              <span>+{formatEuroTruncated(giftSubtotal)}</span>
+            </div>
+          )}
 
           {minimumOrderSurcharge > 0 && (
             <div className="flex justify-between items-center text-sm text-amber-600 dark:text-amber-400">
@@ -232,7 +249,7 @@ const StickySummary = ({
               {language === 'de' ? 'Gesamt' : 'Total'}
             </span>
             <span className="font-serif text-xl font-bold text-amber-950 dark:text-amber-50">
-              {formatPrice(grandTotal)}
+              {hasGifts ? formatMixedTotal(formatPriceValue(grandTotal), giftSubtotal) : formatPrice(grandTotal)}
             </span>
           </div>
         </div>

@@ -64,7 +64,9 @@ export async function fetchGiftShopConfig(): Promise<GiftShopConfig> {
 export interface CreateGiftOrderInput {
   items: { variant_id: string; qty: number }[];
   customer: { name: string; email: string; phone: string };
-  handover: "pickup" | "delivery";
+  handover: "pickup" | "delivery" | "with_catering";
+  /** nur bei handover 'with_catering' (Mischbestellung): Bestellnummer der Catering-Bestellung */
+  catering_order_number?: string;
   date: string;
   time: string;
   address: { street: string; zip: string; city: string; note: string };
@@ -86,6 +88,9 @@ export interface CreateGiftOrderResult {
   order_number: string | null;
   total_cents: number;
   delivery_fee_cents?: number;
+  /** nur Mischbestellung (with_catering): ID/Positionen für die Catering-Zahlung */
+  gift_order_id?: string;
+  items?: { name: string; variant: string; qty: number; unit_price_cents: number }[];
 }
 
 export const createGiftOrder = (input: CreateGiftOrderInput) =>
