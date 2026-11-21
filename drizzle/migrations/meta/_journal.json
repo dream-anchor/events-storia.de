@@ -22,6 +22,13 @@
       "when": 1795216057025,
       "tag": "0002_gift_baskets_seed",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795267658656,
+      "tag": "0003_gift_orders_with_catering",
+      "breakpoints": true
     }
   ]
 }
