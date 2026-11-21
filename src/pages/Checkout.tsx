@@ -33,6 +33,9 @@ import SaveForLaterCheckbox from '@/components/checkout/SaveForLaterCheckbox';
 import PaymentLogos from '@/components/checkout/PaymentLogos';
 import { SmartDatePicker } from '@/components/ui/smart-date-picker';
 import Footer from '@/components/Footer';
+import GiftCheckout from '@/components/gift/GiftCheckout';
+import { isGiftItem } from '@/lib/gift/cartRules';
+import { GIFT_COPY } from '@/lib/gift/copy';
 import { format, parseISO } from 'date-fns';
 
 // Zod schema for checkout form validation with length limits (security)
@@ -189,8 +192,10 @@ const grossOf = (net: number): number => Math.round(net * (1 + DELIVERY_INFO.vat
 const formatEuro = (value: number): string =>
   `${value.toLocaleString('de-DE', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })} €`;
 
-const Checkout = () => {
+const CateringCheckout = () => {
   const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
+  // Gemischte Warenkörbe (Catering + Geschenkkörbe) kommen mit Einheit I2; bis dahin darf dieses Formular keine Körbe absenden
+  const hasGiftItems = items.some(isGiftItem);
   const { language } = useLanguage();
   const { formatPrice, showGross, setShowGross } = usePriceDisplay();
   const navigate = useNavigate();
@@ -867,6 +872,11 @@ const Checkout = () => {
     if (isSubmitting || isProcessingPayment) {
       return;
     }
+
+    if (hasGiftItems) {
+      toast.error(GIFT_COPY[language === 'de' ? 'de' : 'en'].mixedSoon);
+      return;
+    }
     
     if (honeypot) {
       toast.success(language === 'de' ? 'Bestellung aufgegeben' : 'Order placed');
@@ -1333,7 +1343,7 @@ const Checkout = () => {
       form="checkout-form"
       variant="checkoutCta"
       className="w-full h-12 text-base"
-      disabled={isSubmitting || isProcessingPayment}
+      disabled={isSubmitting || isProcessingPayment || hasGiftItems}
     >
       {isSubmitting || isProcessingPayment ? (
         <>
@@ -1377,6 +1387,12 @@ const Checkout = () => {
                   : 'Almost done – just a few more details!'}
               </p>
             </div>
+
+            {hasGiftItems && (
+              <p role="alert" className="mb-6 rounded-xl border border-border bg-secondary/60 p-4 text-sm">
+                {GIFT_COPY[language === 'de' ? 'de' : 'en'].mixedSoon}
+              </p>
+            )}
 
             <form id="checkout-form" onSubmit={handleSubmit}>
               {/* Honeypot field */}
@@ -2278,6 +2294,13 @@ const Checkout = () => {
       </div>
     </>
   );
+};
+
+/** Weiche nach Warenkorb-Inhalt: nur Geschenkkörbe -> GiftCheckout; sonst unverändert das Catering-Formular. */
+const Checkout = () => {
+  const { items } = useCart();
+  const onlyGifts = items.length > 0 && items.every(isGiftItem);
+  return onlyGifts ? <GiftCheckout /> : <CateringCheckout />;
 };
 
 export default Checkout;
