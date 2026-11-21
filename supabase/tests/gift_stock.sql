@@ -1,6 +1,6 @@
 -- SQL-Tests Geschenkkorb-Bestand. Lauf gegen eine Wegwerf-/Branch-DB (NIE Produktion):
 --   psql "$TEST_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/gift_stock.sql
--- Alles in einer Transaktion mit ROLLBACK am Ende. Voraussetzung: Migrationen 20261120100000-200 angewendet.
+-- Alles in einer Transaktion mit ROLLBACK am Ende. Voraussetzung: Migrationen 20261120100000-200 und 20261121120000 angewendet.
 -- Echter Parallel-Test (zwei Sessions) siehe Kommentar ganz unten.
 BEGIN;
 
@@ -125,6 +125,22 @@ BEGIN
   ASSERT (SELECT client_ip_hash FROM gift_orders WHERE id = o3) = 'abc', 'offene Bestellung behält den Hash';
   UPDATE gift_orders SET status = 'cancelled' WHERE id = o3;
   ASSERT (SELECT client_ip_hash FROM gift_orders WHERE id = o3) IS NULL, 'abgeschlossen: Hash gelöscht';
+
+  -- 13) Übergabe 'with_catering' (Mischbestellung): nur mit Catering-Bestellnummer, ungültige Werte bleiben verboten
+  INSERT INTO gift_orders (customer_name,customer_email,handover,handover_date,items_total_cents,total_cents,catering_order_number)
+    VALUES ('m','m@x.de','with_catering',current_date,9900,9900,'CAT-TEST-1');
+  caught := false;
+  BEGIN
+    INSERT INTO gift_orders (customer_name,customer_email,handover,handover_date,items_total_cents,total_cents) VALUES ('m','m@x.de','with_catering',current_date,9900,9900);
+  EXCEPTION WHEN check_violation THEN caught := true;
+  END;
+  ASSERT caught, 'with_catering ohne catering_order_number wird abgelehnt';
+  caught := false;
+  BEGIN
+    INSERT INTO gift_orders (customer_name,customer_email,handover,handover_date,items_total_cents,total_cents) VALUES ('m','m@x.de','bogus',current_date,9900,9900);
+  EXCEPTION WHEN check_violation THEN caught := true;
+  END;
+  ASSERT caught, 'unbekannter handover-Wert wird abgelehnt';
 
   RAISE NOTICE 'gift_stock.sql: alle Assertions grün';
 END $$;
