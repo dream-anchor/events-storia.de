@@ -20,7 +20,8 @@ BEGIN
   FOR c IN
     SELECT conname FROM pg_constraint
     WHERE conrelid = 'public.gift_orders'::regclass AND contype = 'c'
-      AND pg_get_constraintdef(oid) ILIKE '%handover%IN%'
+      AND pg_get_constraintdef(oid) ILIKE '%handover%'
+      AND pg_get_constraintdef(oid) NOT ILIKE '%with_catering%'
       AND pg_get_constraintdef(oid) NOT ILIKE '%delivery_street%'
   LOOP
     EXECUTE format('ALTER TABLE public.gift_orders DROP CONSTRAINT %I', c.conname);
