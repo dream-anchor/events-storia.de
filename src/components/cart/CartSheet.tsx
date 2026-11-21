@@ -6,6 +6,8 @@ import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalizedPath } from '@/hooks/useLocalizedPath';
+import { giftMaxForLine, isGiftItem } from '@/lib/gift/cartRules';
+import { formatEuro } from '@/lib/gift/pricing';
 import { 
   isLocationPackage, 
   getLocationPricingBreakdown,
@@ -14,9 +16,12 @@ import {
 } from '@/lib/eventPricing';
 
 const CartSheet = () => {
-  const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart, totalItems } = useCart();
+  const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart, totalItems, giftItemCount } = useCart();
   const { language } = useLanguage();
-  const { formatPrice } = usePriceDisplay();
+  const { formatPrice: formatPriceDisplay } = usePriceDisplay();
+  // Geschenkkörbe haben gemischte Steuersätze: sobald welche im Warenkorb sind, immer Bruttopreis
+  const formatPrice = (gross: number): string =>
+    giftItemCount > 0 ? formatEuro(Math.round(gross * 100), language === 'en' ? 'en' : 'de') : formatPriceDisplay(gross);
   const navigate = useNavigate();
   const { getPath } = useLocalizedPath();
 
@@ -102,6 +107,11 @@ const CartSheet = () => {
                           {item.serving_info && (
                             <p className="text-xs text-muted-foreground mt-0.5">{item.serving_info}</p>
                           )}
+                          {isGiftItem(item) && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {language === 'en' && item.variantLabelEn ? item.variantLabelEn : item.variantLabel}
+                            </p>
+                          )}
                           {/* Show tiered pricing breakdown for Location package */}
                           {hasTieredPricing && pricingBreakdown && (
                             <p className="text-xs text-muted-foreground mt-1">
@@ -141,7 +151,8 @@ const CartSheet = () => {
                             const step = item.min_order || 1;
                             updateQuantity(item.id, item.quantity + step);
                           }}
-                          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-muted transition-colors touch-manipulation"
+                          disabled={isGiftItem(item) && item.quantity >= giftMaxForLine(items, item.id)}
+                          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-muted transition-colors touch-manipulation disabled:opacity-40 disabled:pointer-events-none"
                           aria-label="Menge erhöhen"
                         >
                           <Plus className="h-4 w-4" />

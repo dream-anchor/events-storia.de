@@ -42,12 +42,14 @@ const Navigation = () => {
     { label: "WARME GERICHTE", path: getPath('catering.casseroles'), description: "Aufläufe & Schmorgerichte" },
     { label: "PIZZA NAPOLETANA", path: getPath('catering.pizza'), description: "Authentisch aus Neapel" },
     { label: "DESSERTS", path: getPath('catering.desserts'), description: "Süße Verführungen" },
+    { label: "GESCHENKKÖRBE", path: getPath('catering.giftBaskets'), description: "Italienische Genussgeschenke" },
   ] : [
     { label: "FINGER FOOD", path: getPath('catering.fingerfood'), description: "Bites & Snacks" },
     { label: "PLATTERS & SHARING", path: getPath('catering.platters'), description: "Cold Buffet Platters" },
     { label: "HOT DISHES", path: getPath('catering.casseroles'), description: "Casseroles & Braised Dishes" },
     { label: "PIZZA NAPOLETANA", path: getPath('catering.pizza'), description: "Authentic from Naples" },
     { label: "DESSERTS", path: getPath('catering.desserts'), description: "Sweet Temptations" },
+    { label: "GIFT BASKETS", path: getPath('catering.giftBaskets'), description: "Italian Gourmet Gifts" },
   ];
 
   const navItems: NavItem[] = [

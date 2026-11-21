@@ -91,6 +91,17 @@ const cateringItems: CateringItem[] = [
     routeKey: "catering.desserts",
     image: dessertsImg,
   },
+  {
+    id: "geschenkkoerbe",
+    titleDe: "Geschenkkörbe",
+    titleEn: "Gift Baskets",
+    descriptionDe: "Italienische Spezialitäten & Wein im Korb – zum Abholen oder Verschenken.",
+    descriptionEn: "Italian specialities & wine in a basket – for pickup or gifting.",
+    altDe: "Geschenkkorb Gran Selezione mit italienischen Spezialitäten – STORIA München",
+    altEn: "Gran Selezione gift basket with Italian specialities – STORIA Munich",
+    routeKey: "catering.giftBaskets",
+    image: "/geschenkkoerbe/geschenkkorb-gran-selezione-600.webp",
+  },
 ];
 
 const CateringCard = ({ item, language, index }: { item: CateringItem; language: string; index: number }) => {

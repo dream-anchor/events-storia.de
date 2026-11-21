@@ -13,6 +13,7 @@ export type RouteKey =
   | 'catering.casseroles'
   | 'catering.pizza'
   | 'catering.desserts'
+  | 'catering.giftBaskets'
   | 'checkout'
   | 'login'
   | 'account'
@@ -63,6 +64,9 @@ export const ROUTES: RouteConfig[] = [
   { key: 'catering.casseroles', de: '/catering/buffet-auflauf', en: '/catering/hot-dishes', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'weekly' },
   { key: 'catering.pizza', de: '/catering/pizze-napoletane', en: '/catering/pizza-napoletana', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'weekly' },
   { key: 'catering.desserts', de: '/catering/desserts', en: '/catering/desserts', languages: ['de', 'en'], prerender: true, priority: 0.8, changefreq: 'weekly' },
+
+  // Geschenkkörbe: Inhalt kommt live aus dem Katalog (kein Prerender), noindex; Landingpage liegt auf ristorantestoria.de
+  { key: 'catering.giftBaskets', de: '/catering/geschenkkoerbe', en: '/catering/gift-baskets', languages: ['de', 'en'], prerender: false, noIndex: true },
 
   // FAQ
   { key: 'faq', de: '/faq-catering-muenchen', en: '/catering-faq-munich', languages: ['de', 'en'], prerender: true, priority: 0.7, changefreq: 'monthly' },

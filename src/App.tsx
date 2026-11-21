@@ -11,6 +11,7 @@ import { PriceDisplayProvider } from "@/contexts/PriceDisplayContext";
 import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import GeschenkKoerbe from "./pages/catering/GeschenkKoerbe";
 import { AdminAuthGuard } from "./components/admin/AdminAuthGuard";
 import { AdminLoader } from "./components/admin/AdminLoader";
 import FloatingActions from "./components/FloatingActions";
@@ -41,7 +42,7 @@ const Anfrage = lazy(() => import("./pages/Anfrage"));
 const Restzahlung = lazy(() => import("./pages/Restzahlung"));
 const Gutschein = lazy(() => import("./pages/Gutschein"));
 const GutscheinDanke = lazy(() => import("./pages/GutscheinDanke"));
-const GiftOrder = lazy(() => import("./pages/GiftOrder"));
+const GiftOrderRedirect = lazy(() => import("./pages/GiftOrderRedirect"));
 const GiftThanks = lazy(() => import("./pages/GiftThanks"));
 const GiftConfirm = lazy(() => import("./pages/GiftConfirm"));
 const Danke = lazy(() => import("./pages/Danke"));
@@ -176,6 +177,7 @@ const App = () => {
                     <Route path="/catering/buffet-auflauf" element={<BuffetAuflauf />} />
                     <Route path="/catering/pizze-napoletane" element={<PizzeNapoletane />} />
                     <Route path="/catering/desserts" element={<Desserts />} />
+                    <Route path="/catering/geschenkkoerbe" element={<GeschenkKoerbe />} />
                     <Route path="/events" element={<EventsImStoria />} />
                     {/* Redirects for old URLs */}
                     <Route path="/catering/flying-buffet" element={<EventsImStoria />} />
@@ -206,13 +208,13 @@ const App = () => {
                     <Route path="/en/voucher" element={<Gutschein />} />
                     <Route path="/en/voucher/thanks" element={<GutscheinDanke />} />
 
-                    {/* Geschenkkorb-Shop (noindex; Landingpage liegt auf ristorantestoria.de) */}
-                    <Route path="/geschenkkoerbe" element={<GiftOrder />} />
-                    <Route path="/geschenkkoerbe/bestellung" element={<GiftOrder />} />
+                    {/* Geschenkkörbe: Kategorie-Seite /catering/geschenkkoerbe; alte Korb-Shop-URLs leiten um (noindex; Landingpage liegt auf ristorantestoria.de) */}
+                    <Route path="/geschenkkoerbe" element={<Navigate to="/catering/geschenkkoerbe/" replace />} />
+                    <Route path="/geschenkkoerbe/bestellung" element={<GiftOrderRedirect />} />
                     <Route path="/geschenkkoerbe/danke" element={<GiftThanks />} />
                     <Route path="/geschenkkoerbe/bestaetigen" element={<GiftConfirm />} />
-                    <Route path="/en/geschenkkoerbe" element={<GiftOrder />} />
-                    <Route path="/en/geschenkkoerbe/bestellung" element={<GiftOrder />} />
+                    <Route path="/en/geschenkkoerbe" element={<Navigate to="/en/catering/gift-baskets/" replace />} />
+                    <Route path="/en/geschenkkoerbe/bestellung" element={<GiftOrderRedirect />} />
                     <Route path="/en/geschenkkoerbe/danke" element={<GiftThanks />} />
                     <Route path="/en/geschenkkoerbe/bestaetigen" element={<GiftConfirm />} />
 
@@ -257,6 +259,7 @@ const App = () => {
                     <Route path="/en/catering/hot-dishes" element={<BuffetAuflauf />} />
                     <Route path="/en/catering/pizza-napoletana" element={<PizzeNapoletane />} />
                     <Route path="/en/catering/desserts" element={<Desserts />} />
+                    <Route path="/en/catering/gift-baskets" element={<GeschenkKoerbe />} />
                     <Route path="/en/events" element={<EventsImStoria />} />
 
                     {/* Checkout & Account EN */}

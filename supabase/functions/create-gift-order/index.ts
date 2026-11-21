@@ -363,7 +363,7 @@ serve(async (req) => {
       expires_at: Math.floor(Date.now() / 1000) + STRIPE_SESSION_MINUTES * 60, // direkt vor dem Aufruf gerechnet (Stripe-Minimum 30 Min); Hold >= 36 Min
       locale: en ? "en" : "de",
       success_url: `${origin}${prefix}/geschenkkoerbe/danke?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}${prefix}/geschenkkoerbe/bestellung?cancelled=1`,
+      cancel_url: `${origin}${prefix}/checkout?cancelled=1`, // reguläre Kasse (GiftCheckout), Warenkorb bleibt erhalten
       metadata: {
         order_type: "gift_basket",
         gift_order_id: order.id,

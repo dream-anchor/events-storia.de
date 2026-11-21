@@ -5,9 +5,10 @@ import { useCart } from '@/contexts/CartContext';
 import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { formatEuro } from '@/lib/gift/pricing';
 
 const CartButton = () => {
-  const { totalItems, totalPrice } = useCart();
+  const { totalItems, totalPrice, giftItemCount } = useCart();
   const { formatPrice } = usePriceDisplay();
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -44,7 +45,10 @@ const CartButton = () => {
         <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded-full text-sm font-semibold">
           {totalItems}
         </span>
-        <span className="font-medium text-sm">{formatPrice(totalPrice)}</span>
+        <span className="font-medium text-sm">
+          {/* Geschenkkörbe haben gemischte Steuersätze: sobald welche im Warenkorb sind, immer Bruttopreis */}
+          {giftItemCount > 0 ? formatEuro(Math.round(totalPrice * 100), language) : formatPrice(totalPrice)}
+        </span>
       </div>
     </button>
   );

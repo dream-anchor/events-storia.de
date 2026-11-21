@@ -6,6 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
 import { GIFT_COPY } from "@/lib/gift/copy";
+import { useCart } from "@/contexts/CartContext";
 
 /** Danke-Seite (Muster GutscheinDanke): keine Datenabfrage, nur Bestätigungstext; Details kommen per E-Mail. */
 const GiftThanks = () => {
@@ -16,6 +17,7 @@ const GiftThanks = () => {
   const sessionId = params.get("session_id");
   const awaiting = params.get("awaiting") === "1";
   const orderNo = params.get("nr");
+  const { removeGiftItems } = useCart();
 
   useEffect(() => {
     // Gutschein-/Korb-Warenkorb nach erfolgreicher Zahlung leeren
@@ -23,7 +25,9 @@ const GiftThanks = () => {
       sessionStorage.removeItem("storia-gift-cart");
       sessionStorage.removeItem("storia-gift-form");
     } catch { /* ignorieren */ }
+    removeGiftItems(); // Geschenkkörbe im gemeinsamen Warenkorb; Catering-Zeilen bleiben unberührt
     if (sessionId) trackEvent("purchase", { location: "geschenkkorb", transaction_id: sessionId });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- nur einmal beim Öffnen der Seite (removeGiftItems ist bei jedem Render neu)
   }, [sessionId]);
 
   return (

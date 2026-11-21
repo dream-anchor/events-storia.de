@@ -214,3 +214,86 @@ Reihenfolge: **S1 → S2 → S3 → S4 → (R parallel ab S1) → M parallel (an
 15. **Ablauf-Sweep** (pg_cron): `gift_sweep_expired_holds` alle 5 Min (SQL), Edge Function `gift-expire-reservations` alle 10 Min (Mails „abgelaufen“, Wiederholung fehlgeschlagener Bestätigungs-/Rechnungsmails, max. 3 Versuche, danach Betreiber-Alarm; einmalig Vault-Secret `gift_cron_secret` + Function-Secret `GIFT_CRON_SECRET`).
 16. Refund/Dispute spiegeln auf `gift_orders` (voll erstattet → `refunded` + Notiz; Teil-Erstattung/Dispute nur Notiz); Bestand wird nicht automatisch zurückgebucht (Admin „Bestand wieder einbuchen“, idempotent).
 17. **Widerruf:** Bei Geschenkkörben gilt das gesetzliche Widerrufsrecht (14 Tage ab Erhalt), der Kunde trägt die Rücksendekosten; Ausnahme geöffnete versiegelte Lebensmittel (§ 312g Abs. 2 Nr. 3 BGB). Kurzhinweis im Shop/in den Mails (`GIFT_TEXTS.withdrawal`) mit Link auf Widerrufsbelehrung und AGB § 41; keine Verzichts-Checkbox.
+
+---
+
+## 11. Integration in den regulären Catering-Shop (Stand 21.11.2026)
+
+Auftrag Antoine 21.11.2026: „nichts neues erfinden“ – Körbe werden ein normaler Teil des Catering-Shops
+(ein Warenkorb, ein Checkout). Der getrennte Korb-Shop bleibt live, bis I1 live ist.
+
+### 11.1 Entscheidungen Antoine (21.11.2026, verbindlich)
+18. **Eigene Kategorie „Geschenkkörbe“** im Shop-Menü (Navigation, Startseiten-Raster), neben den Catering-Kategorien.
+19. **Gemischter Warenkorb = „getrennt behandeln“:** Mindestbestellwert/Aufschlag und 24-h-Vorlauf gelten nur für den
+    Catering-Anteil; Körbe ohne Aufschlag. **Ein** Liefertermin (Catering-Termin). **Liefergebühr = nur die normale
+    Catering-Liefergebühr** (`calculate-delivery`), Körbe fahren ohne Aufpreis mit.
+20. **Reine Korb-Bestellung** = unverändert wie Korb-Shop: Abholung sofort bei Vorrat, Lieferung ab Folgetag, Taxitarif
+    exakt auf den Cent, „Bei Abholung vor Ort zahlen“ (Double-Opt-in) **nur** hier. Catering bleibt Vorkasse (Stripe/Billie).
+21. Nach dem Umbau leitet `/geschenkkoerbe/bestellung` in den normalen Shop um; Deep-Links von ristorantestoria.de
+    (`?korb=&wein=&menge=`, `?pos=`) legen den Korb in den regulären Warenkorb.
+
+### 11.2 Architektur (Grundsatz: die Korb-Engine bleibt autoritativ)
+Befund (Faktenkarte 21.11.): `checkout_create_catering_order` ist anon-aufrufbar und übernimmt **alle Beträge vom Client**;
+`create-catering-payment` erzeugt einen Pauschalposten; Lexoffice-Payload für Catering ohne Satz je Position (alles 7 %);
+Webhook-Zweig Catering ohne `amount_total`-Abgleich. **Körbe laufen deshalb nie über die Catering-Beträge**, sondern
+immer über `gift_orders` (Serverpreis, `vat_split`, Bestand/Hold, Altersbestätigung, AGB-Version).
+
+- **Warenkorb (`CartContext`)**: `CartItem` + `kind?: 'gift_basket'`, `variantId`, `basketSlug`, `variantKey`, `vatSplit?`
+  (nur Anzeige). ID `gift-<variantId>`. Preis im Warenkorb = Anzeige aus `gift_public_catalog`; maßgeblich ist der Server.
+  Mischregel: Körbe + Catering erlaubt; Körbe + Event-Paket **nicht** (wie Catering vs. Event: Hinweis + leeren).
+  Mengen: max. `MAX_QTY_PER_LINE`/`MAX_QTY_PER_ORDER` (10); Standardmenge beim Hinzufügen **1** (nicht 4).
+  `totalPrice` bleibt Gesamtsumme; neu `cateringSubtotal` (ohne Körbe) für Mindestbestellwert/Aufschlag.
+- **Kategorie-Seite** `catering.giftBaskets` (`/catering/geschenkkoerbe`, EN `/en/catering/gift-baskets` – Slugs an
+  bestehendes Muster in `routes.ts` anpassen): `GiftBasketCard` + `GiftLmiv` wiederverwenden, Knopf „In den Warenkorb“
+  (CartContext), Altershinweis 16. Einträge in `routes.ts`, `App.tsx` (eager), `Navigation.tsx` `shopChildren`,
+  `CateringGrid.tsx`. `noindex` + Canonical auf ristorantestoria.de wie bisher (Entscheidung 2/9).
+- **Checkout, Weiche nach Warenkorb-Inhalt** (in `Checkout.tsx` ganz oben, kein Umbau des Catering-Formulars):
+  - **nur Körbe** → Komponente `GiftCheckout` = der Kassen-Teil aus `GiftOrder.tsx`, herausgelöst (Kontakt, Übergabe,
+    Termin, Adresse + Quote, Grußkarte, Alter, AGB, Zahlweise online/vor Ort) – Datenquelle CartContext statt
+    `useGiftCart`; ruft unverändert `create-gift-order`. Danke-/Bestätigungsseiten bleiben.
+  - **Catering + Körbe** → bestehendes Catering-Formular, ergänzt um: Korb-Zeilen im Überblick (Satz-Anzeige 7/19 %
+    aus `vat_split`), Grußkarte, Altersbestätigung 16, Hinweis „Körbe werden mit dem Catering geliefert/abgeholt“.
+    Aufschlag/Mindestbestellwert nur auf `cateringSubtotal`. Liefergebühr unverändert `calculate-delivery`.
+  - **nur Catering** → unverändert (Regressionsschutz).
+- **Mischbestellung serverseitig** (eine Zahlung, zwei Datensätze, verknüpft):
+  1. `create-gift-order` erweitert um Modus `handover: 'with_catering'` + `catering_order_number`: Serverpreise,
+     `vat_split`, Hold wie bisher; **Liefergebühr 0**, Termin = Catering-Termin (nur Sperrtage prüfen, keine
+     Korb-Vorlaufregel, da Catering ≥ 24 h strenger ist); **keine eigene Stripe-Session**, kein „vor Ort“; Status
+     `pending`, Spalte `catering_order_number` (Migration, expand-only). Hold-Dauer ≥ Catering-Session-Dauer.
+  2. Catering-Order wie bisher per RPC (Korb-Zeilen **nicht** in `items`, nicht in `total_amount`).
+  3. `create-catering-payment` (rückwärtskompatibel, optionales `giftOrderNumber`): lädt `gift_orders` serverseitig
+     (gleiche E-Mail, Status `pending`, verknüpft), hängt Korb-Positionen als **eigene** Stripe-Line-Items mit
+     **Serverbetrag** an, setzt `expires_at` (31 Min) nur wenn Körbe dabei, Metadaten `gift_order_id`.
+     Billie bei Mischkorb: zulässig (Vorkasse-Regel Catering) – Stripe-Line-Items unverändert.
+  4. Webhook `handleCateringPayment`: danach, wenn `metadata.gift_order_id` → bestehende Korb-Logik (Abgleich
+     **Korb-Anteil** gegen `total_cents`, `gift_consume_stock`, Status `paid`, Korb-Mail, `ensureGiftInvoice`).
+     `checkout.session.expired`/fehlgeschlagen → `gift_release_stock` wie bei reinen Körben.
+  5. Rechnungen: **zwei Lexoffice-Rechnungen** (Catering 7 % wie bisher, Korb mit `vat_split`) – Empfehlung, siehe 11.4.
+- **Deep-Link-Umleitung** `/geschenkkoerbe/bestellung` (+ `/en/…`): `parseDeepLink` + `resolveDeepLink` gegen den
+  Katalog → Positionen in CartContext (Menge **setzen**, nicht addieren → behebt „Menge 2“-Fehler) → Weiterleitung
+  auf `/checkout` (bzw. Kategorie-Seite mit offenem Warenkorb, wenn keine gültige Position). Hinweise (`notes`) als Toast.
+  `/geschenkkoerbe` → Kategorie-Seite. `?cancelled=1` → Checkout mit erhaltenem Warenkorb.
+- **Kleintexte:** „Online bezahlen (Karte u. a. über Stripe)“ → „Online bezahlen per Karte über Stripe“.
+
+### 11.3 Was ausdrücklich NICHT Teil dieser Einheiten ist
+- Serverseitige Neuberechnung der **Catering**-Preise (bekannte Lücke, betrifft laufenden Umsatz) → eigene Einheit I3
+  nach I2, mit eigenem Gegencheck. I1/I2 verschärfen die Lücke nicht (Korb-Beträge kommen nie vom Client).
+- Admin-Zusammenführung Catering-/Korb-Bestellungen (bleiben getrennt; Korb-Detail zeigt „mit Catering #…“).
+
+### 11.4 Entscheidung Rechnung
+22. **Entschieden (Antoine 21.11.2026): zwei Rechnungen** bei Mischbestellung (Catering 7 % wie bisher + Geschenkkorb
+    mit `vat_split`), beide in der Bestätigung genannt; eine Zahlung.
+
+### 11.5 Einheiten (Commit je Schritt, PR am Einheitsende; Migration eigener PR zuerst)
+**I0 – Migration (eigener PR):** `gift_orders.catering_order_number text null` + Index; `handover`-Check um
+`'with_catering'` erweitern; RPC-Anpassungen falls `handover` dort geprüft wird. Lovable spielt ein.
+**I1 – Körbe im regulären Shop, nur-Korb-Checkout:** CartItem-Erweiterung + Mischregeln; Kategorie-Seite + Navigation/
+Raster; `GiftCheckout` aus `GiftOrder.tsx` herauslösen, Checkout-Weiche „nur Körbe“; Deep-Link-Umleitung + Mengenfehler;
+Text „per Karte“. Live-Test: Deep-Link → Warenkorb → Abholung vor Ort + Online bis Stripe-Seite.
+**I2 – Mischwarenkorb:** `create-gift-order` Modus `with_catering`; Checkout-Ergänzungen (Korb-Zeilen, Alter, Grußkarte,
+`cateringSubtotal`); `create-catering-payment` optional `giftOrderNumber`; Webhook-Zweig + expired; Deno-Tests
+(Preis-/Steuer-/Abgleich-Logik als reine Funktionen). Live-Test bis Stripe-Seite (Mischkorb).
+**I3 – Catering-Preise serverseitig** (separat, später).
+
+Prüfung: Sonnet baut, unabhängige Gegenprüfung (Opus) für Zahlung/Steuer/Bestand vor jedem Merge; Regressionstest
+„nur Catering“ (Payload an RPC und `create-catering-payment` byte-gleich zu vorher, wenn keine Körbe im Warenkorb).

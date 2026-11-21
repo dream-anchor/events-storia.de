@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useLanguage } from './LanguageContext';
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/analytics';
+import { isGiftItem, nextGiftQuantity, giftMaxForLine, giftQuantityTotal } from '@/lib/gift/cartRules';
 
 export interface CartItem {
   id: string;
@@ -17,6 +18,19 @@ export interface CartItem {
   isEventPackage?: boolean;
   baseGuestCount?: number; // For tiered pricing (e.g., 70 for Location package)
   packageId?: string; // Original package ID for price recalculation
+  // Geschenkkorb-Zeilen (ID `gift-<variantId>`): Preis = Anzeigepreis aus dem Katalog, maßgeblich ist der Server
+  kind?: 'gift_basket';
+  variantId?: string;
+  basketSlug?: string;
+  variantKey?: string;
+  variantLabel?: string; // Wein-Variante (DE), nur Anzeige
+  variantLabelEn?: string | null;
+  vatSplit?: { rate: number; share_bp: number }[]; // nur Anzeige
+}
+
+export interface AddToCartOptions {
+  /** 'add' (Standard) addiert zur vorhandenen Menge, 'set' setzt sie (Deep-Links). */
+  mode?: 'add' | 'set';
 }
 
 export interface LastAddedItem {
@@ -26,12 +40,17 @@ export interface LastAddedItem {
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
+  addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number, options?: AddToCartOptions) => void;
+  /** Entfernt alle Geschenkkorb-Zeilen (nach erfolgreicher Korb-Bestellung). */
+  removeGiftItems: () => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
+  /** Summe ohne Geschenkkörbe (Mindestbestellwert/Aufschlag gelten nur für den Catering-Anteil). */
+  cateringSubtotal: number;
+  giftItemCount: number;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   lastAddedItem: LastAddedItem | null;
@@ -57,13 +76,32 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
   }, [items]);
 
-  const addToCart = (item: Omit<CartItem, 'quantity'>, quantity = 4) => {
+  const addToCart = (item: Omit<CartItem, 'quantity'>, requestedQuantity?: number, options?: AddToCartOptions) => {
     const isEventItem = item.id.startsWith('event-') || item.isEventPackage;
+    const isGift = isGiftItem(item);
+    // Standardmenge: Catering 4, Geschenkkorb 1
+    const quantity = requestedQuantity ?? (isGift ? 1 : 4);
+    const mode = options?.mode ?? 'add';
+    let addedQuantity = quantity;
 
     setItems(prev => {
       // Check for mixed cart scenarios
       const hasEventItems = prev.some(i => i.id.startsWith('event-') || i.isEventPackage);
       const hasCateringItems = prev.some(i => !i.id.startsWith('event-') && !i.isEventPackage);
+
+      // Geschenkkörbe + Event-Pakete: nie gemischt (gleiches Muster wie Catering vs. Event)
+      const hasGiftItems = prev.some(isGiftItem);
+      if ((isGift && hasEventItems) || (isEventItem && hasGiftItems)) {
+        toast.info(
+          language === 'de'
+            ? 'Geschenkkörbe und Event-Pakete müssen separat bestellt werden. Ihr Warenkorb wurde geleert.'
+            : 'Gift baskets and event packages must be ordered separately. Your cart has been cleared.',
+          { duration: 4000 }
+        );
+        const first = isGift ? nextGiftQuantity([], item.id, quantity, 'set').quantity : quantity;
+        addedQuantity = first;
+        return first > 0 ? [{ ...item, quantity: first }] : [];
+      }
 
       // If adding event item to cart with catering items, clear cart first
       if (isEventItem && hasCateringItems) {
@@ -87,6 +125,24 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         return [{ ...item, quantity }];
       }
 
+      if (isGift) {
+        const next = nextGiftQuantity(prev, item.id, quantity, mode);
+        addedQuantity = Math.max(0, next.quantity - (mode === 'set' ? 0 : (prev.find(i => i.id === item.id)?.quantity ?? 0)));
+        if (next.capped) {
+          toast.info(
+            language === 'de'
+              ? 'Pro Bestellung sind höchstens 10 Geschenkkörbe möglich.'
+              : 'A maximum of 10 gift baskets per order is possible.',
+            { id: 'gift-cart-cap', duration: 4000 }
+          );
+        }
+        if (next.quantity <= 0) return prev.filter(i => i.id !== item.id);
+        const has = prev.some(i => i.id === item.id);
+        return has
+          ? prev.map(i => (i.id === item.id ? { ...i, ...item, quantity: next.quantity } : i))
+          : [...prev, { ...item, quantity: next.quantity }];
+      }
+
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
         return prev.map(i =>
@@ -100,14 +156,20 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
     // Set last added item for animation (no toast)
     const itemName = language === 'en' && item.name_en ? item.name_en : item.name;
-    setLastAddedItem({ name: itemName, quantity });
+    setLastAddedItem({ name: itemName, quantity: addedQuantity });
     setTimeout(() => setLastAddedItem(null), 2500);
 
+    // Korb-Zeilen: tatsächlich hinzugefügte Menge (nach Deckel) melden
+    let trackedQuantity = quantity;
+    if (isGift) {
+      const pre = nextGiftQuantity(items, item.id, quantity, mode);
+      trackedQuantity = mode === 'set' ? pre.quantity : pre.quantity - (items.find(i => i.id === item.id)?.quantity ?? 0);
+    }
     trackEvent("add_to_cart", {
       item_id: item.id,
       item_name: item.name,
       price: item.price,
-      quantity,
+      quantity: trackedQuantity,
     });
   };
 
@@ -129,9 +191,21 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       removeFromCart(id);
       return;
     }
-    setItems(prev => prev.map(i => 
-      i.id === id ? { ...i, quantity } : i
-    ));
+    setItems(prev => {
+      const target = prev.find(i => i.id === id);
+      if (target && isGiftItem(target)) {
+        // Korb-Zeilen: je Zeile und je Bestellung gedeckelt
+        const capped = Math.min(quantity, giftMaxForLine(prev, id));
+        return capped <= 0 ? prev.filter(i => i.id !== id) : prev.map(i => (i.id === id ? { ...i, quantity: capped } : i));
+      }
+      return prev.map(i =>
+        i.id === id ? { ...i, quantity } : i
+      );
+    });
+  };
+
+  const removeGiftItems = () => {
+    setItems(prev => (prev.some(isGiftItem) ? prev.filter(i => !isGiftItem(i)) : prev));
   };
 
   const clearCart = () => {
@@ -141,6 +215,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const cateringSubtotal = items.reduce((sum, item) => (isGiftItem(item) ? sum : sum + (item.price * item.quantity)), 0);
+  const giftItemCount = giftQuantityTotal(items);
 
   return (
     <CartContext.Provider value={{
@@ -149,8 +225,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       removeFromCart,
       updateQuantity,
       clearCart,
+      removeGiftItems,
       totalItems,
       totalPrice,
+      cateringSubtotal,
+      giftItemCount,
       isOpen,
       setIsOpen,
       lastAddedItem
