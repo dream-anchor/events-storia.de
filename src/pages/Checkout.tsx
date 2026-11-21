@@ -36,6 +36,8 @@ import Footer from '@/components/Footer';
 import GiftCheckout from '@/components/gift/GiftCheckout';
 import { isGiftItem } from '@/lib/gift/cartRules';
 import { GIFT_COPY } from '@/lib/gift/copy';
+import { createGiftOrder, GiftApiError } from '@/lib/gift/api';
+import { formatEuroTruncated, formatMixedTotal, giftSubtotalOf } from '@/lib/gift/mixedCart';
 import { format, parseISO } from 'date-fns';
 
 // Zod schema for checkout form validation with length limits (security)
@@ -193,10 +195,17 @@ const formatEuro = (value: number): string =>
   `${value.toLocaleString('de-DE', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })} €`;
 
 const CateringCheckout = () => {
-  const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
-  // Gemischte Warenkörbe (Catering + Geschenkkörbe) kommen mit Einheit I2; bis dahin darf dieses Formular keine Körbe absenden
+  const { items, updateQuantity, removeFromCart, totalPrice, cateringSubtotal, clearCart } = useCart();
+  // Mischbestellung (Catering + Geschenkkörbe): Körbe laufen über create-gift-order (Serverpreise), nie über die Catering-Beträge.
   const hasGiftItems = items.some(isGiftItem);
+  // Catering-Positionen (ohne Körbe); ohne Körbe exakt dieselbe Liste wie bisher
+  const cateringItems = hasGiftItems ? items.filter(item => !isGiftItem(item)) : items;
+  // Mindestbestellwert/Aufschlag gelten nur für den Catering-Anteil (Entscheidung 19); ohne Körbe unverändert totalPrice
+  const surchargeBase = hasGiftItems ? cateringSubtotal : totalPrice;
+  // Korb-Anteil (Anzeige, brutto); wird NICHT an RPC/create-catering-payment gesendet
+  const giftSubtotal = hasGiftItems ? giftSubtotalOf(totalPrice, cateringSubtotal) : 0;
   const { language } = useLanguage();
+  const giftText = GIFT_COPY[language === 'de' ? 'de' : 'en'];
   const { formatPrice, showGross, setShowGross } = usePriceDisplay();
   const navigate = useNavigate();
   const { getPath } = useLocalizedPath();
@@ -291,6 +300,9 @@ const CateringCheckout = () => {
   const [newsletterSignup, setNewsletterSignup] = useState(true);
   const [chafingDishQuantity, setChafingDishQuantity] = useState(0);
   const [termsError, setTermsError] = useState(false);
+  // nur Mischbestellung: Grußkarte + Altersbestätigung (ab 16) für die Geschenkkörbe
+  const [giftMessage, setGiftMessage] = useState('');
+  const [giftAgeOk, setGiftAgeOk] = useState(false);
 
   // GA4: begin_checkout — einmalig beim ersten Laden der Checkout-Seite mit Artikeln
   const beginCheckoutFired = useRef(false);
@@ -498,9 +510,9 @@ const CateringCheckout = () => {
     return items.some(item => item.id.startsWith('event-'));
   }, [items]);
 
-  const isPizzaOnly = items.length > 0 && items.every(item => item.category === 'pizza');
+  const isPizzaOnly = cateringItems.length > 0 && cateringItems.every(item => item.category === 'pizza');
 
-  const hasWarmDishes = items.some(item => 
+  const hasWarmDishes = cateringItems.some(item => 
     item.category === 'buffet' || 
     item.name?.toLowerCase().includes('auflauf') ||
     item.name?.toLowerCase().includes('lasagna') ||
@@ -761,18 +773,18 @@ const CateringCheckout = () => {
   }, [formData.date, formData.time, formData.deliveryType, language, isMobile, isPizzaOnly, isEventBooking]);
 
   // VAT calculations
-  const minimumOrderSurcharge = deliveryCalc && totalPrice < deliveryCalc.minimumOrder 
-    ? deliveryCalc.minimumOrder - totalPrice 
+  const minimumOrderSurcharge = deliveryCalc && surchargeBase < deliveryCalc.minimumOrder 
+    ? deliveryCalc.minimumOrder - surchargeBase 
     : 0;
   
   const chafingDishGross = chafingDishQuantity * CHAFING_DISH.price;
   const chafingDishNet = chafingDishGross / 1.07;
   
-  const eventPackagesGross = items
+  const eventPackagesGross = cateringItems
     .filter(item => item.id.startsWith('event-'))
     .reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  const regularFoodGross = items
+  const regularFoodGross = cateringItems
     .filter(item => !item.id.startsWith('event-'))
     .reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
@@ -802,6 +814,10 @@ const CateringCheckout = () => {
   const totalVat7 = foodVat;
   const totalVat19 = drinksVat + deliveryVat;
   const grandTotal = foodGross + drinksGross + deliveryGross;
+  // Anzeige: Catering-Gesamt (+ Körbe brutto). `grandTotal` selbst bleibt der CATERING-Betrag (RPC + create-catering-payment).
+  // Mit Körben immer BRUTTO (Netto-Umschalter gilt nicht für die Gesamtsumme) und mit Zusatz "inkl. MwSt."
+  const displayTotal = hasGiftItems ? formatMixedTotal(grandTotal, giftSubtotal) : formatPrice(grandTotal);
+  const totalVatSuffix = hasGiftItems ? (language === 'de' ? ' inkl. MwSt.' : ' incl. VAT') : '';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const target = e.target as HTMLInputElement | HTMLTextAreaElement;
@@ -873,11 +889,6 @@ const CateringCheckout = () => {
       return;
     }
 
-    if (hasGiftItems) {
-      toast.error(GIFT_COPY[language === 'de' ? 'de' : 'en'].mixedSoon);
-      return;
-    }
-    
     if (honeypot) {
       toast.success(language === 'de' ? 'Bestellung aufgegeben' : 'Order placed');
       return;
@@ -991,12 +1002,19 @@ const CateringCheckout = () => {
       return;
     }
 
+    // Mischbestellung: Altersbestätigung (ab 16) für die Geschenkkörbe ist Pflicht
+    if (hasGiftItems && !giftAgeOk) {
+      setCurrentStep('payment');
+      toast.error(giftText.valAge);
+      return;
+    }
+
     setIsSubmitting(true);
     const newOrderNumber = generateOrderNumber(isEventBooking);
     const existingUserId = user?.id || null;
 
     const orderItems = [
-      ...items.map(item => ({
+      ...cateringItems.map(item => ({
         id: item.id,
         name: item.name,
         name_en: item.name_en,
@@ -1036,6 +1054,42 @@ const CateringCheckout = () => {
         };
 
     try {
+      // Mischbestellung, Schritt (a): Geschenkkorb-Bestellung ZUERST anlegen (Serverpreise, Bestand-Hold). Schlägt sie fehl
+      // (z. B. ausverkauft), bricht alles ab, es entsteht keine Catering-Bestellung. Die Catering-Bestellnummer steht schon fest.
+      let giftOrderNumber: string | undefined;
+      // Serverwerte der Korb-Bestellung (für Erfolgsseite); ohne Körbe leer
+      let giftSuccessItems: { name: string; name_en: string; quantity: number; price: number; total: number }[] = [];
+      let giftTotalEuro = 0;
+      if (hasGiftItems) {
+        const giftResult = await createGiftOrder({
+          items: items.filter(isGiftItem).map(i => ({ variant_id: i.variantId ?? '', qty: i.quantity })),
+          customer: { name: formData.name, email: formData.email, phone: formData.phone },
+          handover: 'with_catering',
+          catering_order_number: newOrderNumber,
+          is_pickup: formData.deliveryType === 'pickup',
+          date: formData.date,
+          time: formData.time,
+          address: { street: '', zip: '', city: '', note: '' },
+          payment_method: 'online',
+          gift_message: giftMessage.trim(),
+          age_confirmed: giftAgeOk,
+          agb_accepted: formData.acceptTerms,
+          language: language === 'de' ? 'de' : 'en',
+          website: honeypot,
+          form_started_at: Date.now(),
+        });
+        giftOrderNumber = giftResult.order_number ?? undefined;
+        if (!giftOrderNumber) throw new Error('gift_order_missing');
+        giftTotalEuro = giftResult.total_cents / 100;
+        giftSuccessItems = (giftResult.items ?? []).map(gi => ({
+          name: `${gi.name} – ${gi.variant}`,
+          name_en: `${gi.name} – ${gi.variant}`,
+          quantity: gi.qty,
+          price: gi.unit_price_cents / 100,
+          total: (gi.unit_price_cents * gi.qty) / 100,
+        }));
+      }
+
       const orderId = crypto.randomUUID();
       const eventItem = isEventBooking ? items.find(item => item.id.startsWith('event-')) : null;
       const eventGuestCount = eventItem?.quantity || 0;
@@ -1108,7 +1162,7 @@ const CateringCheckout = () => {
           companyName: formData.company || undefined,
           billingAddress: billingAddress,
           items: orderItems,
-          subtotal: totalPrice,
+          subtotal: surchargeBase,
           deliveryCost: deliveryCalc?.deliveryCostGross || 0,
           minimumOrderSurcharge: minimumOrderSurcharge,
           distanceKm: deliveryCalc?.distanceKm || undefined,
@@ -1150,7 +1204,7 @@ const CateringCheckout = () => {
           companyName: formData.company || undefined,
           billingAddress: billingAddress,
           items: orderItems,
-          subtotal: totalPrice,
+          subtotal: surchargeBase,
           deliveryCost: deliveryCalc?.deliveryCostGross || 0,
           minimumOrderSurcharge: minimumOrderSurcharge,
           distanceKm: deliveryCalc?.distanceKm || undefined,
@@ -1176,22 +1230,22 @@ const CateringCheckout = () => {
           name: formData.name,
           orderNumber: newOrderNumber,
           orderDetails: {
-            items: orderItems.map(item => ({
+            items: [...orderItems.map(item => ({
               name: item.name,
               name_en: item.name_en,
               quantity: item.quantity,
               price: item.price,
               total: item.price * item.quantity
-            })),
+            })), ...giftSuccessItems],
             deliveryType: formData.deliveryType,
             deliveryAddress: formData.deliveryType === 'delivery' 
               ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
               : null,
             date: formData.date,
             time: formData.time,
-            subtotal: totalPrice,
+            subtotal: surchargeBase,
             deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-            grandTotal: grandTotal,
+            grandTotal: grandTotal + giftTotalEuro,
             paymentMethod: paymentMethod,
             company: formData.company,
             foodVat7: totalVat7,
@@ -1211,6 +1265,8 @@ const CateringCheckout = () => {
                 orderNumber: newOrderNumber,
                 items: orderItems.map(i => ({ name: i.name, quantity: i.quantity })),
                 paymentMethod: paymentMethod,
+                // nur Mischbestellung: verknüpfte Korb-Bestellung; der Betrag `amount` bleibt der CATERING-Betrag
+                ...(giftOrderNumber ? { giftOrderNumber } : {}),
               },
             }
           );
@@ -1220,6 +1276,13 @@ const CateringCheckout = () => {
             toast.error(language === 'de' ? 'Fehler bei der Zahlungsweiterleitung' : 'Payment redirect error');
             setIsProcessingPayment(false);
             localStorage.removeItem(cachedOrderKey);
+            if (hasGiftItems) {
+              // Mischbestellung: Warenkorb behalten, nicht zur Erfolgsseite, Kunde bleibt im Checkout
+              toast.error(language === 'de'
+                ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
+                : 'Payment could not be started. Your cart has been kept, please try again.', { duration: 8000 });
+              return;
+            }
             clearCart();
             navigate(getPath('account.orderSuccess'), { 
               state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
@@ -1239,6 +1302,12 @@ const CateringCheckout = () => {
           toast.error(language === 'de' ? 'Fehler bei der Zahlung' : 'Payment error');
           setIsProcessingPayment(false);
           localStorage.removeItem(cachedOrderKey);
+          if (hasGiftItems) {
+            toast.error(language === 'de'
+              ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
+              : 'Payment could not be started. Your cart has been kept, please try again.', { duration: 8000 });
+            return;
+          }
           clearCart();
           navigate(getPath('account.orderSuccess'), { 
             state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
@@ -1255,7 +1324,7 @@ const CateringCheckout = () => {
           name: formData.name, 
           orderNumber: newOrderNumber,
           orderDetails: {
-            items: items.map(item => ({
+            items: cateringItems.map(item => ({
               name: item.name,
               name_en: item.name_en,
               quantity: item.quantity,
@@ -1268,7 +1337,7 @@ const CateringCheckout = () => {
               : null,
             date: formData.date,
             time: formData.time,
-            subtotal: totalPrice,
+            subtotal: surchargeBase,
             deliveryCost: deliveryCalc?.deliveryCostGross || 0,
             grandTotal: grandTotal,
             paymentMethod: paymentMethod,
@@ -1280,6 +1349,11 @@ const CateringCheckout = () => {
         replace: true
       });
     } catch (error) {
+      if (error instanceof GiftApiError) {
+        // Korb-Bestellung abgelehnt (ausverkauft, Termin, Limit ...): Hinweis zeigen, nichts wurde angelegt
+        toast.error(giftText.err[error.code] ?? giftText.err.generic, { duration: 8000 });
+        return;
+      }
       const errMsg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error ? String((error as { message: unknown }).message) : String(error));
       console.error('Order error:', errMsg, error);
       toast.error(
@@ -1343,7 +1417,7 @@ const CateringCheckout = () => {
       form="checkout-form"
       variant="checkoutCta"
       className="w-full h-12 text-base"
-      disabled={isSubmitting || isProcessingPayment || hasGiftItems}
+      disabled={isSubmitting || isProcessingPayment}
     >
       {isSubmitting || isProcessingPayment ? (
         <>
@@ -1389,8 +1463,8 @@ const CateringCheckout = () => {
             </div>
 
             {hasGiftItems && (
-              <p role="alert" className="mb-6 rounded-xl border border-border bg-secondary/60 p-4 text-sm">
-                {GIFT_COPY[language === 'de' ? 'de' : 'en'].mixedSoon}
+              <p className="mb-6 rounded-xl border border-border bg-secondary/60 p-4 text-sm">
+                {giftText.mixedNote} {giftText.mixedTwoInvoices}
               </p>
             )}
 
@@ -1419,8 +1493,14 @@ const CateringCheckout = () => {
                     <div className="space-y-2 text-sm mb-3">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">{language === 'de' ? 'Speisen' : 'Food'}</span>
-                        <span>{formatPrice(totalPrice)}</span>
+                        <span>{formatPrice(surchargeBase)}</span>
                       </div>
+                      {hasGiftItems && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{giftText.mixedGiftsLine}</span>
+                        <span>+{formatEuroTruncated(giftSubtotal)}</span>
+                      </div>
+                      )}
                       {minimumOrderSurcharge > 0 && (
                         <div className="flex justify-between text-amber-600 dark:text-amber-400">
                           <span className="flex items-center gap-1">
@@ -1457,8 +1537,8 @@ const CateringCheckout = () => {
                         </div>
                       )}
                       <div className="flex justify-between pt-2 border-t border-border font-semibold">
-                        <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
-                        <span className="text-primary">{formatPrice(grandTotal)}</span>
+                        <span>{language === 'de' ? 'Gesamt' : 'Total'}{totalVatSuffix}</span>
+                        <span className="text-primary">{displayTotal}</span>
                       </div>
                     </div>
 
@@ -1484,7 +1564,7 @@ const CateringCheckout = () => {
                                   {item.kind === 'gift_basket' && (
                                     <p className="text-xs text-muted-foreground truncate">{language === 'en' && item.variantLabelEn ? item.variantLabelEn : item.variantLabel}</p>
                                   )}
-                                  <p className="text-xs text-muted-foreground">{item.quantity}× {formatPrice(item.price)}</p>
+                                  <p className="text-xs text-muted-foreground">{item.quantity}× {isGiftItem(item) ? formatEuroTruncated(item.price) : formatPrice(item.price)}</p>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <button type="button" onClick={() => {
@@ -1516,8 +1596,14 @@ const CateringCheckout = () => {
                           <div className="pt-4 mt-4 border-t border-border space-y-2 text-sm">
                             <div className="flex justify-between text-muted-foreground">
                               <span>{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
-                              <span>{formatPrice(totalPrice)}</span>
+                              <span>{formatPrice(surchargeBase)}</span>
                             </div>
+                            {hasGiftItems && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">{giftText.mixedGiftsLine}</span>
+                              <span>+{formatEuroTruncated(giftSubtotal)}</span>
+                            </div>
+                            )}
                             {minimumOrderSurcharge > 0 && (
                               <div className="flex justify-between text-amber-600 dark:text-amber-400">
                                 <span className="flex items-center gap-1">
@@ -1570,8 +1656,8 @@ const CateringCheckout = () => {
                               )}
                             </div>
                             <div className="flex justify-between pt-2 border-t border-border font-medium">
-                              <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
-                              <span className="text-primary font-bold">{formatPrice(grandTotal)}</span>
+                              <span>{language === 'de' ? 'Gesamt' : 'Total'}{totalVatSuffix}</span>
+                              <span className="text-primary font-bold">{displayTotal}</span>
                             </div>
                           </div>
                         </div>
@@ -2039,6 +2125,23 @@ const CateringCheckout = () => {
                       </Collapsible>
                     </div>
 
+                    {/* Mischbestellung: Grußkarte + Altersbestätigung für die Geschenkkörbe */}
+                    {hasGiftItems && (
+                      <div className="mt-6 pt-4 border-t border-border space-y-3">
+                        <p className="text-sm text-muted-foreground">{giftText.mixedNote}</p>
+                        <div className="space-y-2">
+                          <Label htmlFor="gift-message">{giftText.giftMessage} <span className="text-muted-foreground">({giftText.giftMessageLimit})</span></Label>
+                          <Textarea id="gift-message" rows={3} maxLength={500} value={giftMessage} onChange={(e) => setGiftMessage(e.target.value)} />
+                        </div>
+                        <p className="text-sm text-muted-foreground">{giftText.ageNotice}</p>
+                        <p className="text-sm text-muted-foreground">{giftText.withdrawal}</p>
+                        <div className="flex items-start space-x-3">
+                          <Checkbox id="gift-age" checked={giftAgeOk} onCheckedChange={(v) => setGiftAgeOk(v === true)} className="mt-0.5" />
+                          <Label htmlFor="gift-age" className="text-sm font-normal leading-snug cursor-pointer">{giftText.ageLabel} *</Label>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Terms acceptance */}
                     <div className={cn(
                       "mt-6 pt-4 border-t rounded-lg transition-all",
@@ -2200,6 +2303,7 @@ const CateringCheckout = () => {
                     chafingDishQuantity={chafingDishQuantity}
                     chafingDishPrice={CHAFING_DISH.price}
                     grandTotal={grandTotal}
+                    giftSubtotal={giftSubtotal}
                     foodVat7={totalVat7}
                     deliveryVat19={totalVat19}
                     isDelivery={formData.deliveryType === 'delivery'}
@@ -2262,8 +2366,8 @@ const CateringCheckout = () => {
                 )}
                 <div className="flex items-center justify-between gap-4">
                   <div className="text-sm">
-                    <span className="text-muted-foreground">{language === 'de' ? 'Gesamt:' : 'Total:'}</span>
-                    <span className="font-bold text-lg ml-1">{formatPrice(grandTotal)}</span>
+                    <span className="text-muted-foreground">{language === 'de' ? 'Gesamt:' : 'Total:'}{totalVatSuffix}</span>
+                    <span className="font-bold text-lg ml-1">{displayTotal}</span>
                   </div>
                   <Button
                     type="submit"

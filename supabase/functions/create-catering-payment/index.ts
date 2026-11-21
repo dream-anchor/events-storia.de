@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
+import { MIXED_SESSION_MINUTES, giftLineName, mixedPaymentMethodTypes, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
 
 
 
@@ -20,7 +21,7 @@ serve(async (req) => {
   try {
     logStep("Function started");
     
-    const { amount, customerEmail, customerName, orderNumber, items, paymentMethod } = await req.json();
+    const { amount, customerEmail, customerName, orderNumber, items, paymentMethod, giftOrderNumber } = await req.json();
     
     // Determine base URL for Stripe redirect URLs
     const origin = req.headers.get("origin");
@@ -158,6 +159,58 @@ serve(async (req) => {
       requestAmount: amount 
     });
 
+    // Mischbestellung (optional, rückwärtskompatibel): Geschenkkorb-Bestellung "mit Catering" an diese Zahlung hängen.
+    // Beträge kommen ausschließlich aus gift_order_items (Serverpreise), nie vom Client.
+    let giftOrder: { id: string; order_number: string } | null = null;
+    let giftItems: { basket_name: string; variant_label: string; qty: number; unit_price_cents: number }[] = [];
+    if (giftOrderNumber !== undefined && giftOrderNumber !== null && giftOrderNumber !== '') {
+      if (isEventBooking || typeof giftOrderNumber !== 'string') {
+        return new Response(
+          JSON.stringify({ error: "Invalid gift order" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+      const { data: g, error: gErr } = await supabase
+        .from('gift_orders')
+        .select('id, order_number, status, customer_email, handover, payment_method, catering_order_number, is_test')
+        .eq('order_number', giftOrderNumber)
+        .maybeSingle();
+      if (gErr || !g) {
+        logStep("ERROR: Gift order not found", { giftOrderNumber, error: gErr?.message });
+        return new Response(
+          JSON.stringify({ error: "Gift order not found" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        );
+      }
+      const { data: holds } = await supabase
+        .from('gift_stock_holds')
+        .select('expires_at')
+        .eq('order_id', g.id)
+        .eq('status', 'held');
+      // Frühester Ablauf aller Holds der Bestellung zählt (ein abgelaufener Hold = Bestand nicht mehr gesichert)
+      const holdExpiresAt = (holds ?? []).length > 0
+        ? (holds ?? []).map((h: { expires_at: string }) => h.expires_at).sort()[0]
+        : null;
+      const check = validateGiftForCateringPayment(g, { orderNumber, customerEmail, holdExpiresAt, now: new Date() });
+      if (!check.ok) {
+        logStep("ERROR: Gift order rejected", { giftOrderNumber, reason: check.error });
+        return new Response(
+          JSON.stringify({ error: check.error }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 }
+        );
+      }
+      const { data: gi, error: giErr } = await supabase
+        .from('gift_order_items')
+        .select('basket_name, variant_label, qty, unit_price_cents')
+        .eq('order_id', g.id);
+      if (giErr || !gi || gi.length === 0) {
+        throw new Error(`gift_items_load_failed: ${giErr?.message ?? 'empty'}`);
+      }
+      giftOrder = { id: g.id, order_number: g.order_number };
+      giftItems = gi;
+      logStep("Gift order attached", { giftOrderNumber, lines: gi.length });
+    }
+
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
       throw new Error("STRIPE_SECRET_KEY is not set");
@@ -217,6 +270,25 @@ serve(async (req) => {
         payment_method_selected: paymentMethod || 'stripe',
       },
     };
+
+    // Mischbestellung: Körbe als eigene Positionen (Serverbetrag), Session endet nach 31 Min (Hold >= 36 Min), Verknüpfung in den Metadaten
+    if (giftOrder) {
+      for (const gi of giftItems) {
+        sessionConfig.line_items!.push({
+          price_data: {
+            currency: "eur",
+            product_data: { name: giftLineName(gi.basket_name, gi.variant_label) },
+            unit_amount: gi.unit_price_cents,
+          },
+          quantity: gi.qty,
+        });
+      }
+      // nur Karte (sofort), außer Billie: asynchrone Methoden würden den Hold überdauern
+      const mixedTypes = mixedPaymentMethodTypes(paymentMethod);
+      if (mixedTypes) sessionConfig.payment_method_types = mixedTypes as Parameters<typeof stripe.checkout.sessions.create>[0]['payment_method_types'];
+      sessionConfig.expires_at = Math.floor(Date.now() / 1000) + MIXED_SESSION_MINUTES * 60;
+      sessionConfig.metadata = { ...sessionConfig.metadata, gift_order_id: giftOrder.id, gift_order_number: giftOrder.order_number };
+    }
 
     // For Billie B2B invoice, restrict payment methods to Billie only
     if (paymentMethod === 'billie') {

@@ -8,6 +8,7 @@ import { buildVoucherPdf, generateVoucherCode } from '../_shared/voucher-pdf.ts'
 import { isGiftSessionMetadata } from '../_shared/giftWebhook.ts';
 import { sendGiftMails } from '../_shared/giftMail.ts';
 import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
+import { asyncHoldExtensionUntil, computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
 import {
   buildOrderPayload,
   enqueueMaestroHandoff,
@@ -84,6 +85,8 @@ serve(async (req) => {
       const session = event.data.object as Stripe.Checkout.Session;
       const result = await processCheckoutPaid(supabase, stripe, session, event.type);
       if (result.skippedUnpaid) {
+        // Billie in Mischsession: Korb-Hold bis zum asynchronen Ergebnis halten (nur bei gift_order_id, sonst unverändert)
+        if (shouldHandleGiftInCatering(session.metadata)) await extendGiftHoldForAsync(supabase, session);
         // Noch nicht bezahlt → Bestellung ohne Transaktion übergeben (ein Eintrag).
         await maestroEnqueueOrder(supabase, session, event.id);
         return new Response(JSON.stringify({ received: true, action: "skipped_unpaid" }), {
@@ -112,8 +115,8 @@ serve(async (req) => {
     } else if (event.type === "checkout.session.expired") {
       const expiredSession = event.data.object as Stripe.Checkout.Session;
       logStep("Checkout session expired", { sessionId: expiredSession.id });
-      if (isGiftSessionMetadata(expiredSession.metadata)) {
-        // Geschenkkorb: Bestand-Hold freigeben, Bestellung verfallen lassen
+      if (isGiftSessionMetadata(expiredSession.metadata) || shouldHandleGiftInCatering(expiredSession.metadata)) {
+        // Geschenkkorb (auch Mischbestellung mit Catering): Bestand-Hold freigeben, Bestellung verfallen lassen
         await handleGiftSessionEnded(supabase, expiredSession, "expired");
       }
       // Alle anderen Bestellarten: unverändert (nur Log)
@@ -182,6 +185,10 @@ async function processCheckoutPaid(
   if (orderType === "catering" && orderNumber) {
     // ━━━ CATERING ORDER PAYMENT ━━━
     await handleCateringPayment(supabase, session, orderNumber, metadata);
+    // Mischbestellung: verknüpfte Geschenkkorb-Bestellung (nur wenn die Session gift_order_id trägt, sonst unverändert)
+    if (shouldHandleGiftInCatering(metadata)) {
+      await handleGiftInCateringPayment(supabase, session, orderNumber, metadata);
+    }
   } else if (isGiftSessionMetadata(metadata)) {
     // ━━━ GESCHENKKORB-SHOP (order_type=gift_basket) ━━━
     await handleGiftPayment(supabase, session, metadata);
@@ -229,6 +236,8 @@ async function handleGiftPayment(
   supabase: any,
   session: Stripe.Checkout.Session,
   metadata: Record<string, string>,
+  /** Mischbestellung: erwarteter Gesamtbetrag der Catering-Session (Catering + Korb); sonst total_cents der Korb-Bestellung */
+  expectedAmountCents?: number,
 ) {
   const giftOrderId = metadata.gift_order_id;
   logStep("Processing gift basket payment", { giftOrderId, sessionId: session.id });
@@ -255,8 +264,12 @@ async function handleGiftPayment(
     if (order.stripe_session_id && order.stripe_session_id !== session.id) {
       problems.push(`SESSION ABWEICHEND: Stripe ${session.id}, gespeichert ${order.stripe_session_id}`);
     }
-    if (typeof session.amount_total !== "number" || session.amount_total !== order.total_cents) {
-      problems.push(`BETRAG ABWEICHEND: Stripe ${session.amount_total} ct, Bestellung ${order.total_cents} ct`);
+    if (expectedAmountCents === undefined) {
+      if (typeof session.amount_total !== "number" || session.amount_total !== order.total_cents) {
+        problems.push(`BETRAG ABWEICHEND: Stripe ${session.amount_total} ct, Bestellung ${order.total_cents} ct`);
+      }
+    } else if (!isMixedAmountOk(session.amount_total, expectedAmountCents)) {
+      problems.push(`BETRAG ABWEICHEND (Mischzahlung): Stripe ${session.amount_total} ct, erwartet ${expectedAmountCents} ct (Catering + Korb)`);
     }
     if (problems.length > 0) {
       const note = [order.internal_note, `${new Date().toISOString()} Zahlung NICHT automatisch bestätigt: ${problems.join("; ")}`].filter(Boolean).join("\n");
@@ -333,6 +346,60 @@ async function handleGiftPayment(
   }
 }
 
+/**
+ * Mischbestellung (Catering-Session mit gift_order_id): nach der Catering-Verarbeitung die verknüpfte Korb-Bestellung bestätigen.
+ * Wiederverwendet handleGiftPayment (Bestand, Status paid, Mail, zweite Rechnung); idempotent über dessen Status/Marker.
+ */
+async function handleGiftInCateringPayment(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  session: Stripe.Checkout.Session,
+  cateringOrderNumber: string,
+  metadata: Record<string, string>,
+) {
+  const giftOrderId = metadata.gift_order_id;
+  const { data: cat, error: catErr } = await supabase
+    .from("catering_orders").select("total_amount, payment_status").eq("order_number", cateringOrderNumber).maybeSingle();
+  if (catErr) throw new GiftRetryError(`catering order lookup failed: ${catErr.message}`);
+  const { data: gift, error: giftErr } = await supabase
+    .from("gift_orders").select("handover, catering_order_number, total_cents, order_number").eq("id", giftOrderId).maybeSingle();
+  if (giftErr) throw new GiftRetryError(`gift order lookup failed: ${giftErr.message}`);
+  if (!cat || !gift || !giftLinkedToCatering(gift, cateringOrderNumber)) {
+    logStep("ERROR: mixed order link broken", { cateringOrderNumber, giftOrderId, hasCatering: !!cat, hasGift: !!gift });
+    await sendOperatorAlert(
+      `Mischbestellung ${cateringOrderNumber}: Verknüpfung fehlerhaft`,
+      `<p>Zahlung eingegangen (Session ${esc(session.id)}), aber Catering-Bestellung und Geschenkkorb-Bestellung <code>${esc(giftOrderId)}</code> sind nicht korrekt verknüpft. Korb NICHT bestätigt. Bitte in Stripe prüfen.</p>`,
+    );
+    return;
+  }
+  if (cat.payment_status !== "paid") {
+    // Catering-Verarbeitung nicht durchgelaufen (z. B. DB-Fehler): Stripe wiederholt, beide Teile werden idempotent nachgeholt
+    throw new GiftRetryError(`catering order ${cateringOrderNumber} not marked paid yet`);
+  }
+  await handleGiftPayment(supabase, session, metadata, computeExpectedMixedAmount(Number(cat.total_amount), gift.total_cents));
+}
+
+/** Billie (unpaid bei 'completed'): Hold der verknüpften Korb-Bestellung bis Ende des Catering-Tages verlängern. */
+async function extendGiftHoldForAsync(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  session: Stripe.Checkout.Session,
+) {
+  const giftOrderId = session.metadata?.gift_order_id;
+  if (!giftOrderId) return;
+  const { data: g, error: gErr } = await supabase.from("gift_orders").select("handover_date, status").eq("id", giftOrderId).maybeSingle();
+  if (gErr) throw new GiftRetryError(`gift order lookup failed: ${gErr.message}`);
+  if (!g || g.status !== "pending") return;
+  const { data: holds, error: hErr } = await supabase.from("gift_stock_holds").select("expires_at").eq("order_id", giftOrderId).eq("status", "held");
+  if (hErr) throw new GiftRetryError(`gift holds lookup failed: ${hErr.message}`);
+  const earliest = (holds ?? []).map((h: { expires_at: string }) => h.expires_at).sort()[0] ?? null;
+  const until = asyncHoldExtensionUntil(session.metadata, session.payment_status, g.handover_date, earliest);
+  if (!until) return;
+  const { error: uErr } = await supabase.from("gift_stock_holds").update({ expires_at: until.toISOString() }).eq("order_id", giftOrderId).eq("status", "held");
+  if (uErr) throw new GiftRetryError(`gift hold extend failed: ${uErr.message}`);
+  logStep("Gift hold extended for async payment", { giftOrderId, until: until.toISOString() });
+}
+
 /** Session abgelaufen / Async-Zahlung fehlgeschlagen: Hold freigeben und offene Bestellung beenden (nie eine bezahlte). */
 async function handleGiftSessionEnded(
   // deno-lint-ignore no-explicit-any
@@ -388,7 +455,7 @@ async function processCheckoutFailed(
   const reflected: string[] = [];
 
   // 0) Geschenkkorb: Hold freigeben, Bestellung stornieren (kein Eintrag in den übrigen Tabellen)
-  if (isGiftSessionMetadata(metadata)) {
+  if (isGiftSessionMetadata(metadata) || shouldHandleGiftInCatering(metadata)) {
     await handleGiftSessionEnded(supabase, session, "cancelled");
     reflected.push(`gift_orders:${metadata.gift_order_id}`);
   }

@@ -56,7 +56,9 @@ export function GiftOrdersAdmin() {
 
   if (!orders) return <Loader2 className="h-5 w-5 animate-spin" aria-label="Lädt" />;
 
-  const windowLabel = (o: Order) => (o.handover === "pickup" ? `${o.handover_time} Uhr${(o.handover_time ?? "99") < "06:00" ? " (nach Mitternacht)" : ""}` : windows.find((w) => w.key === o.handover_time)?.label_de ?? o.handover_time ?? "");
+  // Mischbestellung: Termin/Art stehen bei der Catering-Bestellung
+  const handoverLabel = (o: Order) => (o.handover === "with_catering" ? `Mit Catering #${o.catering_order_number ?? "?"}` : o.handover === "pickup" ? "Abholung" : "Lieferung");
+  const windowLabel = (o: Order) => (o.handover === "with_catering" ? "Zeit laut Catering" : o.handover === "pickup" ? `${o.handover_time} Uhr${(o.handover_time ?? "99") < "06:00" ? " (nach Mitternacht)" : ""}` : windows.find((w) => w.key === o.handover_time)?.label_de ?? o.handover_time ?? "");
 
   return (
     <div className="space-y-4">
@@ -73,7 +75,7 @@ export function GiftOrdersAdmin() {
               <span>
                 <strong>{o.order_number}</strong> · {o.customer_name}{o.is_test && <Badge variant="outline" className="ml-2">Test</Badge>}
                 <span className="block text-sm text-muted-foreground">
-                  {o.handover === "pickup" ? "Abholung" : "Lieferung"} {o.handover_date.split("-").reverse().join(".")}, {windowLabel(o)}
+                  {handoverLabel(o)} {o.handover_date.split("-").reverse().join(".")}, {windowLabel(o)}
                 </span>
               </span>
               <span className="flex items-center gap-2">
@@ -139,7 +141,7 @@ function OrderDialog({ order, windowLabel, onClose, onChanged }: { order: Order 
 
         {/* Lieferzettel: nur dieser Block wird gedruckt */}
         <div id="gift-slip" className="space-y-2 text-sm">
-          <p><strong>{order.handover === "pickup" ? "ABHOLUNG" : "LIEFERUNG"}</strong> {order.handover_date.split("-").reverse().join(".")}, {windowLabel}</p>
+          <p><strong>{order.handover === "with_catering" ? `MIT CATERING #${order.catering_order_number ?? "?"}` : order.handover === "pickup" ? "ABHOLUNG" : "LIEFERUNG"}</strong> {order.handover_date.split("-").reverse().join(".")}, {windowLabel}</p>
           <ul className="list-disc pl-5">{items.map((i) => <li key={i.id}>{i.qty} × {i.basket_name} – {i.variant_label}</li>)}</ul>
           <p><strong>{order.customer_name}</strong><br />{order.customer_email}{order.customer_phone ? <><br />{order.customer_phone}</> : null}</p>
           {order.handover === "delivery" && (

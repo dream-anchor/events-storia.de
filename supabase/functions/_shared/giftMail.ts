@@ -28,7 +28,7 @@ function fmtDate(d: string, lang: Lang): string {
 
 interface OrderRow {
   id: string; order_number: string; status: string; payment_method: string; customer_name: string; customer_email: string;
-  customer_phone: string | null; handover: "pickup" | "delivery"; handover_date: string; handover_time: string | null;
+  customer_phone: string | null; handover: "pickup" | "delivery" | "with_catering"; catering_order_number: string | null; handover_date: string; handover_time: string | null;
   delivery_street: string | null; delivery_zip: string | null; delivery_city: string | null; delivery_note: string | null;
   distance_km: number | null; delivery_fee_cents: number; items_total_cents: number; total_cents: number;
   vat_breakdown: { rate: number; gross_cents: number; net_cents: number; vat_cents: number }[] | null;
@@ -39,6 +39,12 @@ interface ItemRow { basket_name: string; variant_label: string; qty: number; uni
 
 function handoverText(o: OrderRow, lang: Lang, windows: DeliveryWindow[]): string {
   const when = fmtDate(o.handover_date, lang);
+  if (o.handover === "with_catering") {
+    // Mischbestellung: Termin, Art (Lieferung/Abholung) und Adresse stehen bei der Catering-Bestellung; keine Taxi-/Liefergebühr
+    return lang === "de"
+      ? `wird mit Ihrer Catering-Bestellung ${esc(o.catering_order_number)} am ${when} geliefert bzw. abgeholt`
+      : `will be delivered or picked up together with your catering order ${esc(o.catering_order_number)} on ${when}`;
+  }
   if (o.handover === "pickup") {
     // Zeiten vor 06:00 sind Slots nach Mitternacht (Öffnung bis 01:00): sie gehören zur Nacht NACH dem gewählten Tag
     const night = (o.handover_time ?? "99") < "06:00";
@@ -134,7 +140,7 @@ function customerMail(kind: GiftMailKind, o: OrderRow, items: ItemRow[], windows
 
 function operatorMail(kind: GiftMailKind, o: OrderRow, items: ItemRow[], windows: DeliveryWindow[]): { subject: string; html: string } {
   const when = fmtDate(o.handover_date, "de");
-  const label = o.handover === "pickup" ? "Abholung" : "Lieferung";
+  const label = o.handover === "with_catering" ? `mit Catering ${o.catering_order_number}` : o.handover === "pickup" ? "Abholung" : "Lieferung";
   const subject =
     kind === "reserved" ? `RESERVIERT (Zahlung vor Ort): Neuer Geschenkkorb ${o.order_number} – ${label} ${when}`
     : kind === "expired" ? `ABGELAUFEN: Reservierung Geschenkkorb ${o.order_number} nicht abgeholt (${when})`

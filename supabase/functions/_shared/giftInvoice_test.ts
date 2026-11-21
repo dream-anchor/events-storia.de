@@ -25,6 +25,16 @@ Deno.test("Rechnung: ohne Steuer-Aufteilung keine Anfrage", () => {
   assert(buildGiftInvoiceRequest(order, [{ basket_name: "K", variant_label: "W", qty: 1, unit_price_cents: 9900, vat_split: [{ rate: 19, share_bp: 10000 }] }]) !== null);
 });
 
+Deno.test("Rechnung: Mischbestellung (with_catering) ohne Liefergebühr/Adresse, mit Verweis auf das Catering", () => {
+  const mixed: GiftInvoiceOrder = { ...order, handover: "with_catering", catering_order_number: "CAT-BESTELLUNG-21-11-2026-345", handover_time: null, delivery_street: null, delivery_zip: null, delivery_city: null, distance_km: null, delivery_fee_cents: 0, delivery_vat_rate: null, total_cents: 9900 };
+  const r = buildGiftInvoiceRequest(mixed, [{ basket_name: "K", variant_label: "W", qty: 1, unit_price_cents: 9900, vat_split: split }])!;
+  assertEquals(r.deliveryCost, 0);
+  assertEquals(r.deliveryAddress, undefined);
+  assertEquals(r.desiredTime, undefined);
+  assertEquals(r.grandTotal, 99);
+  assert(String(r.notes).includes("CAT-BESTELLUNG-21-11-2026-345"));
+});
+
 import { isStaleInvoiceClaim } from "./giftInvoice.ts";
 Deno.test("Rechnungs-Anspruch: verwaist erst nach 10 Minuten, echte ID nie", () => {
   const now = 1_800_000_000_000;

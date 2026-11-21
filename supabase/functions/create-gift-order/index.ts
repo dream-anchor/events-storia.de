@@ -5,6 +5,9 @@
 // CAPTCHA (Inhaber 20.11.2026): Bestellung 'awaiting_confirmation' mit Hold nur 30 Min + Bestätigungsmail; erst der Klick
 // auf den Link (confirm-gift-reservation) macht daraus 'reserved' mit Hold bis Ladenschluss des Abholtags.
 // Missbrauchsschutz: Honeypot-Feld, Mindest-Ausfüllzeit, Limits je E-Mail/IP (DB-gestützt), Mengen- und Terminlimits.
+// Modus handover 'with_catering' (Mischbestellung, Konzept § 11): Körbe fahren mit dem Catering mit. Serverpreise, vat_split und
+// Hold wie gewohnt, aber Liefergebühr 0, Termin = Catering-Termin (nur Sperrtage), KEINE eigene Stripe-Session, nur Zahlart online.
+// Bezahlt wird mit der Catering-Session (create-catering-payment hängt die Körbe an, handle-stripe-webhook bestätigt sie).
 // Ablauf Webhook/Verfall: handle-stripe-webhook (Zahlung, expired) und gift-expire-reservations (Sweep, Mails).
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
@@ -29,6 +32,7 @@ import { loadBlackoutDates, loadGiftSettings } from "../_shared/giftSettings.ts"
 import { GIFT_AGB_VERSION } from "../_shared/giftLegal.ts";
 import { sendGiftMails } from "../_shared/giftMail.ts";
 import { reportEdgeError } from "../_shared/reportError.ts";
+import { checkMixedSchedule, isCateringOrderNumber, mixedHoldMinutes } from "../_shared/giftMixed.ts";
 
 const log = (s: string, d?: unknown) => console.log(`[CREATE-GIFT-ORDER] ${s}${d ? " " + JSON.stringify(d) : ""}`);
 
@@ -48,7 +52,11 @@ const clean = (v: unknown, max: number) => (typeof v === "string" ? v.trim().sli
 interface OrderInput {
   items: { variant_id: string; qty: number }[];
   customer: { name: string; email: string; phone: string };
-  handover: "pickup" | "delivery";
+  handover: "pickup" | "delivery" | "with_catering";
+  /** nur with_catering: Catering wird abgeholt (steuert die Sperrtag-Prüfung) */
+  catering_is_pickup: boolean;
+  /** nur bei handover 'with_catering': Bestellnummer der zugehörigen Catering-Bestellung */
+  catering_order_number: string;
   date: string;
   time: string;
   address: { street: string; zip: string; city: string; note: string };
@@ -98,8 +106,10 @@ function parseInput(b: Record<string, unknown>): OrderInput {
   if (customer.name.length < 2) throw bad("customer.name");
   if (!EMAIL_RE.test(customer.email)) throw bad("customer.email");
 
-  const handover = b.handover === "delivery" ? "delivery" : b.handover === "pickup" ? "pickup" : null;
+  const handover = b.handover === "delivery" ? "delivery" : b.handover === "pickup" ? "pickup" : b.handover === "with_catering" ? "with_catering" : null;
   if (!handover) throw bad("handover");
+  const cateringOrderNumber = clean(b.catering_order_number, 60);
+  if (handover === "with_catering" && !isCateringOrderNumber(cateringOrderNumber)) throw bad("catering_order_number");
   const a = (b.address ?? {}) as Record<string, unknown>;
   const address = { street: clean(a.street, 120), zip: clean(a.zip, 10), city: clean(a.city, 80), note: clean(a.note, 200) };
   if (handover === "delivery") {
@@ -110,12 +120,14 @@ function parseInput(b: Record<string, unknown>): OrderInput {
   }
 
   const payment_method = b.payment_method === "on_site" ? "on_site" : "online";
-  if (payment_method === "on_site" && handover !== "pickup") throw new HttpError(400, "on_site_only_pickup");
+  if (payment_method === "on_site" && handover !== "pickup") throw new HttpError(400, handover === "with_catering" ? "with_catering_online_only" : "on_site_only_pickup");
 
   return {
     items: mergedItems,
     customer,
     handover,
+    catering_order_number: handover === "with_catering" ? cateringOrderNumber : "",
+    catering_is_pickup: b.is_pickup === true,
     date: clean(b.date, 10),
     time: clean(b.time, 20),
     address,
@@ -196,7 +208,11 @@ serve(async (req) => {
     // ── 2) Termin gegen die Regeln ───────────────────────────────────────────
     const settings = await loadGiftSettings(supabase);
     const blackout = await loadBlackoutDates(supabase, input.date >= "2000-01-01" ? input.date : "2000-01-01");
-    const sched = checkSchedule(input.handover, input.date, input.time, now, settings.schedule, blackout);
+    const mixed = input.handover === "with_catering";
+    // Mischbestellung: Termin = Catering-Termin; nur Format/Vergangenheit/Sperrtage, keine Korb-Vorlauf-/Abholzeitregel
+    const sched = input.handover === "with_catering"
+      ? checkMixedSchedule(input.date, now, settings.schedule, blackout, input.catering_is_pickup)
+      : checkSchedule(input.handover, input.date, input.time, now, settings.schedule, blackout);
     if (!sched.ok) throw new HttpError(400, "invalid_schedule", { reason: sched.error });
 
     // ── 2b) Missbrauchsgrenzen (vor jeder Schreiboperation) ───────────────────
@@ -206,6 +222,13 @@ serve(async (req) => {
       const today = berlinParts(now).date;
       if (input.date > addDays(today, ON_SITE_MAX_DAYS_AHEAD)) throw new HttpError(400, "on_site_too_far_ahead", { max_days: ON_SITE_MAX_DAYS_AHEAD });
       if (input.items.reduce((s, i) => s + i.qty, 0) > ON_SITE_MAX_QTY) throw new HttpError(400, "on_site_quantity_limit", { max_qty: ON_SITE_MAX_QTY });
+    }
+
+    // Pro Catering-Bestellung höchstens eine offene Korb-Bestellung (Doppelklick/Wiederholung legt keinen zweiten Hold an)
+    if (mixed) {
+      const { count } = await supabase.from("gift_orders").select("id", { count: "exact", head: true })
+        .eq("catering_order_number", input.catering_order_number).in("status", ["pending", "paid", "ready", "handed_over"]);
+      if ((count ?? 0) > 0) throw new HttpError(409, "already_exists");
     }
 
     // ── 3) Liefergebühr NEU berechnen (zweiter ORS-Aufruf) ───────────────────
@@ -244,8 +267,9 @@ serve(async (req) => {
         customer_email: input.customer.email,
         customer_phone: input.customer.phone || null,
         handover: input.handover,
+        catering_order_number: mixed ? input.catering_order_number : null,
         handover_date: input.date,
-        handover_time: input.time,
+        handover_time: input.time || null,
         delivery_street: input.handover === "delivery" ? input.address.street : null,
         delivery_zip: input.handover === "delivery" ? input.address.zip : null,
         delivery_city: input.handover === "delivery" ? input.address.city : null,
@@ -287,7 +311,7 @@ serve(async (req) => {
     // "vor Ort": nur 30 Min bis zur Bestätigung (danach verlängert gift_confirm_reservation bis Ladenschluss)
     const holdUntil = onSite
       ? new Date(Date.now() + CONFIRM_HOLD_MINUTES * 60_000)
-      : new Date(Date.now() + Math.max(settings.hold_minutes, MIN_HOLD_MINUTES) * 60_000);
+      : new Date(Date.now() + Math.max(mixed ? mixedHoldMinutes(settings.hold_minutes) : settings.hold_minutes, MIN_HOLD_MINUTES) * 60_000);
     const { error: rErr } = await supabase.rpc("gift_reserve_stock", {
       p_order_id: order.id,
       p_items: lines.map((l) => ({ variant_id: l.variant_id, qty: l.qty })),
@@ -301,7 +325,8 @@ serve(async (req) => {
 
     // ── 5b) Grenze offener Bestellungen je E-Mail / IP (nach dem Anlegen geprüft: gleichzeitige Anfragen sehen sich gegenseitig) ──
     // DB-gestützt (gift_open_counts): zählt nur Bestellungen mit noch gültigem Hold, abgelaufene/unbestätigt verfallene nie.
-    {
+    // Mischbestellungen (with_catering) zählen nicht und werden nicht begrenzt (ohne Catering-Session nicht bezahlbar; DB-Funktion zählt sie nicht mit)
+    if (!mixed) {
       const { data: counts, error: cErr } = await supabase.rpc("gift_open_counts", {
         p_payment_method: input.payment_method, p_email: input.customer.email, p_ip_hash: ipHash,
       });
@@ -323,6 +348,22 @@ serve(async (req) => {
         throw new HttpError(503, "mail_failed");
       }
       return json({ awaiting_confirmation: true, order_number: order.order_number, total_cents: total });
+    }
+
+    // ── 6a2) Mischbestellung: keine eigene Stripe-Session, bezahlt wird mit der Catering-Session ──────
+    if (mixed) {
+      log("Mixed gift order created", { orderNumber: order.order_number, cateringOrderNumber: input.catering_order_number, total });
+      return json({
+        gift_order_id: order.id,
+        order_number: order.order_number,
+        total_cents: total,
+        items: lines.map((l) => ({
+          name: input.language === "en" ? l.basket_name_en : l.basket_name,
+          variant: input.language === "en" ? l.variant_label_en : l.variant_label,
+          qty: l.qty,
+          unit_price_cents: l.unit_price_cents,
+        })),
+      });
     }
 
     // ── 6b) Online: Stripe Checkout (30 Min) ─────────────────────────────────
