@@ -37,3 +37,23 @@ ALTER TABLE public.gift_orders DROP CONSTRAINT IF EXISTS gift_orders_with_cateri
 ALTER TABLE public.gift_orders
   ADD CONSTRAINT gift_orders_with_catering_ref_check
   CHECK (handover <> 'with_catering' OR catering_order_number IS NOT NULL) NOT VALID;
+
+-- Mischbestellungen (with_catering) zählen NICHT gegen die Grenze offener Online-Holds je E-Mail/IP: sie sind ohne verknüpfte
+-- Catering-Session nicht bezahlbar (Retry nach Fehlern soll nicht blockiert werden). Sonst identisch zur Fassung aus 20261120100100.
+CREATE OR REPLACE FUNCTION public.gift_open_counts(p_payment_method text, p_email text, p_ip_hash text)
+RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  WITH open_orders AS (
+    SELECT o.customer_email, o.client_ip_hash
+      FROM public.gift_orders o
+     WHERE o.payment_method = p_payment_method
+       AND o.handover <> 'with_catering'
+       AND o.status IN ('pending','awaiting_confirmation','reserved')
+       AND NOT o.is_test
+       AND EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = o.id AND h.status = 'held' AND h.expires_at > now())
+  )
+  SELECT jsonb_build_object(
+    'by_email', (SELECT count(*) FROM open_orders WHERE customer_email = p_email),
+    'by_ip',    CASE WHEN p_ip_hash IS NULL THEN 0 ELSE (SELECT count(*) FROM open_orders WHERE client_ip_hash = p_ip_hash) END
+  );
+$$;
