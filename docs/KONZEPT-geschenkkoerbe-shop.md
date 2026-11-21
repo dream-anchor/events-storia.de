@@ -280,9 +280,9 @@ immer über `gift_orders` (Serverpreis, `vat_split`, Bestand/Hold, Altersbestät
   nach I2, mit eigenem Gegencheck. I1/I2 verschärfen die Lücke nicht (Korb-Beträge kommen nie vom Client).
 - Admin-Zusammenführung Catering-/Korb-Bestellungen (bleiben getrennt; Korb-Detail zeigt „mit Catering #…“).
 
-### 11.4 Offene Entscheidung
-22. Mischbestellung: **zwei Rechnungen** (Catering + Geschenkkorb, beide in der Bestätigung genannt; Empfehlung –
-    nutzt die geprüften Rechnungswege unverändert) oder eine gemeinsame Rechnung (Umbau Lexoffice-Payload Catering).
+### 11.4 Entscheidung Rechnung
+22. **Entschieden (Antoine 21.11.2026): zwei Rechnungen** bei Mischbestellung (Catering 7 % wie bisher + Geschenkkorb
+    mit `vat_split`), beide in der Bestätigung genannt; eine Zahlung.
 
 ### 11.5 Einheiten (Commit je Schritt, PR am Einheitsende; Migration eigener PR zuerst)
 **I0 – Migration (eigener PR):** `gift_orders.catering_order_number text null` + Index; `handover`-Check um
