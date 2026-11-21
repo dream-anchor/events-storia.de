@@ -36,6 +36,15 @@ export const mixedHoldMinutes = (settingsHoldMinutes: number): number =>
 export const computeExpectedMixedAmount = (cateringTotalEuro: number, giftTotalCents: number): number =>
   Math.round(Number(cateringTotalEuro) * 100) + giftTotalCents;
 
+/**
+ * Betragsabgleich der Mischzahlung. Der Korb-Anteil ist serverseitig exakt; der Catering-Anteil wird vom Client an
+ * create-catering-payment übergeben (|DB - Client| <= 0,02 EUR dort erlaubt, dann auf Cent gerundet) und kann deshalb
+ * um höchstens 2 Cent vom gerundeten DB-Betrag abweichen. Alles darüber -> Betreiber-Alarm, Korb wird nicht bestätigt.
+ */
+export const MIXED_AMOUNT_TOLERANCE_CENTS = 2;
+export const isMixedAmountOk = (stripeAmountTotal: unknown, expectedCents: number): boolean =>
+  typeof stripeAmountTotal === "number" && Math.abs(stripeAmountTotal - expectedCents) <= MIXED_AMOUNT_TOLERANCE_CENTS;
+
 /** Webhook-Routing: Catering-Session MIT verknüpfter Korb-Bestellung (nur dann läuft die Korb-Behandlung). */
 export function shouldHandleGiftInCatering(md: Record<string, string> | null | undefined): boolean {
   return md?.order_type === "catering" && typeof md?.gift_order_id === "string" && md.gift_order_id.length > 0;

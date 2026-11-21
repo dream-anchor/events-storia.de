@@ -1,6 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import {
-  checkMixedSchedule, computeExpectedMixedAmount, giftLinkedToCatering, holdCoversSession, isCateringOrderNumber,
+  checkMixedSchedule, computeExpectedMixedAmount, isMixedAmountOk, giftLinkedToCatering, holdCoversSession, isCateringOrderNumber,
   mixedHoldMinutes, shouldHandleGiftInCatering, validateGiftForCateringPayment,
 } from "./giftMixed.ts";
 import { isGiftSessionMetadata } from "./giftWebhook.ts";
@@ -75,4 +75,13 @@ Deno.test("Webhook: Verknüpfung Korb <-> Catering", () => {
   assertEquals(giftLinkedToCatering({ handover: "with_catering", catering_order_number: "CAT-1" }, "CAT-1"), true);
   assertEquals(giftLinkedToCatering({ handover: "with_catering", catering_order_number: "CAT-2" }, "CAT-1"), false);
   assertEquals(giftLinkedToCatering({ handover: "pickup", catering_order_number: "CAT-1" }, "CAT-1"), false);
+});
+
+Deno.test("Betragsabgleich: Toleranz max. 2 Cent, nie bei fehlendem/falschem Betrag", () => {
+  assertEquals(isMixedAmountOk(22245, 22245), true);
+  assertEquals(isMixedAmountOk(22246, 22245), true);
+  assertEquals(isMixedAmountOk(22248, 22245), false);
+  assertEquals(isMixedAmountOk(12345, 22245), false); // nur Catering bezahlt, Korb fehlt
+  assertEquals(isMixedAmountOk(null, 22245), false);
+  assertEquals(isMixedAmountOk("22245", 22245), false);
 });
