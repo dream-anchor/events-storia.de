@@ -10,10 +10,9 @@ import { GiftBasketCard } from "@/components/gift/GiftBasketCard";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
-import { trackEvent } from "@/lib/analytics";
 import { GIFT_COPY } from "@/lib/gift/copy";
 import { fetchGiftCatalog } from "@/lib/gift/api";
-import { giftItemId } from "@/lib/gift/cartRules";
+import { giftItemId, giftMaxForLine } from "@/lib/gift/cartRules";
 import { giftImageProps } from "@/lib/gift/image";
 import { qtyLeft } from "@/lib/gift/stock";
 import type { GiftBasket } from "@/lib/gift/types";
@@ -44,7 +43,8 @@ const GeschenkKoerbe = () => {
     const id = giftItemId(variant.id);
     // Bestand und Warenkorb-Menge berücksichtigen (Server prüft beim Bestellen erneut)
     const inCart = items.find((i) => i.id === id)?.quantity ?? 0;
-    const allowed = Math.max(0, Math.min(qty, qtyLeft(variant) - inCart));
+    // Deckel: Bestand, je Zeile und je Bestellung (giftMaxForLine)
+    const allowed = Math.max(0, Math.min(qty, qtyLeft(variant) - inCart, giftMaxForLine(items, id) - inCart));
     if (allowed <= 0) {
       toast.info(t.stockLimit);
       return;
@@ -67,7 +67,6 @@ const GeschenkKoerbe = () => {
     );
     if (allowed < qty) toast.info(t.stockLimit);
     else toast.success(t.addedToCart);
-    trackEvent("add_to_cart", { location: "geschenkkorb", item_id: variant.id, quantity: allowed });
   };
 
   return (

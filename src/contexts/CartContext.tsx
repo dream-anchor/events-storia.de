@@ -139,7 +139,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         if (next.quantity <= 0) return prev.filter(i => i.id !== item.id);
         const has = prev.some(i => i.id === item.id);
         return has
-          ? prev.map(i => (i.id === item.id ? { ...i, quantity: next.quantity } : i))
+          ? prev.map(i => (i.id === item.id ? { ...i, ...item, quantity: next.quantity } : i))
           : [...prev, { ...item, quantity: next.quantity }];
       }
 
@@ -159,11 +159,17 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setLastAddedItem({ name: itemName, quantity: addedQuantity });
     setTimeout(() => setLastAddedItem(null), 2500);
 
+    // Korb-Zeilen: tatsächlich hinzugefügte Menge (nach Deckel) melden
+    let trackedQuantity = quantity;
+    if (isGift) {
+      const pre = nextGiftQuantity(items, item.id, quantity, mode);
+      trackedQuantity = mode === 'set' ? pre.quantity : pre.quantity - (items.find(i => i.id === item.id)?.quantity ?? 0);
+    }
     trackEvent("add_to_cart", {
       item_id: item.id,
       item_name: item.name,
       price: item.price,
-      quantity,
+      quantity: trackedQuantity,
     });
   };
 

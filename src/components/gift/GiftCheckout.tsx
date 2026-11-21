@@ -89,7 +89,7 @@ const GiftCheckout = () => {
   const prefix = lang === "en" ? "/en" : "";
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const { items, updateQuantity, removeFromCart, removeGiftItems } = useCart();
+  const { items, updateQuantity, removeFromCart } = useCart();
 
   const [catalog, setCatalog] = useState<GiftBasket[] | null>(null);
   const [settings, setSettings] = useState<GiftPublicSettings | null>(null);
@@ -153,11 +153,13 @@ const GiftCheckout = () => {
 
   const giftItems = useMemo(() => items.filter(isGiftItem), [items]);
 
-  // Zeilen mit nicht (mehr) existierenden oder ausverkauften Varianten verwerfen (mit Hinweis)
+  // Nur Zeilen mit nicht (mehr) existierenden Varianten verwerfen (mit Hinweis). Ausverkaufte/knappe Zeilen bleiben sichtbar,
+  // validate() blockiert die Bestellung (wie im alten Korb-Shop). Sind alle Zeilen unbekannt, zeigt die Kasse den leeren
+  // Warenkorb; der Hinweis kommt dann nur als Toast.
   const cartLines = useMemo(
     () => giftItems.flatMap((i) => {
       const hit = i.variantId ? variantIndex.get(i.variantId) : undefined;
-      return hit && qtyLeft(hit.variant) > 0 ? [{ id: i.id, variantId: i.variantId as string, qty: i.quantity, ...hit }] : [];
+      return hit ? [{ id: i.id, variantId: i.variantId as string, qty: i.quantity, ...hit }] : [];
     }),
     [giftItems, variantIndex],
   );
@@ -282,7 +284,7 @@ const GiftCheckout = () => {
       }
       // "vor Ort zahlen": noch keine Reservierung, erst der Klick auf den Mail-Link zählt (Double-Opt-in); kein purchase-Event
       navigate(`${prefix}/geschenkkoerbe/danke?awaiting=1${result.order_number ? `&nr=${encodeURIComponent(result.order_number)}` : ""}`);
-      removeGiftItems(); // gleicher Render-Durchgang wie navigate: kein Zwischenbild "Warenkorb leer"
+      // Korb-Zeilen leert die Danke-Seite (GiftThanks) nach der Navigation: kein Zwischenbild "Warenkorb leer"
     } catch (err) {
       const code = err instanceof GiftApiError ? err.code : "generic";
       toast.error(t.err[code] ?? t.err.generic);
@@ -341,7 +343,7 @@ const GiftCheckout = () => {
                         <li key={l.variantId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                           <span>
                             {lang === "de" ? l.basket.name_de : l.basket.name_en} – {lang === "de" ? l.variant.label_de : l.variant.label_en}
-                            {qtyLeft(l.variant) < l.qty && <strong className="ml-2 text-destructive">({t.onlyFew(l.variant.available ?? 0)})</strong>}
+                            {qtyLeft(l.variant) < l.qty && <strong className="ml-2 text-destructive">({l.variant.available === 0 ? t.soldOut : t.onlyFew(l.variant.available ?? 0)})</strong>}
                           </span>
                           <span className="flex items-center gap-2">
                             <Button type="button" variant="outline" size="icon" aria-label="−" onClick={() => updateQuantity(l.id, l.qty - 1)}>
