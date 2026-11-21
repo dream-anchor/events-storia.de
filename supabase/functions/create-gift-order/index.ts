@@ -53,6 +53,8 @@ interface OrderInput {
   items: { variant_id: string; qty: number }[];
   customer: { name: string; email: string; phone: string };
   handover: "pickup" | "delivery" | "with_catering";
+  /** nur with_catering: Catering wird abgeholt (steuert die Sperrtag-Prüfung) */
+  catering_is_pickup: boolean;
   /** nur bei handover 'with_catering': Bestellnummer der zugehörigen Catering-Bestellung */
   catering_order_number: string;
   date: string;
@@ -125,6 +127,7 @@ function parseInput(b: Record<string, unknown>): OrderInput {
     customer,
     handover,
     catering_order_number: handover === "with_catering" ? cateringOrderNumber : "",
+    catering_is_pickup: b.is_pickup === true,
     date: clean(b.date, 10),
     time: clean(b.time, 20),
     address,
@@ -208,7 +211,7 @@ serve(async (req) => {
     const mixed = input.handover === "with_catering";
     // Mischbestellung: Termin = Catering-Termin; nur Format/Vergangenheit/Sperrtage, keine Korb-Vorlauf-/Abholzeitregel
     const sched = input.handover === "with_catering"
-      ? checkMixedSchedule(input.date, now, settings.schedule, blackout)
+      ? checkMixedSchedule(input.date, now, settings.schedule, blackout, input.catering_is_pickup)
       : checkSchedule(input.handover, input.date, input.time, now, settings.schedule, blackout);
     if (!sched.ok) throw new HttpError(400, "invalid_schedule", { reason: sched.error });
 
@@ -322,7 +325,8 @@ serve(async (req) => {
 
     // ── 5b) Grenze offener Bestellungen je E-Mail / IP (nach dem Anlegen geprüft: gleichzeitige Anfragen sehen sich gegenseitig) ──
     // DB-gestützt (gift_open_counts): zählt nur Bestellungen mit noch gültigem Hold, abgelaufene/unbestätigt verfallene nie.
-    {
+    // Mischbestellungen (with_catering) zählen nicht und werden nicht begrenzt (ohne Catering-Session nicht bezahlbar; DB-Funktion zählt sie nicht mit)
+    if (!mixed) {
       const { data: counts, error: cErr } = await supabase.rpc("gift_open_counts", {
         p_payment_method: input.payment_method, p_email: input.customer.email, p_ip_hash: ipHash,
       });

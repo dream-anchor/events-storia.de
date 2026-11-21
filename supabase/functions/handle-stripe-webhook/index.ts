@@ -8,7 +8,7 @@ import { buildVoucherPdf, generateVoucherCode } from '../_shared/voucher-pdf.ts'
 import { isGiftSessionMetadata } from '../_shared/giftWebhook.ts';
 import { sendGiftMails } from '../_shared/giftMail.ts';
 import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
-import { computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
+import { asyncHoldExtensionUntil, computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
 import {
   buildOrderPayload,
   enqueueMaestroHandoff,
@@ -85,6 +85,8 @@ serve(async (req) => {
       const session = event.data.object as Stripe.Checkout.Session;
       const result = await processCheckoutPaid(supabase, stripe, session, event.type);
       if (result.skippedUnpaid) {
+        // Billie in Mischsession: Korb-Hold bis zum asynchronen Ergebnis halten (nur bei gift_order_id, sonst unverändert)
+        if (shouldHandleGiftInCatering(session.metadata)) await extendGiftHoldForAsync(supabase, session);
         // Noch nicht bezahlt → Bestellung ohne Transaktion übergeben (ein Eintrag).
         await maestroEnqueueOrder(supabase, session, event.id);
         return new Response(JSON.stringify({ received: true, action: "skipped_unpaid" }), {
@@ -375,6 +377,27 @@ async function handleGiftInCateringPayment(
     throw new GiftRetryError(`catering order ${cateringOrderNumber} not marked paid yet`);
   }
   await handleGiftPayment(supabase, session, metadata, computeExpectedMixedAmount(Number(cat.total_amount), gift.total_cents));
+}
+
+/** Billie (unpaid bei 'completed'): Hold der verknüpften Korb-Bestellung bis Ende des Catering-Tages verlängern. */
+async function extendGiftHoldForAsync(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  session: Stripe.Checkout.Session,
+) {
+  const giftOrderId = session.metadata?.gift_order_id;
+  if (!giftOrderId) return;
+  const { data: g, error: gErr } = await supabase.from("gift_orders").select("handover_date, status").eq("id", giftOrderId).maybeSingle();
+  if (gErr) throw new GiftRetryError(`gift order lookup failed: ${gErr.message}`);
+  if (!g || g.status !== "pending") return;
+  const { data: holds, error: hErr } = await supabase.from("gift_stock_holds").select("expires_at").eq("order_id", giftOrderId).eq("status", "held");
+  if (hErr) throw new GiftRetryError(`gift holds lookup failed: ${hErr.message}`);
+  const earliest = (holds ?? []).map((h: { expires_at: string }) => h.expires_at).sort()[0] ?? null;
+  const until = asyncHoldExtensionUntil(session.metadata, session.payment_status, g.handover_date, earliest);
+  if (!until) return;
+  const { error: uErr } = await supabase.from("gift_stock_holds").update({ expires_at: until.toISOString() }).eq("order_id", giftOrderId).eq("status", "held");
+  if (uErr) throw new GiftRetryError(`gift hold extend failed: ${uErr.message}`);
+  logStep("Gift hold extended for async payment", { giftOrderId, until: until.toISOString() });
 }
 
 /** Session abgelaufen / Async-Zahlung fehlgeschlagen: Hold freigeben und offene Bestellung beenden (nie eine bezahlte). */

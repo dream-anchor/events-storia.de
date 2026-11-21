@@ -3,7 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
-import { MIXED_SESSION_MINUTES, giftLineName, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
+import { MIXED_SESSION_MINUTES, giftLineName, mixedPaymentMethodTypes, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
 
 
 
@@ -283,6 +283,9 @@ serve(async (req) => {
           quantity: gi.qty,
         });
       }
+      // nur Karte (sofort), außer Billie: asynchrone Methoden würden den Hold überdauern
+      const mixedTypes = mixedPaymentMethodTypes(paymentMethod);
+      if (mixedTypes) sessionConfig.payment_method_types = mixedTypes as Parameters<typeof stripe.checkout.sessions.create>[0]['payment_method_types'];
       sessionConfig.expires_at = Math.floor(Date.now() / 1000) + MIXED_SESSION_MINUTES * 60;
       sessionConfig.metadata = { ...sessionConfig.metadata, gift_order_id: giftOrder.id, gift_order_number: giftOrder.order_number };
     }

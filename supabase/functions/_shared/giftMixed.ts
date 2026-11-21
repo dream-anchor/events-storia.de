@@ -1,7 +1,7 @@
 // Mischbestellung (Catering + Geschenkkörbe, Konzept § 11): reine, testbare Entscheidungslogik.
 // Eine Zahlung (Catering-Stripe-Session), zwei Datensätze (catering_orders + gift_orders, verknüpft über
 // gift_orders.catering_order_number). Korb-Beträge kommen IMMER vom Server (create-gift-order), nie vom Client.
-import { businessDate, isBlackout, isIsoDate, type BlackoutDate, type ScheduleCheck, type ScheduleSettings } from "./giftPricing.ts";
+import { berlinToUtc, businessDate, isBlackout, isIsoDate, type BlackoutDate, type ScheduleCheck, type ScheduleSettings } from "./giftPricing.ts";
 
 /** Stripe-Session der Catering-Zahlung: 31 Min (Minimum 30). Der Korb-Hold muss sie überdauern (Hold >= 36 Min). */
 export const MIXED_SESSION_MINUTES = 31;
@@ -21,10 +21,12 @@ export function checkMixedSchedule(
   now: Date,
   schedule: ScheduleSettings,
   blackout: BlackoutDate[],
+  /** Catering wird abgeholt (sonst geliefert): bestimmt, welche Sperrtage gelten */
+  isPickup = false,
 ): ScheduleCheck {
   if (!isIsoDate(date)) return { ok: false, error: "invalid_date" };
   if (date < businessDate(now, schedule)) return { ok: false, error: "date_in_past" };
-  if (isBlackout(date, "delivery", blackout)) return { ok: false, error: "blackout" };
+  if (isBlackout(date, isPickup ? "pickup" : "delivery", blackout)) return { ok: false, error: "blackout" };
   return { ok: true };
 }
 
@@ -44,6 +46,26 @@ export const computeExpectedMixedAmount = (cateringTotalEuro: number, giftTotalC
 export const MIXED_AMOUNT_TOLERANCE_CENTS = 2;
 export const isMixedAmountOk = (stripeAmountTotal: unknown, expectedCents: number): boolean =>
   typeof stripeAmountTotal === "number" && Math.abs(stripeAmountTotal - expectedCents) <= MIXED_AMOUNT_TOLERANCE_CENTS;
+
+/**
+ * Billie (asynchron): Session ist bei 'completed' noch 'unpaid', das Ergebnis kommt später. Der Korb-Hold würde bis dahin
+ * ablaufen -> bis Ende des Catering-Tages (Berlin, 23:59) verlängern. Nur Verlängerung, nie Verkürzung. null = nichts tun.
+ */
+export function asyncHoldExtensionUntil(
+  md: Record<string, string> | null | undefined,
+  paymentStatus: string | null | undefined,
+  cateringDate: string,
+  currentHoldExpiresAt: string | Date | null | undefined,
+): Date | null {
+  if (!shouldHandleGiftInCatering(md) || paymentStatus !== "unpaid" || !isIsoDate(cateringDate)) return null;
+  const until = berlinToUtc(cateringDate, "23:59");
+  const cur = currentHoldExpiresAt ? new Date(currentHoldExpiresAt).getTime() : 0;
+  return until.getTime() > cur ? until : null;
+}
+
+/** Zahlarten der Catering-Session: Mischsession nur Karte (sofort), außer Billie (Vorkasse-Regel Catering). */
+export const mixedPaymentMethodTypes = (paymentMethod: string | null | undefined): string[] | null =>
+  paymentMethod === "billie" ? null : ["card"];
 
 /** Webhook-Routing: Catering-Session MIT verknüpfter Korb-Bestellung (nur dann läuft die Korb-Behandlung). */
 export function shouldHandleGiftInCatering(md: Record<string, string> | null | undefined): boolean {

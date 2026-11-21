@@ -1,6 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import {
-  checkMixedSchedule, computeExpectedMixedAmount, isMixedAmountOk, giftLinkedToCatering, holdCoversSession, isCateringOrderNumber,
+  asyncHoldExtensionUntil, mixedPaymentMethodTypes, checkMixedSchedule, computeExpectedMixedAmount, isMixedAmountOk, giftLinkedToCatering, holdCoversSession, isCateringOrderNumber,
   mixedHoldMinutes, shouldHandleGiftInCatering, validateGiftForCateringPayment,
 } from "./giftMixed.ts";
 import { isGiftSessionMetadata } from "./giftWebhook.ts";
@@ -84,4 +84,26 @@ Deno.test("Betragsabgleich: Toleranz max. 2 Cent, nie bei fehlendem/falschem Bet
   assertEquals(isMixedAmountOk(12345, 22245), false); // nur Catering bezahlt, Korb fehlt
   assertEquals(isMixedAmountOk(null, 22245), false);
   assertEquals(isMixedAmountOk("22245", 22245), false);
+});
+
+Deno.test("Termin: Sperrtag je nach Catering-Art (Abholung/Lieferung)", () => {
+  const b = [{ date: "2026-12-24", handover: "pickup" as const }];
+  assertEquals(checkMixedSchedule("2026-12-24", now, schedule, b, true).error, "blackout");
+  assertEquals(checkMixedSchedule("2026-12-24", now, schedule, b, false).ok, true);
+});
+
+Deno.test("Billie: Hold-Verlängerung nur bei unpaid + Mischsession, nie verkürzen", () => {
+  const md = { order_type: "catering", gift_order_id: "g" };
+  const until = asyncHoldExtensionUntil(md, "unpaid", "2026-12-01", new Date("2026-11-23T10:40:00Z"))!;
+  assertEquals(until.toISOString(), "2026-12-01T22:59:00.000Z");
+  assertEquals(asyncHoldExtensionUntil(md, "paid", "2026-12-01", null), null);
+  assertEquals(asyncHoldExtensionUntil({ order_type: "catering" }, "unpaid", "2026-12-01", null), null);
+  assertEquals(asyncHoldExtensionUntil(md, "unpaid", "kaputt", null), null);
+  assertEquals(asyncHoldExtensionUntil(md, "unpaid", "2026-12-01", "2026-12-05T00:00:00Z"), null);
+});
+
+Deno.test("Mischsession: nur Karte, Billie bleibt Billie", () => {
+  assertEquals(mixedPaymentMethodTypes("stripe"), ["card"]);
+  assertEquals(mixedPaymentMethodTypes(undefined), ["card"]);
+  assertEquals(mixedPaymentMethodTypes("billie"), null);
 });
