@@ -67,6 +67,8 @@ export interface CreateGiftOrderInput {
   handover: "pickup" | "delivery" | "with_catering";
   /** nur bei handover 'with_catering' (Mischbestellung): Bestellnummer der Catering-Bestellung */
   catering_order_number?: string;
+  /** nur with_catering: das Catering wird abgeholt (steuert die Sperrtag-Prüfung) */
+  is_pickup?: boolean;
   date: string;
   time: string;
   address: { street: string; zip: string; city: string; note: string };

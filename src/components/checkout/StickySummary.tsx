@@ -48,7 +48,7 @@ const StickySummary = ({
 }: StickySummaryProps) => {
   const { items, updateQuantity, removeFromCart, totalPrice, cateringSubtotal } = useCart();
   const { language } = useLanguage();
-  const { formatPrice, formatPriceValue, showGross, setShowGross } = usePriceDisplay();
+  const { formatPrice, showGross, setShowGross } = usePriceDisplay();
   const hasGifts = giftSubtotal > 0;
   // Mindestbestellwert/Aufschlag gelten nur für den Catering-Anteil; ohne Körbe unverändert totalPrice
   const subtotalBase = hasGifts ? cateringSubtotal : totalPrice;
@@ -246,10 +246,10 @@ const StickySummary = ({
           {/* Grand Total */}
           <div className="flex justify-between items-center pt-3 border-t border-border">
             <span className="font-serif text-lg font-semibold">
-              {language === 'de' ? 'Gesamt' : 'Total'}
+              {language === 'de' ? 'Gesamt' : 'Total'}{hasGifts ? (language === 'de' ? ' inkl. MwSt.' : ' incl. VAT') : ''}
             </span>
             <span className="font-serif text-xl font-bold text-amber-950 dark:text-amber-50">
-              {hasGifts ? formatMixedTotal(formatPriceValue(grandTotal), giftSubtotal) : formatPrice(grandTotal)}
+              {hasGifts ? formatMixedTotal(grandTotal, giftSubtotal) : formatPrice(grandTotal)}
             </span>
           </div>
         </div>

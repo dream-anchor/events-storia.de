@@ -206,7 +206,7 @@ const CateringCheckout = () => {
   const giftSubtotal = hasGiftItems ? giftSubtotalOf(totalPrice, cateringSubtotal) : 0;
   const { language } = useLanguage();
   const giftText = GIFT_COPY[language === 'de' ? 'de' : 'en'];
-  const { formatPrice, formatPriceValue, showGross, setShowGross } = usePriceDisplay();
+  const { formatPrice, showGross, setShowGross } = usePriceDisplay();
   const navigate = useNavigate();
   const { getPath } = useLocalizedPath();
   const { user, profile } = useCustomerAuth();
@@ -815,7 +815,9 @@ const CateringCheckout = () => {
   const totalVat19 = drinksVat + deliveryVat;
   const grandTotal = foodGross + drinksGross + deliveryGross;
   // Anzeige: Catering-Gesamt (+ Körbe brutto). `grandTotal` selbst bleibt der CATERING-Betrag (RPC + create-catering-payment).
-  const displayTotal = hasGiftItems ? formatMixedTotal(formatPriceValue(grandTotal), giftSubtotal) : formatPrice(grandTotal);
+  // Mit Körben immer BRUTTO (Netto-Umschalter gilt nicht für die Gesamtsumme) und mit Zusatz "inkl. MwSt."
+  const displayTotal = hasGiftItems ? formatMixedTotal(grandTotal, giftSubtotal) : formatPrice(grandTotal);
+  const totalVatSuffix = hasGiftItems ? (language === 'de' ? ' inkl. MwSt.' : ' incl. VAT') : '';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const target = e.target as HTMLInputElement | HTMLTextAreaElement;
@@ -1055,12 +1057,16 @@ const CateringCheckout = () => {
       // Mischbestellung, Schritt (a): Geschenkkorb-Bestellung ZUERST anlegen (Serverpreise, Bestand-Hold). Schlägt sie fehl
       // (z. B. ausverkauft), bricht alles ab, es entsteht keine Catering-Bestellung. Die Catering-Bestellnummer steht schon fest.
       let giftOrderNumber: string | undefined;
+      // Serverwerte der Korb-Bestellung (für Erfolgsseite); ohne Körbe leer
+      let giftSuccessItems: { name: string; name_en: string; quantity: number; price: number; total: number }[] = [];
+      let giftTotalEuro = 0;
       if (hasGiftItems) {
         const giftResult = await createGiftOrder({
           items: items.filter(isGiftItem).map(i => ({ variant_id: i.variantId ?? '', qty: i.quantity })),
           customer: { name: formData.name, email: formData.email, phone: formData.phone },
           handover: 'with_catering',
           catering_order_number: newOrderNumber,
+          is_pickup: formData.deliveryType === 'pickup',
           date: formData.date,
           time: formData.time,
           address: { street: '', zip: '', city: '', note: '' },
@@ -1074,6 +1080,14 @@ const CateringCheckout = () => {
         });
         giftOrderNumber = giftResult.order_number ?? undefined;
         if (!giftOrderNumber) throw new Error('gift_order_missing');
+        giftTotalEuro = giftResult.total_cents / 100;
+        giftSuccessItems = (giftResult.items ?? []).map(gi => ({
+          name: `${gi.name} – ${gi.variant}`,
+          name_en: `${gi.name} – ${gi.variant}`,
+          quantity: gi.qty,
+          price: gi.unit_price_cents / 100,
+          total: (gi.unit_price_cents * gi.qty) / 100,
+        }));
       }
 
       const orderId = crypto.randomUUID();
@@ -1216,13 +1230,13 @@ const CateringCheckout = () => {
           name: formData.name,
           orderNumber: newOrderNumber,
           orderDetails: {
-            items: orderItems.map(item => ({
+            items: [...orderItems.map(item => ({
               name: item.name,
               name_en: item.name_en,
               quantity: item.quantity,
               price: item.price,
               total: item.price * item.quantity
-            })),
+            })), ...giftSuccessItems],
             deliveryType: formData.deliveryType,
             deliveryAddress: formData.deliveryType === 'delivery' 
               ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
@@ -1231,7 +1245,7 @@ const CateringCheckout = () => {
             time: formData.time,
             subtotal: surchargeBase,
             deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-            grandTotal: grandTotal,
+            grandTotal: grandTotal + giftTotalEuro,
             paymentMethod: paymentMethod,
             company: formData.company,
             foodVat7: totalVat7,
@@ -1262,6 +1276,13 @@ const CateringCheckout = () => {
             toast.error(language === 'de' ? 'Fehler bei der Zahlungsweiterleitung' : 'Payment redirect error');
             setIsProcessingPayment(false);
             localStorage.removeItem(cachedOrderKey);
+            if (hasGiftItems) {
+              // Mischbestellung: Warenkorb behalten, nicht zur Erfolgsseite, Kunde bleibt im Checkout
+              toast.error(language === 'de'
+                ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
+                : 'Payment could not be started. Your cart has been kept, please try again.', { duration: 8000 });
+              return;
+            }
             clearCart();
             navigate(getPath('account.orderSuccess'), { 
               state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
@@ -1281,6 +1302,12 @@ const CateringCheckout = () => {
           toast.error(language === 'de' ? 'Fehler bei der Zahlung' : 'Payment error');
           setIsProcessingPayment(false);
           localStorage.removeItem(cachedOrderKey);
+          if (hasGiftItems) {
+            toast.error(language === 'de'
+              ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
+              : 'Payment could not be started. Your cart has been kept, please try again.', { duration: 8000 });
+            return;
+          }
           clearCart();
           navigate(getPath('account.orderSuccess'), { 
             state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
@@ -1510,7 +1537,7 @@ const CateringCheckout = () => {
                         </div>
                       )}
                       <div className="flex justify-between pt-2 border-t border-border font-semibold">
-                        <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
+                        <span>{language === 'de' ? 'Gesamt' : 'Total'}{totalVatSuffix}</span>
                         <span className="text-primary">{displayTotal}</span>
                       </div>
                     </div>
@@ -1629,7 +1656,7 @@ const CateringCheckout = () => {
                               )}
                             </div>
                             <div className="flex justify-between pt-2 border-t border-border font-medium">
-                              <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
+                              <span>{language === 'de' ? 'Gesamt' : 'Total'}{totalVatSuffix}</span>
                               <span className="text-primary font-bold">{displayTotal}</span>
                             </div>
                           </div>
@@ -2339,7 +2366,7 @@ const CateringCheckout = () => {
                 )}
                 <div className="flex items-center justify-between gap-4">
                   <div className="text-sm">
-                    <span className="text-muted-foreground">{language === 'de' ? 'Gesamt:' : 'Total:'}</span>
+                    <span className="text-muted-foreground">{language === 'de' ? 'Gesamt:' : 'Total:'}{totalVatSuffix}</span>
                     <span className="font-bold text-lg ml-1">{displayTotal}</span>
                   </div>
                   <Button
