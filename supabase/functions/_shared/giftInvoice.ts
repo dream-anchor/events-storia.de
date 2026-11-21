@@ -7,7 +7,7 @@ import { isValidVatSplit, splitGrossByVat, type VatShare } from "./giftPricing.t
 
 export interface GiftInvoiceOrder {
   id: string; order_number: string; customer_name: string; customer_email: string; customer_phone: string | null;
-  handover: "pickup" | "delivery"; handover_date: string; handover_time: string | null;
+  handover: "pickup" | "delivery" | "with_catering"; catering_order_number?: string | null; handover_date: string; handover_time: string | null;
   delivery_street: string | null; delivery_zip: string | null; delivery_city: string | null;
   distance_km: number | null; delivery_fee_cents: number; delivery_vat_rate: number | null; total_cents: number;
   gift_message: string | null;
@@ -56,7 +56,8 @@ export function buildGiftInvoiceRequest(o: GiftInvoiceOrder, items: GiftInvoiceI
     desiredDate: o.handover_date,
     desiredTime: o.handover === "pickup" ? o.handover_time ?? undefined : undefined,
     deliveryAddress: address,
-    notes: o.gift_message ? `Grußkarte: ${o.gift_message}` : undefined,
+    // Mischbestellung: zweite Rechnung zur Catering-Bestellung (keine Liefergebühr, keine Adresse: Lieferung läuft über das Catering)
+    notes: [o.handover === "with_catering" ? `Geliefert bzw. abgeholt mit Catering-Bestellung ${o.catering_order_number ?? ""}`.trim() : "", o.gift_message ? `Grußkarte: ${o.gift_message}` : ""].filter(Boolean).join("\n") || undefined,
   };
 }
 
