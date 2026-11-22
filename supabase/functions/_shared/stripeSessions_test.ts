@@ -1,7 +1,7 @@
 // deno test supabase/functions/_shared/stripeSessions_test.ts
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import { createSessionIdempotent, deterministicExpiresAt, expireSessions, findOpenSessions, reusableSession, sessionIdempotencyKey, type StripeLike } from "./stripeSessions.ts";
-import { checkPaymentMatchesOrder, isDoublePayment } from "./paymentGuard.ts";
+import { alertIfDoublePayment, checkPaymentMatchesOrder, isDoublePayment } from "./paymentGuard.ts";
 
 const T = Date.UTC(2026, 10, 22, 12, 0, 30);
 
@@ -139,4 +139,24 @@ Deno.test("Webhook A1b: stornierte Bestellung oder abweichender Betrag wird nich
   assert(!m.ok && m.reason === "amount_mismatch");
   // Mischbestellung: Betrag enthält Körbe, nur Storno-Prüfung
   assertEquals(checkPaymentMatchesOrder({ status: "pending", total_amount: 514.25 }, { amount_total: 99999 }, true), { ok: true });
+});
+
+Deno.test("Doppelzahlung (Webhook-Pfad bezahlte Bestellung): anderer PaymentIntent alarmiert genau einmal mit escapten Werten, Wiederholung bleibt still", async () => {
+  const reports: string[] = [];
+  const alerts: { subject: string; html: string }[] = [];
+  const deps = {
+    report: (m: string) => { reports.push(m); },
+    alert: (subject: string, html: string) => { alerts.push({ subject, html }); return Promise.resolve(); },
+    esc: (x: string) => x.replace(/</g, "&lt;"),
+  };
+  const order = { stripe_payment_intent_id: "pi_1" };
+  assertEquals(await alertIfDoublePayment(order, { id: "cs_2", payment_intent: "pi_1" }, "CAT-1", deps), false); // Wiederholung
+  assertEquals(await alertIfDoublePayment(order, { id: "cs_2", payment_intent: null }, "CAT-1", deps), false);
+  assertEquals(reports.length + alerts.length, 0);
+  assertEquals(await alertIfDoublePayment(order, { id: "cs_<2>", payment_intent: "pi_2" }, "CAT-1", deps), true);
+  assertEquals(reports.length, 1);
+  assert(reports[0].includes("double_payment order=CAT-1") && reports[0].includes("pi=pi_2"));
+  assertEquals(alerts.length, 1);
+  assertEquals(alerts[0].subject, "Doppelzahlung: CAT-1");
+  assert(alerts[0].html.includes("cs_&lt;2>"));
 });

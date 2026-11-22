@@ -24,3 +24,24 @@ export function isDoublePayment(order: { stripe_payment_intent_id?: string | nul
   const incoming = typeof session.payment_intent === "string" ? session.payment_intent : null;
   return !!order.stripe_payment_intent_id && !!incoming && order.stripe_payment_intent_id !== incoming;
 }
+
+/**
+ * Webhook-Wiederholung/Zweitzahlung für eine schon bezahlte Bestellung: bei anderem PaymentIntent alarmieren (true), sonst still (false).
+ * Abhängigkeiten werden übergeben, damit der Pfad ohne Stripe/Supabase testbar ist.
+ */
+export async function alertIfDoublePayment(
+  order: { stripe_payment_intent_id?: string | null },
+  session: { id: string; payment_intent?: unknown },
+  orderNumber: string,
+  deps: { report: (message: string) => void; alert: (subject: string, html: string) => Promise<void>; esc: (s: string) => string },
+): Promise<boolean> {
+  const newPi = typeof session.payment_intent === "string" ? session.payment_intent : null;
+  if (!newPi || !isDoublePayment(order, session)) return false;
+  deps.report(`double_payment order=${orderNumber} session=${session.id} pi=${newPi} bereits bezahlt mit pi=${order.stripe_payment_intent_id}`);
+  const e = deps.esc;
+  await deps.alert(
+    `Doppelzahlung: ${orderNumber}`,
+    `<p>Für Bestellung ${e(orderNumber)} ist eine zweite Stripe-Zahlung eingegangen (Session ${e(session.id)}, PaymentIntent ${e(newPi)}). Die Bestellung war bereits mit PaymentIntent ${e(String(order.stripe_payment_intent_id))} bezahlt. Bitte die zweite Zahlung prüfen und zurückerstatten.</p>`,
+  );
+  return true;
+}
