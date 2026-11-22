@@ -3,6 +3,8 @@ import { useLanguage } from './LanguageContext';
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/analytics';
 import { isGiftItem, nextGiftQuantity, giftMaxForLine, giftQuantityTotal } from '@/lib/gift/cartRules';
+import { clampEventGuests, eventUnitPriceForGuests, type EventPriceBasis } from '@/lib/eventPricing';
+import type { CartSync } from '@/lib/orderQuote';
 
 export interface CartItem {
   id: string;
@@ -18,6 +20,8 @@ export interface CartItem {
   isEventPackage?: boolean;
   baseGuestCount?: number; // For tiered pricing (e.g., 70 for Location package)
   packageId?: string; // Original package ID for price recalculation
+  /** Preisgrundlage des Pakets (Grundpreis, pro Person?, Gästegrenzen): damit der Betrag bei jeder Gästezahl-Änderung neu gerechnet wird */
+  eventPricing?: EventPriceBasis;
   // Geschenkkorb-Zeilen (ID `gift-<variantId>`): Preis = Anzeigepreis aus dem Katalog, maßgeblich ist der Server
   kind?: 'gift_basket';
   variantId?: string;
@@ -46,6 +50,8 @@ interface CartContextType {
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
+  /** Checkout: Warenkorb mit dem Server-Angebot abgleichen (Preise/Namen aktualisieren, Artikel entfernen, Gästezahl begrenzen). */
+  syncFromServer: (sync: CartSync) => void;
   totalItems: number;
   totalPrice: number;
   /** Summe ohne Geschenkkörbe (Mindestbestellwert/Aufschlag gelten nur für den Catering-Anteil). */
@@ -59,6 +65,15 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_STORAGE_KEY = 'storia-catering-cart';
+
+/** Event-Paket-Zeile: Gästezahl in die Grenzen setzen und den Stückpreis (Gesamt/Gäste) für diese Gästezahl neu rechnen. */
+const repriceEventLine = (item: CartItem, guests: number): CartItem => {
+  if (!item.eventPricing) return { ...item, quantity: guests };
+  const packageId = item.packageId || item.id.replace('event-', '');
+  const quantity = clampEventGuests(guests, item.eventPricing);
+  return { ...item, quantity, price: eventUnitPriceForGuests(packageId, item.eventPricing, quantity) };
+};
+const isEventLine = (item: CartItem) => item.id.startsWith('event-') || !!item.isEventPackage;
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { language } = useLanguage();
@@ -147,7 +162,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       if (existing) {
         return prev.map(i =>
           i.id === item.id
-            ? { ...i, quantity: i.quantity + quantity }
+            ? (isEventLine(i) ? repriceEventLine(i, i.quantity + quantity) : { ...i, quantity: i.quantity + quantity })
             : i
         );
       }
@@ -198,10 +213,26 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         const capped = Math.min(quantity, giftMaxForLine(prev, id));
         return capped <= 0 ? prev.filter(i => i.id !== id) : prev.map(i => (i.id === id ? { ...i, quantity: capped } : i));
       }
+      // Event-Pakete: Betrag hängt von der Gästezahl ab (Pauschale, Location gestaffelt) -> immer neu rechnen, nie nur Menge ändern
       return prev.map(i =>
-        i.id === id ? { ...i, quantity } : i
+        i.id === id ? (isEventLine(i) ? repriceEventLine(i, quantity) : { ...i, quantity }) : i
       );
     });
+  };
+
+  const syncFromServer = (sync: CartSync) => {
+    if (sync.updates.length + sync.removals.length + sync.clamps.length === 0) return;
+    setItems(prev => prev
+      .filter(i => !sync.removals.includes(i.id))
+      .map(i => {
+        const u = sync.updates.find(x => x.id === i.id);
+        let next: CartItem = u
+          ? { ...i, name: u.name, name_en: u.name_en, price: u.price, ...(u.eventPricing ? { eventPricing: u.eventPricing } : {}) }
+          : i;
+        const clamp = sync.clamps.find(x => x.id === i.id);
+        if (clamp) next = isEventLine(next) ? repriceEventLine(next, clamp.quantity) : { ...next, quantity: clamp.quantity };
+        return next;
+      }));
   };
 
   const removeGiftItems = () => {
@@ -225,6 +256,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       removeFromCart,
       updateQuantity,
       clearCart,
+      syncFromServer,
       removeGiftItems,
       totalItems,
       totalPrice,

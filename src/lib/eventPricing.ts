@@ -83,3 +83,24 @@ export function getLocationPricingBreakdown(guestCount: number): {
     pricePerExtraGuest: PRICE_PER_EXTRA_GUEST
   };
 }
+
+/**
+ * Preisgrundlage eines Event-Pakets im Warenkorb. Ohne sie lässt sich der Betrag bei geänderter Gästezahl nicht neu rechnen
+ * (der Warenkorb speichert nur den Durchschnittspreis Gesamt/Gäste, der bei Pauschal- und Location-Paketen von der Gästezahl abhängt).
+ */
+export interface EventPriceBasis {
+  basePrice: number;
+  pricePerPerson: boolean;
+  minGuests: number;
+  maxGuests: number;
+}
+
+/** Gästezahl in die Grenzen des Pakets setzen (wie EventPackageShopCard: min_guests || 1, max_guests || 200). */
+export function clampEventGuests(guests: number, basis: Pick<EventPriceBasis, 'minGuests' | 'maxGuests'>): number {
+  return Math.min(Math.max(guests, basis.minGuests), basis.maxGuests);
+}
+
+/** Durchschnittlicher Stückpreis (Gesamt / Gäste) bei der neuen Gästezahl: so bleibt `price * quantity` im Warenkorb der Paketpreis. */
+export function eventUnitPriceForGuests(packageId: string, basis: EventPriceBasis, guests: number): number {
+  return getEffectiveUnitPrice(packageId, basis.basePrice, guests, basis.pricePerPerson);
+}
