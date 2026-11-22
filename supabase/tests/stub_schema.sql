@@ -36,10 +36,11 @@ CREATE TABLE public.menu_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), c
 CREATE TABLE public.packages (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text, name_en text, price numeric NOT NULL, price_per_person boolean, is_active boolean DEFAULT true, min_guests integer, max_guests integer, tenant_id uuid);
 
 -- v2
-CREATE TYPE public.v2_event_status AS ENUM ('inquiry', 'offer_chosen', 'paid', 'completed', 'cancelled');
+CREATE TYPE public.v2_event_status AS ENUM ('inquiry', 'offer_draft', 'offer_sent', 'offer_chosen', 'paid', 'offer_declined', 'completed', 'cancelled');
 CREATE TYPE public.v2_event_location AS ENUM ('in_house', 'external');
 CREATE TYPE public.v2_event_service AS ENUM ('restaurant', 'catering');
-CREATE TYPE public.v2_event_source AS ENUM ('manual', 'catering_form');
+CREATE TYPE public.v2_event_source AS ENUM ('manual', 'catering_form', 'website', 'email_inbound', 'phone');
+CREATE TYPE public.v2_event_priority AS ENUM ('low', 'normal', 'high');
 CREATE TYPE public.v2_payment_status AS ENUM ('draft', 'paid', 'refunded', 'failed');
 CREATE TYPE public.v2_payment_type AS ENUM ('full', 'deposit');
 CREATE TABLE public.tenants (id uuid PRIMARY KEY, status text);
@@ -55,7 +56,11 @@ CREATE TABLE public.v2_events (
   billing_name text, billing_street text, billing_postal_code text, billing_city text, billing_country text,
   delivery_address text, delivery_street text, delivery_zip text, delivery_city text, delivery_floor text,
   has_elevator boolean, is_pickup boolean, calculated_distance_km numeric, delivery_cost_cents integer,
-  minimum_order_surcharge_cents integer, tenant_id uuid);
+  minimum_order_surcharge_cents integer, tenant_id uuid,
+  occasion text, event_end_date date, notification_sent boolean, selected_items jsonb, selected_packages jsonb, quote_items jsonb,
+  venue text, location_type text, location_name text, location_street text, location_postal_code text, location_city text, location_country text,
+  company_street text, company_postal_code text, company_city text, company_country text, billing_address_different boolean,
+  billing_company_name text, priority public.v2_event_priority, payment_method text, invoice_due_days integer);
 CREATE TABLE public.v2_payments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_id uuid NOT NULL REFERENCES public.v2_events(id),
   amount_cents integer, payment_type public.v2_payment_type, status public.v2_payment_status DEFAULT 'draft');
 
@@ -177,3 +182,109 @@ BEGIN
   RETURN v_id;
 END $f$;
 GRANT EXECUTE ON FUNCTION public.checkout_create_event_booking(jsonb), public.checkout_create_catering_order(jsonb) TO anon, authenticated, service_role;
+
+-- View event_inquiries (vereinfacht) + Insert-Trigger im Zustand VOR der Abdichtung (20260501200216)
+CREATE VIEW public.event_inquiries AS
+SELECT ev.id, c.email, c.name AS contact_name, c.phone, c.company AS company_name, 'event'::text AS inquiry_type, ev.source::text AS source,
+  CASE ev.status::text WHEN 'inquiry' THEN 'new' WHEN 'paid' THEN 'confirmed' ELSE ev.status::text END AS status,
+  ev.date AS preferred_date, ev.event_end_date, ev.event_time AS time_slot, ev.guest_count::text AS guest_count, ev.occasion AS event_type,
+  ev.customer_notes AS message, ev.internal_notes, ev.is_test, ev.notification_sent, ev.created_at, ev.selected_items, ev.selected_packages,
+  ev.quote_items, ev.menu_selection, ev.venue, ev.location_type, ev.location_name, ev.location_street, ev.location_postal_code,
+  ev.location_city, ev.location_country, ev.company_street, ev.company_postal_code, ev.company_city, ev.company_country,
+  ev.billing_address_different, ev.billing_company_name, ev.billing_street, ev.billing_postal_code, ev.billing_city, ev.billing_country,
+  ev.delivery_street, ev.delivery_zip, ev.delivery_city, ev.priority::text AS priority, ev.payment_method, ev.invoice_due_days
+FROM public.v2_events ev LEFT JOIN public.v2_customers c ON c.id = ev.customer_id
+WHERE ev.source_inquiry_id IS NOT NULL;
+GRANT ALL ON public.event_inquiries TO anon, authenticated, service_role;
+CREATE OR REPLACE FUNCTION public.event_inquiries_insert_trigger()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  new_customer_id uuid;
+  new_event_id uuid;
+  v_service v2_event_service;
+  v_loc v2_event_location;
+  v_source v2_event_source;
+BEGIN
+  SELECT id INTO new_customer_id FROM v2_customers
+  WHERE lower(email) = lower(NEW.email)
+    AND lower(COALESCE(name, '')) = lower(COALESCE(NEW.contact_name, ''))
+  LIMIT 1;
+
+  IF new_customer_id IS NULL THEN
+    INSERT INTO v2_customers (name, email, phone, company, created_at, updated_at)
+    VALUES (NEW.contact_name, NEW.email, NEW.phone, NEW.company_name, now(), now())
+    RETURNING id INTO new_customer_id;
+  END IF;
+
+  IF NEW.inquiry_type::text = 'catering' THEN
+    v_service := 'catering'; v_loc := 'external';
+  ELSE
+    v_service := 'restaurant'; v_loc := 'in_house';
+  END IF;
+
+  v_source := CASE
+    WHEN NEW.source IS NULL OR NEW.source = '' THEN 'website'::v2_event_source
+    WHEN NEW.source LIKE 'package_inquiry%' THEN 'website'::v2_event_source
+    WHEN NEW.source IN ('website','website_contact_form','ristorante-website') THEN 'website'::v2_event_source
+    WHEN NEW.source IN ('manual_entry','manual','test') THEN 'manual'::v2_event_source
+    WHEN NEW.source = 'email_inbound' THEN 'email_inbound'::v2_event_source
+    WHEN NEW.source = 'phone' THEN 'phone'::v2_event_source
+    WHEN NEW.source = 'catering_form' THEN 'catering_form'::v2_event_source
+    ELSE 'website'::v2_event_source
+  END;
+
+  new_event_id := COALESCE(NEW.id, gen_random_uuid());
+
+  INSERT INTO v2_events (
+    id, customer_id, status, location, service_type,
+    date, event_end_date, event_time, guest_count, occasion,
+    customer_notes, internal_notes, source, is_test, notification_sent,
+    created_at, updated_at, selected_items, selected_packages, quote_items, menu_selection,
+    venue, location_type, location_name, location_street, location_postal_code, location_city, location_country,
+    company_street, company_postal_code, company_city, company_country,
+    billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, billing_country,
+    delivery_street, delivery_zip, delivery_city, priority,
+    payment_method, invoice_due_days,
+    source_inquiry_id
+  ) VALUES (
+    new_event_id, new_customer_id,
+    CASE COALESCE(NEW.status,'new')
+      WHEN 'new' THEN 'inquiry'::v2_event_status
+      WHEN 'contacted' THEN 'offer_draft'::v2_event_status
+      WHEN 'offer_sent' THEN 'offer_sent'::v2_event_status
+      WHEN 'confirmed' THEN 'paid'::v2_event_status
+      WHEN 'declined' THEN 'offer_declined'::v2_event_status
+      WHEN 'cancelled' THEN 'cancelled'::v2_event_status
+      WHEN 'completed' THEN 'completed'::v2_event_status
+      ELSE 'inquiry'::v2_event_status
+    END,
+    v_loc, v_service,
+    NEW.preferred_date, NEW.event_end_date, NEW.time_slot,
+    NULLIF(regexp_replace(COALESCE(NEW.guest_count,''), '[^0-9]', '', 'g'), '')::integer,
+    NEW.event_type, NEW.message, NEW.internal_notes,
+    v_source, COALESCE(NEW.is_test,false), COALESCE(NEW.notification_sent,false),
+    COALESCE(NEW.created_at, now()), now(),
+    COALESCE(NEW.selected_items, '[]'::jsonb),
+    COALESCE(NEW.selected_packages, '[]'::jsonb),
+    COALESCE(NEW.quote_items, '[]'::jsonb),
+    COALESCE(NEW.menu_selection, '{}'::jsonb),
+    NEW.venue, NEW.location_type, NEW.location_name, NEW.location_street,
+    NEW.location_postal_code, NEW.location_city, COALESCE(NEW.location_country,'Deutschland'),
+    NEW.company_street, NEW.company_postal_code, NEW.company_city, COALESCE(NEW.company_country,'Deutschland'),
+    COALESCE(NEW.billing_address_different,false), NEW.billing_company_name, NEW.billing_street,
+    NEW.billing_postal_code, NEW.billing_city, COALESCE(NEW.billing_country,'Deutschland'),
+    NEW.delivery_street, NEW.delivery_zip, NEW.delivery_city,
+    COALESCE(NEW.priority,'normal')::v2_event_priority,
+    COALESCE(NEW.payment_method, 'deposit_online'),
+    NEW.invoice_due_days,
+    new_event_id
+  );
+
+  NEW.id := new_event_id;
+  RETURN NEW;
+END $function$;
+CREATE TRIGGER tg_event_inquiries_insert INSTEAD OF INSERT ON public.event_inquiries FOR EACH ROW EXECUTE FUNCTION public.event_inquiries_insert_trigger();
