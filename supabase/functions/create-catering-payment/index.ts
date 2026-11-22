@@ -70,6 +70,10 @@ serve(async (req) => {
 
     logStep("Base URL determined", { origin, referer, baseUrl, isCreate });
 
+    // EIN Zeitpunkt je Anfrage: Hold-Prüfung, Session-Ablauf (expires_at) und Idempotenzfenster müssen vom selben Moment ausgehen,
+    // sonst kann die Session länger laufen, als der geprüfte Hold reicht.
+    const requestNowMs = Date.now();
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -127,7 +131,7 @@ serve(async (req) => {
       const holdExpiresAt = (holds ?? []).length > 0
         ? (holds ?? []).map((h: { expires_at: string }) => h.expires_at).sort()[0]
         : null;
-      const check = validateGiftForCateringPayment(g, { orderNumber, customerEmail, holdExpiresAt, now: new Date() });
+      const check = validateGiftForCateringPayment(g, { orderNumber, customerEmail, holdExpiresAt, now: new Date(requestNowMs) });
       if (!check.ok) {
         logStep("ERROR: Gift order rejected", { giftOrderNumber, reason: check.error });
         return fail(409, check.error);
@@ -574,7 +578,7 @@ serve(async (req) => {
       // nur Karte (sofort), außer Billie: asynchrone Methoden würden den Hold überdauern
       const mixedTypes = mixedPaymentMethodTypes(paymentMethod);
       if (mixedTypes) sessionConfig.payment_method_types = mixedTypes as Parameters<typeof stripe.checkout.sessions.create>[0]['payment_method_types'];
-      sessionConfig.expires_at = deterministicExpiresAt(); // deterministisch je 3-Min-Fenster: Wiederholungen haben identische Parameter
+      sessionConfig.expires_at = deterministicExpiresAt(requestNowMs); // deterministisch je 3-Min-Fenster: Wiederholungen haben identische Parameter
       sessionConfig.metadata = { ...sessionConfig.metadata, gift_order_id: gift.order.id, gift_order_number: gift.order.order_number };
     }
 
@@ -588,7 +592,7 @@ serve(async (req) => {
     // Idempotenzschlüssel aus Bestellnummer + Hash ALLER Session-Parameter + 3-Min-Fenster: gleiche Anfrage = gleiche Session,
     // geänderte Parameter (Name, Zahlart, Körbe ...) = neuer Schlüssel statt 400 idempotency_error
     const session = await createSessionIdempotent(
-      stripe as unknown as StripeLike, sessionConfig, await sessionIdempotencyKey(orderNumber, sessionConfig));
+      stripe as unknown as StripeLike, sessionConfig, await sessionIdempotencyKey(orderNumber, sessionConfig, requestNowMs));
 
     logStep("Checkout session created", { sessionId: session.id, orderNumber, orderType });
 
