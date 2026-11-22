@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { GiftBasketBadge, GiftBasketPanel, useGiftOrdersByCateringNumber } from "@/components/admin/gift/MixedOrderLinks";
 import { 
   ArrowLeft, Loader2, Save, Phone, Mail, Building2, MapPin, 
   Calendar, Clock, CreditCard, Receipt, User, BadgeCheck, 
@@ -195,6 +196,7 @@ export const CateringOrderEditor = () => {
   const updateMutation = useUpdate();
   
   const order = orderQuery.result;
+  const giftOrders = useGiftOrdersByCateringNumber().data?.get(order?.order_number ?? "");
   const isSaving = updateMutation.mutation.isPending;
   
   const [internalNotes, setInternalNotes] = useState("");
@@ -503,6 +505,7 @@ export const CateringOrderEditor = () => {
                     Bezahlt
                   </Badge>
                 )}
+                <GiftBasketBadge orders={giftOrders} />
               </div>
               <h1 className="text-2xl font-serif font-semibold">
                 {order.company_name || order.customer_name}
@@ -639,6 +642,7 @@ export const CateringOrderEditor = () => {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
               {/* Hauptspalte */}
               <div className="lg:col-span-3 space-y-6 min-w-0">
+                <GiftBasketPanel orders={giftOrders} />
                 {/* Items */}
                 <Card>
                   <CardHeader>
