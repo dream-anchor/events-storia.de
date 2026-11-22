@@ -8,7 +8,7 @@ export const MIXED_SESSION_MINUTES = 31;
 export const MIXED_MIN_HOLD_MINUTES = 36;
 
 /** Format der Catering-Bestellnummer aus dem Checkout (generateOrderNumber): CAT-BESTELLUNG-TT-MM-JJJJ-NNN(N). */
-const CATERING_ORDER_NUMBER_RE = /^CAT-BESTELLUNG-\d{2}-\d{2}-\d{4}-\d{3,4}$/;
+const CATERING_ORDER_NUMBER_RE = /^CAT-BESTELLUNG-\d{2}-\d{2}-\d{4}-\d{3,8}$/;
 export const isCateringOrderNumber = (s: unknown): s is string => typeof s === "string" && CATERING_ORDER_NUMBER_RE.test(s);
 
 /**

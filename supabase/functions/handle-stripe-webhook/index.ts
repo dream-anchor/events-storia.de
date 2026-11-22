@@ -13,6 +13,7 @@ import {
   buildOrderPayload,
   enqueueMaestroHandoff,
   handoffEnabled,
+  loadShopFields,
   type MaestroPaymentType,
   type MaestroTransaction,
 } from '../_shared/maestroHandoff.ts';
@@ -2678,8 +2679,25 @@ async function maestroEnqueueOrder(
       md.order_number || md.inquiry_id || md.payment_id || session.id;
     const orderNumber = md.order_number || `session-${session.id}`;
 
+    const deliveryEventId = deliveryEventIdOverride || `order_${sourceOrderId}_${session.id}`;
+
+    // Existiert für diese Delivery-ID schon ein Outbox-Eintrag, ist sie bereits eingereiht (Stripe-Redelivery):
+    // NICHT neu bauen. Ein abweichender (z. B. angereicherter) Payload hätte einen anderen Hash, und
+    // enqueueMaestroHandoff würde den noch nicht gesendeten Eintrag auf 'conflict' setzen.
+    const { data: already } = await supabase
+      .from("maestro_handoff_outbox").select("id").eq("delivery_event_id", deliveryEventId).maybeSingle();
+    if (already) return;
+
+    // Shop-Felder (Positionen, Übergabe, Termin …) aus der DB. Lesefehler dürfen die Übergabe NIE verhindern:
+    // dann Altpayload ohne neue Felder. Der Zahlstatus kommt aus der Session (nicht aus der DB), damit der
+    // Payload für eine Delivery-ID bei Stripe-Redelivery bytegleich bleibt (MAESTRO: 409 bei geändertem Inhalt).
+    const shop = await loadShopFields(supabase, md, session.payment_status);
+    if (!shop.ok) {
+      logStep("MAESTRO shop fields unavailable — sending legacy payload", { error: shop.error, deliveryId: deliveryEventId.slice(0, 32) });
+    }
+
     const payload = buildOrderPayload({
-      deliveryEventId: deliveryEventIdOverride || `order_${sourceOrderId}_${session.id}`,
+      deliveryEventId,
       sourceOrderId,
       orderNumber,
       customerName: details?.name || md.customer_name || "",
@@ -2688,6 +2706,7 @@ async function maestroEnqueueOrder(
       phone: details?.phone || null,
       amountTotalCents: stripeAmountCents(session.amount_total),
       transaction,
+      shop: shop.ok ? shop.fields : null,
     });
 
     const result = await enqueueMaestroHandoff(supabase, payload);
