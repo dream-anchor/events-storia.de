@@ -4,7 +4,8 @@
 // mit service_role auf; anon/authenticated haben dort seit der Sperr-Migration (20261122110000) keinen Zugriff mehr.
 import type { OrderQuote } from "./orderQuote.ts";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// ohne %, * und \: LIKE-Wildcards dürfen nie in eine E-Mail gelangen (Kundensuche in orderFlow.ts)
+const EMAIL_RE = /^[^\s@%*\\]+@[^\s@%*\\]+\.[^\s@%*\\]+$/;
 export const CATERING_ORDER_NUMBER_RE = /^CAT-BESTELLUNG-\d{2}-\d{2}-\d{4}-\d{3,8}$/;
 export const EVENT_BOOKING_NUMBER_RE = /^EVT-BUCHUNG-\d{2}-\d{2}-\d{4}-\d{3,8}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

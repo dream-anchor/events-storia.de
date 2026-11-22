@@ -1,4 +1,5 @@
-import { assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
+import { deterministicExpiresAt, HOLD_BUFFER_MS } from "./stripeSessions.ts";
+import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import {
   asyncHoldExtensionUntil, mixedPaymentMethodTypes, checkMixedSchedule, computeExpectedMixedAmount, isMixedAmountOk, giftLinkedToCatering, holdCoversSession, isCateringOrderNumber,
   mixedHoldMinutes, shouldHandleGiftInCatering, validateGiftForCateringPayment,
@@ -59,6 +60,20 @@ Deno.test("Hold deckt die Session", () => {
   assertEquals(holdCoversSession(new Date(now.getTime() + 36 * 60_000).toISOString(), now), true);
   assertEquals(holdCoversSession(new Date(now.getTime() + 30 * 60_000).toISOString(), now), false);
   assertEquals(holdCoversSession(null, now), false);
+});
+
+Deno.test("Hold überdauert expires_at der Session plus Puffer an jeder Stelle des 3-Min-Fensters", () => {
+  const base = Date.UTC(2026, 10, 22, 12, 0, 0);
+  for (let off = 0; off < 180_000; off += 15_000) {
+    const n = new Date(base + off);
+    const exp = deterministicExpiresAt(n.getTime()) * 1000;
+    assert(exp - n.getTime() >= 31 * 60_000, "Session mindestens 31 Min");
+    assertEquals(holdCoversSession(new Date(exp + HOLD_BUFFER_MS).toISOString(), n), false); // genau gleich reicht nicht
+    assertEquals(holdCoversSession(new Date(exp + HOLD_BUFFER_MS + 1000).toISOString(), n), true);
+    assertEquals(holdCoversSession(new Date(exp - 1000).toISOString(), n), false);
+    // der Hold von 36 Min (MIXED_MIN_HOLD_MINUTES) ab jetzt reicht immer
+    assertEquals(holdCoversSession(new Date(n.getTime() + 36 * 60_000).toISOString(), n), true);
+  }
 });
 
 Deno.test("Korb an Catering-Zahlung: Validierung", () => {

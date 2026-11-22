@@ -39,6 +39,9 @@ Deno.test("Eingaben: bereinigt, E-Mail klein, Zahlart nur stripe/billie", () => 
 Deno.test("Eingaben: ungültige Kundendaten, Bestellnummer und Termin", () => {
   assertEquals(parseCreateInput(body({ customer: { name: "", email: "x@y.de", phone: "1" } }), "catering"), { ok: false, code: "customer_invalid" });
   assertEquals(parseCreateInput(body({ customer: { name: "A", email: "kein-mail", phone: "1" } }), "catering"), { ok: false, code: "customer_invalid" });
+  for (const email of ["max%@%.%", "m*x@y.de", "a\\b@y.de", "x@y%.de"]) {
+    assertEquals(parseCreateInput(body({ customer: { name: "A", email, phone: "1" } }), "catering"), { ok: false, code: "customer_invalid" }, email);
+  }
   assertEquals(parseCreateInput(body({ orderNumber: "EVT-BUCHUNG-22-11-2026-345" }), "catering"), { ok: false, code: "order_number_invalid" });
   assertEquals(parseCreateInput(body({ orderNumber: "CAT-BESTELLUNG-22-11-2026-345" }), "event"), { ok: false, code: "order_number_invalid" });
   assertEquals(parseCreateInput(body({ date: "morgen" }), "catering"), { ok: false, code: "invalid_request" });

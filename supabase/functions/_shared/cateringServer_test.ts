@@ -1,6 +1,6 @@
 // deno test supabase/functions/_shared/cateringServer_test.ts
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { CATALOG_TENANT_ID, computeServerQuote, resetDistanceCachesForTest } from "./cateringServer.ts";
+import { berlinDay, CATALOG_TENANT_ID, computeServerQuote, ORS_MISSES_PER_CLIENT_HOUR, resetDistanceCachesForTest, takeOrsBudget } from "./cateringServer.ts";
 
 const UUID_A = "11111111-1111-4111-8111-111111111111";
 const UUID_PKG = "22222222-2222-4222-8222-222222222222";
@@ -92,4 +92,25 @@ Deno.test("Event-Pakete: mandantengebunden, Gästegrenzen aus dem Paket", async 
   const low = await computeServerQuote(client, { items: [{ id: `event-${UUID_PKG}`, quantity: 5 }], chafingQuantity: 0, deliveryType: "event" }, undefined);
   assert(low.ok);
   if (low.ok) assertEquals(low.quote.issues.map((i) => i.code), ["guests_out_of_range"]);
+});
+
+Deno.test("ORS-Budget: Berliner Tageswechsel (nicht UTC), Client-Grenze 10/h, Standard 1800", () => {
+  assertEquals(berlinDay(new Date("2026-11-22T22:30:00Z")), "2026-11-22"); // 23:30 Berlin
+  assertEquals(berlinDay(new Date("2026-11-22T23:30:00Z")), "2026-11-23"); // 00:30 Berlin, in UTC noch derselbe Tag
+  assertEquals(berlinDay(new Date("2026-07-22T22:30:00Z")), "2026-07-23"); // Sommerzeit
+  assertEquals(ORS_MISSES_PER_CLIENT_HOUR, 10);
+  resetDistanceCachesForTest();
+  const errs: string[] = [];
+  const orig = console.error;
+  console.error = (m: unknown) => { errs.push(String(m)); };
+  try {
+    const t = new Date("2026-11-22T10:00:00Z");
+    assertEquals(takeOrsBudget(2, t, 4), true);
+    assertEquals(takeOrsBudget(2, t, 4), true);
+    assertEquals(takeOrsBudget(2, t, 4), false);
+    assertEquals(takeOrsBudget(2, t, 4), false);
+    assertEquals(errs.length, 1, "Alarm höchstens einmal je Stunde");
+    // neuer Berliner Tag (UTC noch gleicher Tag) setzt den Zähler zurück
+    assertEquals(takeOrsBudget(2, new Date("2026-11-22T23:05:00Z"), 4), true);
+  } finally { console.error = orig; resetDistanceCachesForTest(); }
 });

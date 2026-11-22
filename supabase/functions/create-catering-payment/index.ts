@@ -257,15 +257,16 @@ serve(async (req) => {
         // Alten Korb-Hold freigeben (nur bei 'mismatch'; eine bezahlte Bestellung behält ihren Korb).
         if (ensured.reason === 'mismatch') {
           // Korb erst freigeben, wenn sicher ist, dass die alte Stripe-Session abgelaufen ist (sonst könnte noch bezahlt werden)
-          const open = await findOpenSessions(stripe, orderNumber);
-          if (open !== null && await expireSessions(stripe, open)) await releaseGift();
+          const open = await findOpenSessions(stripe, orderNumber, customerEmail);
+          // bezahlte oder unklare Session: Korb-Hold bleibt (Freigabe nur bei sicher abgelaufenen Sessions)
+          if (open !== null && await expireSessions(stripe, open) === 'expired') await releaseGift();
         }
         return json({ error: 'order_exists', message: orderMessage('order_exists', lang) }, 409);
       }
       const orderId = ensured.orderId;
       // Offene Sessions dieser Bestellung: passende weiterverwenden, übrige aktiv ablaufen lassen; erst danach ältere Körbe freigeben
       const giftCents = gift.items.reduce((sum, g) => sum + g.unit_price_cents * g.qty, 0);
-      const openSessions = await findOpenSessions(stripe, orderNumber);
+      const openSessions = await findOpenSessions(stripe, orderNumber, customerEmail);
       let sessionsSettled = false;
       if (openSessions !== null) {
         const reuse = ensured.status === 'resumed'
@@ -275,7 +276,13 @@ serve(async (req) => {
           logStep("Reusing open Stripe session", { orderNumber, sessionId: reuse.id });
           return json({ url: reuse.url, sessionId: reuse.id, orderNumber, quote }, 200);
         }
-        sessionsSettled = await expireSessions(stripe, openSessions);
+        const expireOutcome = await expireSessions(stripe, openSessions);
+        if (expireOutcome === 'paid') {
+          // eine offene Session wurde inzwischen bezahlt: keine neue Session, nichts freigeben (der Webhook bestätigt die Bestellung)
+          logStep("Open session already paid, no new session", { orderNumber });
+          return json({ error: 'order_exists', message: orderMessage('order_exists', lang) }, 409);
+        }
+        sessionsSettled = expireOutcome === 'expired';
       }
       // Ältere, noch offene Korb-Bestellungen derselben Catering-Nummer (früherer Versuch mit anderem Korb): Hold freigeben, aber
       // nur wenn alte Stripe-Sessions sicher abgelaufen sind
