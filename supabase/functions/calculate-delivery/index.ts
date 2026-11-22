@@ -3,6 +3,7 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { cachedOneWayDistanceKm } from '../_shared/cateringServer.ts';
 import { clientIp, rateLimited } from '../_shared/giftRateLimit.ts';
+import { readJsonObject } from '../_shared/requestBody.ts';
 import { deliveryFeeGrossCents, deliveryFeeNetCents, minimumOrderCents, roundKm, tripCount } from '../_shared/cateringPricing.ts';
 
 
@@ -40,9 +41,17 @@ serve(async (req) => {
   }
 
   try {
-    const { address, isPizzaOnly } = await req.json();
+    const body = await readJsonObject(req);
+    if (!body) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // deno-lint-ignore no-explicit-any
+    const { address, isPizzaOnly } = body as any;
     
-    if (!address || address.trim().length < 5) {
+    if (typeof address !== 'string' || address.trim().length < 5) {
       return new Response(
         JSON.stringify({ error: 'Address is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

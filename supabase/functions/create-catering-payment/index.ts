@@ -9,6 +9,7 @@ import { orderMessage, quoteHasChanges, toLang, type Lang, type OrderErrorCode, 
 import { buildCateringPayload, buildEventPayload, parseCreateInput } from '../_shared/orderCreate.ts';
 import { checkOrderSchedule } from '../_shared/orderSchedule.ts';
 import { ensureOrder } from '../_shared/orderFlow.ts';
+import { readJsonObject } from '../_shared/requestBody.ts';
 import { createSessionIdempotent, deterministicExpiresAt, findOpenSessions, loadSessionLedger, recordSession, reusableSession, sessionGate, sessionIdempotencyKey, settleSessions, type StripeLike } from '../_shared/stripeSessions.ts';
 import { rateLimited, clientIp } from '../_shared/giftRateLimit.ts';
 import { EVENT_REJECT_MESSAGES_DE, verifyEventBooking } from '../_shared/eventPricing.ts';
@@ -41,7 +42,8 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const body = await req.json();
+    const body = await readJsonObject(req);
+    if (!body) return json({ error: 'invalid_request', message: orderMessage('invalid_request', lang) }, 400);
     const isCreate = body?.mode === 'create';
     createMode = isCreate;
     lang = toLang(body?.language);
