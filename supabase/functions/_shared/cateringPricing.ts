@@ -4,6 +4,7 @@
 // Alle Beträge in Cent (ganzzahlig). Tarif/Mindestbestellwerte gespiegelt aus calculate-delivery/index.ts.
 
 export const TOLERANCE_CENTS = 1;
+export const KM_TOLERANCE = 0.05;
 export const MAX_LINE_QTY = 10000;
 export const CHAFING_DISH_ID = "chafing-dish";
 /** Preise von Positionen, die nicht in menu_items stehen (Checkout.tsx CHAFING_DISH.price = 25,00 EUR brutto). */
@@ -21,6 +22,9 @@ export interface ClientLine {
   quantity: number;
   /** Einzelpreis in EUR, wie vom Client gesendet */
   price: number;
+  /** Namen wie in catering_orders.items gespeichert (gehen an Stripe, Mails, Rechnung) */
+  name?: string | null;
+  name_en?: string | null;
 }
 
 export interface CatalogEntry {
@@ -30,6 +34,8 @@ export interface CatalogEntry {
   active: boolean;
   /** Slug des Catering-Menüs (für Pizza-only-Erkennung) */
   menuSlug?: string | null;
+  name?: string | null;
+  nameEn?: string | null;
 }
 export type Catalog = Record<string, CatalogEntry>;
 
@@ -38,6 +44,7 @@ export type Reject =
   | "unknown_item"
   | "item_unavailable"
   | "price_mismatch"
+  | "name_mismatch"
   | "surcharge_mismatch"
   | "delivery_mismatch"
   | "delivery_unverifiable"
@@ -47,6 +54,7 @@ export const REJECT_MESSAGES_DE: Readonly<Record<Reject, string>> = {
   invalid_items: "Die Bestellpositionen sind ungültig. Bitte laden Sie die Seite neu und bestellen Sie erneut.",
   unknown_item: "Eine Position ist nicht mehr im Angebot. Bitte laden Sie die Seite neu und prüfen Sie Ihren Warenkorb.",
   item_unavailable: "Eine Position ist nicht mehr verfügbar. Bitte laden Sie die Seite neu und prüfen Sie Ihren Warenkorb.",
+  name_mismatch: "Die Bezeichnung einer Position hat sich geändert. Bitte laden Sie die Seite neu und prüfen Sie Ihren Warenkorb.",
   price_mismatch: "Die Preise haben sich geändert. Bitte laden Sie die Seite neu und prüfen Sie Ihren Warenkorb.",
   surcharge_mismatch: "Der Mindestbestellwert-Aufschlag stimmt nicht. Bitte laden Sie die Seite neu und bestellen Sie erneut.",
   delivery_mismatch: "Die Lieferkosten stimmen nicht. Bitte laden Sie die Seite neu und geben Sie die Adresse erneut ein.",
@@ -74,9 +82,10 @@ export function deliveryFeeGrossCents(oneWayKm: number, pizzaOnly: boolean): num
   return Math.round(net * (1 + DELIVERY_VAT_RATE) * 100);
 }
 
-/** Pizza-only wie im Client: alle Positionen stammen aus dem Pizza-Menü (Chafing/unbekannt = nein). */
+/** Pizza-only: alle Menü-Positionen stammen aus dem Pizza-Menü (Chafing-Zeilen ignoriert, unbekannte = nein). */
 export function isPizzaOnlyOrder(lines: ClientLine[], catalog: Catalog): boolean {
-  return lines.length > 0 && lines.every((l) => catalog[l.id]?.menuSlug === PIZZA_MENU_SLUG);
+  const menuLines = lines.filter((l) => l.id !== CHAFING_DISH_ID); // Leihgerät zählt nicht (Client: Checkout.tsx isPizzaOnly)
+  return menuLines.length > 0 && menuLines.every((l) => catalog[l.id]?.menuSlug === PIZZA_MENU_SLUG);
 }
 
 export interface VerifyInput {
@@ -123,6 +132,13 @@ export function verifyCateringOrder(input: VerifyInput): VerifyResult {
       if (c.price === null || !Number.isFinite(c.price)) return fail("item_unavailable", { id: l.id, reason: "no_price" });
       unit = toCents(c.price);
     }
+    if (fixed === undefined) {
+      const c = catalog[l.id];
+      const norm = (v: string | null | undefined) => (v ?? "").trim();
+      if (norm(l.name) !== norm(c.name) || norm(l.name_en) !== norm(c.nameEn)) {
+        return fail("name_mismatch", { id: l.id, client: [l.name, l.name_en], server: [c.name, c.nameEn] });
+      }
+    }
     if (Math.abs(toCents(l.price) - unit) > TOLERANCE_CENTS) {
       return fail("price_mismatch", { id: l.id, clientCents: toCents(l.price), serverCents: unit });
     }
@@ -141,18 +157,30 @@ export function verifyCateringOrder(input: VerifyInput): VerifyResult {
     if (clientSurcharge > TOLERANCE_CENTS) return fail("surcharge_mismatch", { clientCents: clientSurcharge, serverCents: 0 });
   } else {
     if (input.oneWayKm === null || !Number.isFinite(input.oneWayKm)) return fail("delivery_unverifiable");
-    deliveryCents = deliveryFeeGrossCents(input.oneWayKm, isPizzaOnlyOrder(lines, catalog));
-    if (Math.abs(clientDelivery - deliveryCents) > TOLERANCE_CENTS) {
-      return fail("delivery_mismatch", { clientCents: clientDelivery, serverCents: deliveryCents });
+    // Entfernung ist eine Server-Neuberechnung desselben Routingdienstes: +-0,05 km Toleranz (Routing-Drift,
+    // Grenzen bei 1 und 8 km). Akzeptiert wird jede Gebühr zwischen Minimum und Maximum dieses Fensters.
+    const kmLo = Math.max(0, input.oneWayKm - KM_TOLERANCE);
+    const kmHi = input.oneWayKm + KM_TOLERANCE;
+    // Pizza-only: Chafing-Zeilen werden ignoriert; steckt eine im Warenkorb, zählt der Client sie als Nicht-Pizza
+    // (Warenkorb-Chafing) oder nicht (Checkout-Chafing) -> beide Varianten zulässig.
+    const hasChafing = lines.some((l) => l.id === CHAFING_DISH_ID);
+    const pizza = isPizzaOnlyOrder(lines, catalog);
+    const variants = hasChafing && pizza ? [true, false] : [pizza];
+    const ranges = variants.map((v) => [deliveryFeeGrossCents(kmLo, v), deliveryFeeGrossCents(kmHi, v)] as const);
+    const inRange = ranges.some(([lo, hi]) => clientDelivery >= lo - TOLERANCE_CENTS && clientDelivery <= hi + TOLERANCE_CENTS);
+    if (!inRange) return fail("delivery_mismatch", { clientCents: clientDelivery, serverRanges: ranges });
+    deliveryCents = clientDelivery; // geprüft
+
+    // Aufschlag: Der Client rechnet auf Warenkorb OHNE das im Checkout zugewählte Chafing-Leihgerät. Gespeichert wird nicht,
+    // woher die Chafing-Zeile stammt -> jeder Wert zwischen "mit" und "ohne Chafing" (und Mindestwert-Fenster) ist zulässig.
+    const minLo = minimumOrderCents(kmLo);
+    const minHi = minimumOrderCents(kmHi);
+    const sLo = Math.max(0, Math.min(minLo, minHi) - itemsCents);
+    const sHi = Math.max(0, Math.max(minLo, minHi) - (itemsCents - chafingCents));
+    if (clientSurcharge < sLo - TOLERANCE_CENTS || clientSurcharge > sHi + TOLERANCE_CENTS) {
+      return fail("surcharge_mismatch", { clientCents: clientSurcharge, serverRangeCents: [sLo, sHi] });
     }
-    // Der Client rechnet den Aufschlag auf Warenkorb OHNE das im Checkout zugewählte Chafing-Dish-Leihgerät.
-    // Gespeichert wird nicht, ob die Chafing-Zeile aus dem Warenkorb oder dem Checkout stammt -> beide Basen gelten.
-    const min = minimumOrderCents(input.oneWayKm);
-    const withChafing = Math.max(0, min - itemsCents);
-    const withoutChafing = Math.max(0, min - (itemsCents - chafingCents));
-    const ok = [withChafing, withoutChafing].some((s) => Math.abs(clientSurcharge - s) <= TOLERANCE_CENTS);
-    if (!ok) return fail("surcharge_mismatch", { clientCents: clientSurcharge, serverCents: [withChafing, withoutChafing] });
-    surchargeCents = clientSurcharge; // geprüft, gehört zur erlaubten Menge
+    surchargeCents = clientSurcharge; // geprüft
   }
 
   const expectedTotalCents = itemsCents + surchargeCents + deliveryCents;

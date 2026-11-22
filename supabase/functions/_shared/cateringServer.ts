@@ -15,28 +15,34 @@ export async function loadCatalog(supabase: Supa, ids: string[]): Promise<Catalo
   if (wanted.length === 0) return catalog;
   const { data: items, error } = await supabase
     .from("menu_items")
-    .select("id, price, category_id, deleted_at, archived_at")
+    .select("id, name, name_en, price, category_id, deleted_at, archived_at")
     .in("id", wanted);
   if (error) throw new Error(`catalog_load_failed: ${error.message}`);
   const catIds = [...new Set((items ?? []).map((i: { category_id: string }) => i.category_id).filter(Boolean))];
-  const menuByCat = new Map<string, string>();
-  const slugByMenu = new Map<string, string | null>();
+  const menuByCat = new Map<string, string>(); // nur aktive Kategorien (wie useCateringMenus: deleted_at/archived_at IS NULL)
+  const slugByMenu = new Map<string, string | null>(); // nur veröffentlichte Catering-Menüs
   if (catIds.length > 0) {
-    const { data: cats, error: cErr } = await supabase.from("menu_categories").select("id, menu_id").in("id", catIds);
+    const { data: cats, error: cErr } = await supabase
+      .from("menu_categories").select("id, menu_id").in("id", catIds).is("deleted_at", null).is("archived_at", null);
     if (cErr) throw new Error(`catalog_load_failed: ${cErr.message}`);
-    for (const c of cats ?? []) menuByCat.set(c.id, c.menu_id);
-    const menuIds = [...new Set([...menuByCat.values()])];
+    const menuIds = [...new Set((cats ?? []).map((c: { menu_id: string }) => c.menu_id))];
     if (menuIds.length > 0) {
-      const { data: menus, error: mErr } = await supabase.from("menus").select("id, slug").in("id", menuIds);
+      const { data: menus, error: mErr } = await supabase
+        .from("menus").select("id, slug").in("id", menuIds).eq("menu_type", "catering").eq("is_published", true);
       if (mErr) throw new Error(`catalog_load_failed: ${mErr.message}`);
       for (const m of menus ?? []) slugByMenu.set(m.id, m.slug);
+      for (const c of cats ?? []) if (slugByMenu.has(c.menu_id)) menuByCat.set(c.id, c.menu_id);
     }
   }
   for (const i of items ?? []) {
+    const menuId = menuByCat.get(i.category_id);
     catalog[i.id] = {
       price: i.price === null || i.price === undefined ? null : Number(i.price),
-      active: !i.deleted_at && !i.archived_at,
-      menuSlug: slugByMenu.get(menuByCat.get(i.category_id) ?? "") ?? null,
+      // nicht verkäuflich: Artikel gelöscht/archiviert ODER Kategorie weg ODER Menü nicht veröffentlicht/kein Catering
+      active: !i.deleted_at && !i.archived_at && menuId !== undefined,
+      menuSlug: menuId !== undefined ? slugByMenu.get(menuId) ?? null : null,
+      name: i.name,
+      nameEn: i.name_en,
     };
   }
   return catalog;

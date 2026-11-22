@@ -164,7 +164,9 @@ serve(async (req) => {
     // Mindestbestellwert und Summe werden nachgerechnet; Abweichung > 1 Cent => Ablehnung, Stripe wird nie erreicht.
     if (cateringRow) {
       const rawItems = Array.isArray(cateringRow.items) ? cateringRow.items : [];
-      const lines: ClientLine[] = rawItems.map((i: { id?: unknown; quantity?: unknown; price?: unknown }) => ({
+      const lines: ClientLine[] = rawItems.map((i: { id?: unknown; quantity?: unknown; price?: unknown; name?: unknown; name_en?: unknown }) => ({
+        name: typeof i?.name === 'string' ? i.name : null,
+        name_en: typeof i?.name_en === 'string' ? i.name_en : null,
         id: String(i?.id ?? ''),
         quantity: Number(i?.quantity),
         price: Number(i?.price),

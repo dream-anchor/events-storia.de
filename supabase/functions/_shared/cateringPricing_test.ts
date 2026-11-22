@@ -127,7 +127,7 @@ Deno.test("Manipulation: Liefergebuehr 0 trotz 5 km, oder Aufschlag weggelassen"
   if (!noSur.ok) assertEquals(noSur.code, "surcharge_mismatch");
 });
 
-Deno.test("Aufschlag mit/ohne Chafing-Basis (Client rechnet Checkout-Chafing nicht in den Warenkorb)", () => {
+Deno.test("Aufschlag mit/ohne Chafing-Basis: Bereich akzeptiert (B2)", () => {
   const lines: ClientLine[] = [{ id: "a", quantity: 10, price: 12.9 }, { id: "chafing-dish", quantity: 1, price: 25 }]; // 154 gesamt
   // Basis ohne Chafing = 129 => Aufschlag 21; Basis mit Chafing = 154 => 0. Beides zulaessig.
   const mk = (sur: number) => verifyCateringOrder({
@@ -135,7 +135,9 @@ Deno.test("Aufschlag mit/ohne Chafing-Basis (Client rechnet Checkout-Chafing nic
   });
   assert(mk(21).ok);
   assert(mk(0).ok);
-  assert(!mk(10).ok);
+  assert(mk(10).ok); // B2: Bereich zwischen den Basen
+  assert(!mk(22).ok);
+  assert(!mk(-1).ok);
 });
 
 Deno.test("Lieferung ohne ermittelbare Entfernung: nicht pruefbar (fail closed)", () => {
@@ -152,11 +154,64 @@ Deno.test("Abholung mit behaupteter Liefergebuehr/Aufschlag wird abgelehnt", () 
 Deno.test("Pizza-only nur bei reinen Pizza-Warenkoerben", () => {
   assert(isPizzaOnlyOrder([{ id: "pz", quantity: 4, price: 9.9 }], catalog));
   assert(!isPizzaOnlyOrder([{ id: "pz", quantity: 4, price: 9.9 }, { id: "a", quantity: 4, price: 12.9 }], catalog));
-  assert(!isPizzaOnlyOrder([{ id: "pz", quantity: 4, price: 9.9 }, { id: "chafing-dish", quantity: 1, price: 25 }], catalog));
   // 5 km Pizza: Hinfahrt 59,50; Mindestbestellwert 150: 39,6 -> Aufschlag 110,40
   const r = verifyCateringOrder({
     lines: [{ id: "pz", quantity: 4, price: 9.9 }], catalog, isPickup: false, oneWayKm: 5,
     clientDeliveryEuro: 59.5, clientSurchargeEuro: 110.4, clientTotalEuro: 39.6 + 110.4 + 59.5,
   });
   assert(r.ok);
+});
+
+Deno.test("B1: Namen muessen zum Katalog passen (DE und EN), Server-Namen gehen sonst nicht durch", () => {
+  const cat: Catalog = { n: { price: 10, active: true, menuSlug: "x", name: "Lasagne", nameEn: "Lasagna" } };
+  const mk = (name: string | null, name_en: string | null) => verifyCateringOrder({
+    lines: [{ id: "n", quantity: 4, price: 10, name, name_en }], catalog: cat, isPickup: true, oneWayKm: null,
+    clientDeliveryEuro: 0, clientSurchargeEuro: 0, clientTotalEuro: 40,
+  });
+  assert(mk("Lasagne", "Lasagna").ok);
+  assert(mk(" Lasagne ", "Lasagna").ok);
+  const de = mk("Gratis-Lasagne", "Lasagna");
+  assert(!de.ok);
+  if (!de.ok) assertEquals(de.code, "name_mismatch");
+  const en = mk("Lasagne", "Hacked");
+  assert(!en.ok);
+  const nul = mk("Lasagne", null);
+  assert(!nul.ok);
+  const noEn: Catalog = { n: { price: 10, active: true, name: "Lasagne", nameEn: null } };
+  assert(verifyCateringOrder({ lines: [{ id: "n", quantity: 4, price: 10, name: "Lasagne", name_en: null }], catalog: noEn, isPickup: true, oneWayKm: null, clientDeliveryEuro: 0, clientSurchargeEuro: 0, clientTotalEuro: 40 }).ok);
+});
+
+Deno.test("B1: nicht veroeffentlichtes Menue = active false = abgelehnt", () => {
+  const cat: Catalog = { u: { price: 10, active: false, menuSlug: null, name: "A" } };
+  const r = verifyCateringOrder({ lines: [{ id: "u", quantity: 4, price: 10, name: "A" }], catalog: cat, isPickup: true, oneWayKm: null, clientDeliveryEuro: 0, clientSurchargeEuro: 0, clientTotalEuro: 40 });
+  assert(!r.ok);
+  if (!r.ok) assertEquals(r.code, "item_unavailable");
+});
+
+Deno.test("B3: Chafing-Zeile ignoriert bei Pizza-only, beide Gebuehr-Varianten zulaessig", () => {
+  assert(isPizzaOnlyOrder([{ id: "pz", quantity: 4, price: 9.9 }, { id: "chafing-dish", quantity: 1, price: 25 }], catalog));
+  assert(!isPizzaOnlyOrder([{ id: "chafing-dish", quantity: 1, price: 25 }], catalog));
+  const lines: ClientLine[] = [{ id: "pz", quantity: 20, price: 9.9 }, { id: "chafing-dish", quantity: 1, price: 25 }]; // 198 + 25 = 223
+  for (const fee of [59.5, 119]) {
+    const r = verifyCateringOrder({ lines, catalog, isPickup: false, oneWayKm: 5, clientDeliveryEuro: fee, clientSurchargeEuro: 0, clientTotalEuro: 223 + fee });
+    assert(r.ok, `fee ${fee}`);
+  }
+  assert(!verifyCateringOrder({ lines, catalog, isPickup: false, oneWayKm: 5, clientDeliveryEuro: 10, clientSurchargeEuro: 0, clientTotalEuro: 233 }).ok);
+});
+
+Deno.test("W2: Distanz +-0,05 km: Gebuehr ueber 8 km und Grenze 8 km / 1 km", () => {
+  const lines: ClientLine[] = [{ id: "a", quantity: 20, price: 12.9 }]; // 258
+  const fee = (km: number) => deliveryFeeGrossCents(km, false) / 100;
+  // 12,03 km Server, Client hatte 12,00 km
+  const r = verifyCateringOrder({ lines, catalog, isPickup: false, oneWayKm: 12.03, clientDeliveryEuro: fee(12), clientSurchargeEuro: 0, clientTotalEuro: 258 + fee(12) });
+  assert(r.ok);
+  // 1 km Grenze: Server 1,03 km (Stufe 2), Client 0,98 km (frei)
+  const g = verifyCateringOrder({ lines, catalog, isPickup: false, oneWayKm: 1.03, clientDeliveryEuro: 0, clientSurchargeEuro: 0, clientTotalEuro: 258 });
+  assert(g.ok);
+  // weit ausserhalb: 12,5 km vs. Client 12 km
+  assert(!verifyCateringOrder({ lines, catalog, isPickup: false, oneWayKm: 12.5, clientDeliveryEuro: fee(12), clientSurchargeEuro: 0, clientTotalEuro: 258 + fee(12) }).ok);
+  // Mindestbestellwert-Fenster an der 8-km-Grenze: Server 8,02 km => Min 200, Client 7,99 km => Min 150; Warenkorb 100
+  const lines2: ClientLine[] = [{ id: "pz", quantity: 10, price: 9.9 }]; // 99
+  const m = verifyCateringOrder({ lines: lines2, catalog, isPickup: false, oneWayKm: 8.02, clientDeliveryEuro: 59.5, clientSurchargeEuro: 51, clientTotalEuro: 99 + 51 + 59.5 });
+  assert(m.ok);
 });
