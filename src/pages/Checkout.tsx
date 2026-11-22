@@ -431,8 +431,9 @@ const CateringCheckout = () => {
   }, [formData]);
 
   const isCustomerStepComplete = useMemo(() => {
-    return !!(formData.name && formData.email && formData.phone && formData.acceptTerms);
-  }, [formData]);
+    // Mischbestellung: ohne Altersbestätigung (Checkbox liegt in diesem Schritt) gilt der Schritt nicht als erledigt
+    return !!(formData.name && formData.email && formData.phone && formData.acceptTerms && (!hasGiftItems || giftAgeOk));
+  }, [formData, hasGiftItems, giftAgeOk]);
 
   const isPaymentStepComplete = useMemo(() => {
     return !!paymentMethod;
@@ -1026,8 +1027,12 @@ const CateringCheckout = () => {
 
     // Mischbestellung: Altersbestätigung (ab 16) für die Geschenkkörbe ist Pflicht
     if (hasGiftItems && !giftAgeOk) {
-      setCurrentStep('payment');
+      // Die Checkbox liegt im Schritt "Kundendaten": diesen öffnen und hinscrollen (vorher öffnete sich "Zahlung" -> Checkbox unsichtbar)
+      setCurrentStep('customer');
       toast.error(giftText.valAge);
+      setTimeout(() => {
+        document.getElementById('gift-age')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
       return;
     }
 
