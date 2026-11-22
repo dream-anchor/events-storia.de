@@ -1533,6 +1533,24 @@ export type Database = {
         }
         Relationships: []
       }
+      catering_checkout_sessions: {
+        Row: {
+          created_at: string
+          order_number: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          order_number: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          order_number?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
       cost_acceptances: {
         Row: {
           amount_gross_cents: number | null
@@ -1938,6 +1956,24 @@ export type Database = {
           scope?: string
           soft_delete_after_days?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      delivery_distance_cache: {
+        Row: {
+          address_key: string
+          created_at: string
+          km: number
+        }
+        Insert: {
+          address_key: string
+          created_at?: string
+          km: number
+        }
+        Update: {
+          address_key?: string
+          created_at?: string
+          km?: number
         }
         Relationships: []
       }
@@ -4025,6 +4061,21 @@ export type Database = {
           prefix?: string
           updated_at?: string | null
           year?: number
+        }
+        Relationships: []
+      }
+      ors_usage: {
+        Row: {
+          calls: number
+          day: string
+        }
+        Insert: {
+          calls?: number
+          day: string
+        }
+        Update: {
+          calls?: number
+          day?: string
         }
         Relationships: []
       }
@@ -8034,6 +8085,10 @@ export type Database = {
         Returns: boolean
       }
       is_current_tenant: { Args: { _tenant_id: string }; Returns: boolean }
+      ors_take_budget: {
+        Args: { p_calls: number; p_limit: number }
+        Returns: boolean
+      }
       purge_deleted_menu_items: { Args: never; Returns: undefined }
       report_frontend_error: {
         Args: {
