@@ -3,6 +3,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { isEventPackageItem, splitEventPackageLine } from '../_shared/eventVatSplit.ts';
 
 
 
@@ -14,6 +15,8 @@ interface OrderItem {
   price: number;
   /** Optional: Steuersatz dieser Position (Default 7, wie bisher für Catering). Geschenkkörbe: Satz je Anteil. */
   taxRatePercentage?: number;
+  /** Optional: Event-Paket auch ohne ID-Präfix `event-` (z. B. Angebots-Zahlweg). */
+  isEventPackage?: boolean;
 }
 
 interface BillingAddress {
@@ -345,6 +348,26 @@ serve(async (req) => {
 
     // Add order items
     for (const item of body.items) {
+      // Event-Pakete: 70 % Speisen zu 7 %, 30 % Getränke zu 19 % (wie der Checkout).
+      // Quelle: § 12 Abs. 2 Nr. 15 UStG ab 01.01.2026, BMF-Schreiben vom 22.12.2025
+      // (Abschn. 10.1 Abs. 12 UStAE, 30-%-Getränkepauschale bei Kombiangeboten).
+      // Ein ausdrücklich gesendeter Steuersatz hat Vorrang (z. B. Geschenkkörbe).
+      if (item.taxRatePercentage === undefined && isEventPackageItem(item)) {
+        for (const part of splitEventPackageLine({ name: item.name, quantity: item.quantity, price: item.price })) {
+          lineItems.push({
+            type: 'custom',
+            name: part.name,
+            quantity: part.quantity,
+            unitName: 'Stück',
+            unitPrice: {
+              currency: 'EUR',
+              grossAmount: part.grossAmount,
+              taxRatePercentage: part.taxRatePercentage
+            }
+          });
+        }
+        continue;
+      }
       lineItems.push({
         type: 'custom',
         name: item.name,

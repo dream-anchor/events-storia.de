@@ -1195,6 +1195,7 @@ async function processEventOfferPaymentInline(
       },
       items: [{
         id: option.package_id || 'event-package',
+        isEventPackage: true, // 70/30-Aufteilung auf der Rechnung (BMF 22.12.2025), package_id hat kein `event-`-Präfix
         name: `Event-Paket: ${option.label}`,
         quantity: option.guest_count,
         price: option.amount_total / option.guest_count,
