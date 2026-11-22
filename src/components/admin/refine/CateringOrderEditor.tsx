@@ -396,7 +396,7 @@ export const CateringOrderEditor = () => {
       // Mindestbestellwert-Aufschlag: nur falls aktuelle Speisensumme unter minimumOrder
       const surcharge = Math.max(0, minimumOrder - itemsSubtotal);
       setMinimumOrderSurcharge(surcharge);
-      const dist = data?.distanceKm ? ` · ${data.distanceKm.toFixed(1)} km` : "";
+      const dist = data?.oneWayDistanceKm ? ` · ${Number(data.oneWayDistanceKm).toFixed(1)} km (einfache Strecke)` : "";
       const surMsg = surcharge > 0
         ? ` · Mindestbestellwert ${minimumOrder} € → Aufschlag ${surcharge.toFixed(2)} €`
         : "";

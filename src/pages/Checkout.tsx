@@ -39,6 +39,16 @@ import { GIFT_COPY } from '@/lib/gift/copy';
 import { createGiftOrder, GiftApiError } from '@/lib/gift/api';
 import { formatEuroTruncated, formatMixedTotal, giftSubtotalOf } from '@/lib/gift/mixedCart';
 import { format, parseISO } from 'date-fns';
+import { fetchOrderQuote, createOrderAndPay } from '@/lib/orderApi';
+import {
+  deliveryCalcFromQuote,
+  describeCartChanges,
+  hasCartSync,
+  quoteRequestKey,
+  reconcileCartWithQuote,
+  totalChanged,
+  type OrderQuote,
+} from '@/lib/orderQuote';
 
 // Zod schema for checkout form validation with length limits (security)
 const checkoutSchema = z
@@ -94,20 +104,6 @@ const checkoutSchema = z
       }
     }
   });
-
-interface DeliveryCalculation {
-  distanceKm: number;
-  deliveryCostNet: number;
-  deliveryCostGross: number;
-  deliveryVat: number;
-  deliveryVatRate: number;
-  isFreeDelivery: boolean;
-  minimumOrder: number;
-  message: string;
-  messageEn: string;
-  isRoundTrip: boolean;
-  oneWayDistanceKm: number;
-}
 
 // Accordion step types
 type CheckoutStep = 'delivery' | 'customer' | 'payment';
@@ -195,7 +191,7 @@ const formatEuro = (value: number): string =>
   `${value.toLocaleString('de-DE', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })} €`;
 
 const CateringCheckout = () => {
-  const { items, updateQuantity, removeFromCart, totalPrice, cateringSubtotal, clearCart } = useCart();
+  const { items, updateQuantity, removeFromCart, totalPrice, cateringSubtotal, clearCart, syncFromServer } = useCart();
   // Mischbestellung (Catering + Geschenkkörbe): Körbe laufen über create-gift-order (Serverpreise), nie über die Catering-Beträge.
   const hasGiftItems = items.some(isGiftItem);
   // Catering-Positionen (ohne Körbe); ohne Körbe exakt dieselbe Liste wie bisher
@@ -290,9 +286,25 @@ const CateringCheckout = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [honeypot, setHoneypot] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
-  const [deliveryCalc, setDeliveryCalc] = useState<DeliveryCalculation | null>(null);
-  const [isCalculating, setIsCalculating] = useState(false);
-  const [addressDebounce, setAddressDebounce] = useState<ReturnType<typeof setTimeout> | null>(null);
+  // Server-Angebot (Abdichtung 22.11.2026): alle Beträge kommen von quote-catering-order, nie aus dem Browser
+  const [quote, setQuote] = useState<OrderQuote | null>(null);
+  const [quoteKeyApplied, setQuoteKeyApplied] = useState<string | null>(null);
+  const [quoteStatus, setQuoteStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  /** Hinweise zum aktualisierten Warenkorb (Preis/Name geändert, Artikel entfernt) */
+  const [cartNotice, setCartNotice] = useState<string[]>([]);
+  /** Betrag hat sich seit der letzten Anzeige geändert: alt → neu (Kunde muss den neuen Betrag bestätigen) */
+  const [totalNotice, setTotalNotice] = useState<{ from: number; to: number } | null>(null);
+  const quoteSeq = useRef(0);
+  const lastQuoteRef = useRef<OrderQuote | null>(null);
+  // Bestellnummer und Korb-Bestellung bleiben über Wiederholungen gleich (der Server setzt eine unbezahlte Bestellung fort)
+  const attemptRef = useRef<{
+    orderNumber: string;
+    giftKey?: string;
+    giftOrderNumber?: string;
+    giftTotalEuro?: number;
+    giftSuccessItems?: { name: string; name_en: string; quantity: number; price: number; total: number }[];
+  } | null>(null);
   const [dateTimeWarning, setDateTimeWarning] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'billie'>('stripe');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -529,40 +541,6 @@ const CateringCheckout = () => {
     }
   }, [isEventBooking]);
 
-  // Calculate delivery cost when address changes
-  const calculateDelivery = useCallback(async (address: string, pizzaOnlyOrder: boolean) => {
-    if (!address || address.trim().length < 10) {
-      setDeliveryCalc(null);
-      return;
-    }
-
-    setIsCalculating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('calculate-delivery', {
-        body: { address, isPizzaOnly: pizzaOnlyOrder }
-      });
-
-      if (error) {
-        console.error('Delivery calculation error:', error);
-        setDeliveryCalc(null);
-        return;
-      }
-
-      if (data.error) {
-        console.error('Delivery calculation failed:', data.error);
-        setDeliveryCalc(null);
-        return;
-      }
-
-      setDeliveryCalc(data as DeliveryCalculation);
-    } catch (err) {
-      console.error('Delivery calculation error:', err);
-      setDeliveryCalc(null);
-    } finally {
-      setIsCalculating(false);
-    }
-  }, []);
-
   const fullDeliveryAddress = (() => {
     let address = `${formData.deliveryStreet}\n${formData.deliveryZip} ${formData.deliveryCity}`;
     if (formData.deliveryFloor) {
@@ -576,32 +554,98 @@ const CateringCheckout = () => {
     return address.trim();
   })();
 
-  useEffect(() => {
-    if (formData.deliveryType !== 'delivery') return;
-    
-    const address = `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}`;
-    if (address.trim().length < 10) return;
+  // ── Server-Angebot: Positionen, Entfernung, Liefergebühr, Aufschlag und Summe berechnet allein der Server ──────────────
+  const quoteDeliveryType: 'delivery' | 'pickup' | 'event' =
+    isEventBooking ? 'event' : formData.deliveryType === 'delivery' ? 'delivery' : 'pickup';
+  const quoteAddressComplete = !!(formData.deliveryStreet.trim() && formData.deliveryZip.trim() && formData.deliveryCity.trim())
+    && `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}`.trim().length >= 10;
+  const quoteNeeded = cateringItems.length > 0 && (quoteDeliveryType !== 'delivery' || quoteAddressComplete);
+  const quoteChafing = isEventBooking ? 0 : chafingDishQuantity;
+  const currentQuoteKey = useMemo(
+    () => quoteRequestKey({
+      items: cateringItems.map(i => ({ id: i.id, quantity: i.quantity })),
+      chafingQuantity: quoteChafing,
+      deliveryType: quoteDeliveryType,
+      address: { street: formData.deliveryStreet, zip: formData.deliveryZip, city: formData.deliveryCity },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cateringItems.map(i => `${i.id}:${i.quantity}`).join('|'), quoteChafing, quoteDeliveryType, formData.deliveryStreet, formData.deliveryZip, formData.deliveryCity],
+  );
+  // aktuelle Anfrage und Warenkorb für asynchrone Antworten (keine veralteten Closures)
+  const quoteParamsRef = useRef<Parameters<typeof fetchOrderQuote>[0] | null>(null);
+  quoteParamsRef.current = {
+    items: cateringItems.map(i => ({ id: i.id, quantity: i.quantity, price: i.price, name: i.name, name_en: i.name_en })),
+    chafingQuantity: quoteChafing,
+    deliveryType: quoteDeliveryType,
+    address: { street: formData.deliveryStreet, zip: formData.deliveryZip, city: formData.deliveryCity },
+    language: language === 'de' ? 'de' : 'en',
+  };
+  const cateringItemsRef = useRef(cateringItems);
+  cateringItemsRef.current = cateringItems;
+  const quoteKeyAppliedRef = useRef<string | null>(null);
 
-    if (addressDebounce) {
-      clearTimeout(addressDebounce);
+  const formatEuroText = useCallback((v: number) =>
+    v.toLocaleString(language === 'de' ? 'de-DE' : 'en-GB', { style: 'currency', currency: 'EUR' }), [language]);
+
+  /** Neues Angebot übernehmen: anzeigen, Warenkorb abgleichen (Preise/Namen, entfernte Artikel), Betragsänderung melden. */
+  const applyQuote = useCallback((q: OrderQuote, key: string) => {
+    const prev = lastQuoteRef.current;
+    // Betrag hat sich geändert, obwohl der Kunde nichts angefasst hat (Preis im Admin, Entfernung): Hinweis alt -> neu
+    if (prev && quoteKeyAppliedRef.current === key && totalChanged(prev, q)) {
+      setTotalNotice({ from: prev.totalCents / 100, to: q.totalCents / 100 });
     }
+    lastQuoteRef.current = q;
+    quoteKeyAppliedRef.current = key;
+    setQuote(q);
+    setQuoteKeyApplied(key);
+    setQuoteStatus('idle');
+    setQuoteError(null);
+    const sync = reconcileCartWithQuote(cateringItemsRef.current, q);
+    if (hasCartSync(sync)) syncFromServer(sync);
+    if (sync.changes.length > 0) {
+      setCartNotice(describeCartChanges(sync.changes, language === 'de' ? 'de' : 'en', formatEuroText));
+    }
+  }, [syncFromServer, language, formatEuroText]);
 
-    const timeout = setTimeout(() => {
-      calculateDelivery(address, isPizzaOnly);
-    }, 1000);
-
-    setAddressDebounce(timeout);
-    
-    return () => {
-      if (timeout) clearTimeout(timeout);
-    };
-  }, [formData.deliveryStreet, formData.deliveryZip, formData.deliveryCity, formData.deliveryType, isPizzaOnly]);
+  const runQuote = useCallback(async (key: string): Promise<OrderQuote | null> => {
+    const params = quoteParamsRef.current;
+    if (!params) return null;
+    const seq = ++quoteSeq.current;
+    setQuoteStatus('loading');
+    setQuoteError(null);
+    const result = await fetchOrderQuote(params);
+    if (seq !== quoteSeq.current) return null; // neuere Anfrage läuft bereits
+    if (!result.ok) {
+      lastQuoteRef.current = null;
+      quoteKeyAppliedRef.current = null;
+      setQuote(null);
+      setQuoteKeyApplied(null);
+      setQuoteStatus('error');
+      setQuoteError(result.message);
+      return null;
+    }
+    applyQuote(result.quote, key);
+    return result.quote;
+  }, [applyQuote]);
 
   useEffect(() => {
-    if (formData.deliveryType === 'pickup') {
-      setDeliveryCalc(null);
+    if (!quoteNeeded) {
+      quoteSeq.current++;
+      lastQuoteRef.current = null;
+      quoteKeyAppliedRef.current = null;
+      setQuote(null);
+      setQuoteKeyApplied(null);
+      setQuoteStatus('idle');
+      setQuoteError(null);
+      return;
     }
-  }, [formData.deliveryType]);
+    const timeout = setTimeout(() => { void runQuote(currentQuoteKey); }, quoteDeliveryType === 'delivery' ? 800 : 250);
+    return () => clearTimeout(timeout);
+  }, [quoteNeeded, currentQuoteKey, quoteDeliveryType, runQuote]);
+
+  const deliveryCalc = useMemo(() => deliveryCalcFromQuote(quote), [quote]);
+  const isCalculating = quoteStatus === 'loading';
+  const quoteFresh = quote !== null && quoteKeyApplied === currentQuoteKey && quoteStatus !== 'loading';
 
   // Handle Stripe payment redirect
   useEffect(() => {
@@ -773,9 +817,8 @@ const CateringCheckout = () => {
   }, [formData.date, formData.time, formData.deliveryType, language, isMobile, isPizzaOnly, isEventBooking]);
 
   // VAT calculations
-  const minimumOrderSurcharge = deliveryCalc && surchargeBase < deliveryCalc.minimumOrder 
-    ? deliveryCalc.minimumOrder - surchargeBase 
-    : 0;
+  // Aufschlag, Liefergebühr und Summe: ausschließlich aus dem Server-Angebot (ohne Angebot: 0, die Summe ist dann nur eine Anzeige-Vorschau)
+  const minimumOrderSurcharge = quote ? quote.surchargeCents / 100 : 0;
   
   const chafingDishGross = chafingDishQuantity * CHAFING_DISH.price;
   const chafingDishNet = chafingDishGross / 1.07;
@@ -813,7 +856,7 @@ const CateringCheckout = () => {
   const totalNet = foodNet + drinksNet + deliveryNet;
   const totalVat7 = foodVat;
   const totalVat19 = drinksVat + deliveryVat;
-  const grandTotal = foodGross + drinksGross + deliveryGross;
+  const grandTotal = quote ? quote.totalCents / 100 : foodGross + drinksGross + deliveryGross;
   // Anzeige: Catering-Gesamt (+ Körbe brutto). `grandTotal` selbst bleibt der CATERING-Betrag (RPC + create-catering-payment).
   // Mit Körben immer BRUTTO (Netto-Umschalter gilt nicht für die Gesamtsumme) und mit Zusatz "inkl. MwSt."
   const displayTotal = hasGiftItems ? formatMixedTotal(grandTotal, giftSubtotal) : formatPrice(grandTotal);
@@ -852,37 +895,8 @@ const CateringCheckout = () => {
     setCurrentStep(step);
   };
 
-  // RPC-Aufruf mit bis zu 2 automatischen Wiederholungen bei Timeout/Netzwerkfehlern.
-  // orderId/order_number stehen vor dem Aufruf fest: Meldet die Wiederholung einen
-  // Unique-Fehler (23505 / "duplicate key"), war der erste Versuch bereits gespeichert → Erfolg.
-  const rpcWithRetry = async (
-    fnName: 'checkout_create_catering_order' | 'checkout_create_event_booking',
-    payload: Record<string, unknown>
-  ) => {
-    const isRetryable = (err: { message?: string; code?: string; status?: number } | null) => {
-      if (!err) return false;
-      const msg = (err.message || '').toLowerCase();
-      return msg.includes('timeout') || msg.includes('failed to fetch') || msg.includes('network')
-        || err.status === 502 || err.status === 503 || err.status === 504;
-    };
-    const isDuplicate = (err: { message?: string; code?: string } | null) => {
-      if (!err) return false;
-      return err.code === '23505' || (err.message || '').toLowerCase().includes('duplicate key');
-    };
-    const delays = [1500, 3000];
-    for (let attempt = 0; attempt <= delays.length; attempt++) {
-      const { error } = await supabase.rpc(fnName, { payload } as never);
-      if (!error) return;
-      if (attempt > 0 && isDuplicate(error)) return; // erster Versuch hatte bereits gespeichert
-      if (attempt < delays.length && isRetryable(error)) {
-        await new Promise(resolve => setTimeout(resolve, delays[attempt]));
-        continue;
-      }
-      throw error;
-    }
-  };
-
-  const deliveryPending = isCalculating;
+  // Absenden erst, wenn das Angebot zur aktuellen Eingabe frisch ist (nie einen veralteten Betrag bestätigen lassen)
+  const deliveryPending = quoteNeeded && !quoteFresh && quoteStatus !== 'error';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1019,26 +1033,41 @@ const CateringCheckout = () => {
       return;
     }
 
-    setIsSubmitting(true);
-    const newOrderNumber = generateOrderNumber(isEventBooking);
-    const existingUserId = user?.id || null;
+    // Ohne frisches Server-Angebot wird nichts abgesendet: der Kunde bestätigt nur einen Betrag, den der Server selbst berechnet hat
+    if (!quote || !quoteFresh) {
+      toast.error(quoteError ?? (language === 'de'
+        ? 'Die Preise konnten gerade nicht berechnet werden. Bitte versuchen Sie es erneut. Ihr Warenkorb bleibt erhalten.'
+        : 'The prices could not be calculated right now. Please try again. Your cart has been kept.'), { duration: 8000 });
+      void runQuote(currentQuoteKey);
+      return;
+    }
+    // Nicht verfügbare Artikel / Gästezahl außerhalb der Grenzen: Der Warenkorb wird angepasst, der Kunde prüft und bestätigt erneut
+    if (quote.issues.length > 0) {
+      applyQuote(quote, currentQuoteKey);
+      toast.error(language === 'de'
+        ? 'Ihr Warenkorb wurde angepasst. Bitte prüfen Sie ihn und bestätigen Sie die Bestellung erneut.'
+        : 'Your cart has been updated. Please review it and confirm your order again.', { duration: 8000 });
+      return;
+    }
 
-    const orderItems = [
-      ...cateringItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        name_en: item.name_en,
-        quantity: item.quantity,
-        price: item.price
-      })),
-      ...(chafingDishQuantity > 0 ? [{
-        id: CHAFING_DISH.id,
-        name: `${CHAFING_DISH.name} (Leihgerät)`,
-        name_en: `${CHAFING_DISH.name_en} (rental)`,
-        quantity: chafingDishQuantity,
-        price: CHAFING_DISH.price
-      }] : [])
-    ];
+    setIsSubmitting(true);
+    const displayedQuote = quote; // der Betrag, den der Kunde gerade sieht und bestätigt
+    const isEventOrder = displayedQuote.kind === 'event';
+    // Bestellnummer bleibt über Wiederholungen gleich; der Server setzt eine unbezahlte Bestellung mit gleichem Betrag fort
+    if (!attemptRef.current || attemptRef.current.orderNumber.startsWith('EVT-') !== isEventOrder) {
+      attemptRef.current = { orderNumber: generateOrderNumber(isEventOrder) };
+    }
+    const attempt = attemptRef.current;
+    const newOrderNumber = attempt.orderNumber;
+
+    // Positionen für Erfolgsseite/Zwischenspeicher: Namen und Preise vom Server
+    const orderItems = displayedQuote.lines.map(l => ({
+      id: l.id,
+      name: l.name,
+      name_en: l.name_en ?? l.name,
+      quantity: l.quantity,
+      price: l.unitCents / 100,
+    }));
 
     let fullNotes = formData.notes || '';
     if (formData.wantsSetupService) {
@@ -1065,302 +1094,205 @@ const CateringCheckout = () => {
 
     try {
       // Mischbestellung, Schritt (a): Geschenkkorb-Bestellung ZUERST anlegen (Serverpreise, Bestand-Hold). Schlägt sie fehl
-      // (z. B. ausverkauft), bricht alles ab, es entsteht keine Catering-Bestellung. Die Catering-Bestellnummer steht schon fest.
+      // (z. B. ausverkauft), bricht alles ab, es entsteht keine Catering-Bestellung. Bei einer Wiederholung mit gleichem Inhalt
+      // wird dieselbe Korb-Bestellung weiterverwendet (kein zweiter Hold); scheitert die Catering-Anlage endgültig, gibt der Server
+      // den Hold frei (create-catering-payment).
       let giftOrderNumber: string | undefined;
       // Serverwerte der Korb-Bestellung (für Erfolgsseite); ohne Körbe leer
       let giftSuccessItems: { name: string; name_en: string; quantity: number; price: number; total: number }[] = [];
       let giftTotalEuro = 0;
       if (hasGiftItems) {
-        const giftResult = await createGiftOrder({
-          items: items.filter(isGiftItem).map(i => ({ variant_id: i.variantId ?? '', qty: i.quantity })),
-          customer: { name: formData.name, email: formData.email, phone: formData.phone },
-          handover: 'with_catering',
-          catering_order_number: newOrderNumber,
-          is_pickup: formData.deliveryType === 'pickup',
-          date: formData.date,
-          time: formData.time,
-          address: { street: '', zip: '', city: '', note: '' },
-          payment_method: 'online',
-          gift_message: giftMessage.trim(),
-          age_confirmed: giftAgeOk,
-          agb_accepted: formData.acceptTerms,
-          language: language === 'de' ? 'de' : 'en',
-          website: honeypot,
-          form_started_at: Date.now(),
-        });
-        giftOrderNumber = giftResult.order_number ?? undefined;
-        if (!giftOrderNumber) throw new Error('gift_order_missing');
-        giftTotalEuro = giftResult.total_cents / 100;
-        giftSuccessItems = (giftResult.items ?? []).map(gi => ({
-          name: `${gi.name} – ${gi.variant}`,
-          name_en: `${gi.name} – ${gi.variant}`,
-          quantity: gi.qty,
-          price: gi.unit_price_cents / 100,
-          total: (gi.unit_price_cents * gi.qty) / 100,
-        }));
+        const giftKey = JSON.stringify([
+          items.filter(isGiftItem).map(i => [i.variantId, i.quantity]),
+          formData.date, formData.time, formData.email, formData.deliveryType === 'pickup', giftMessage.trim(),
+        ]);
+        if (attempt.giftOrderNumber && attempt.giftKey === giftKey) {
+          giftOrderNumber = attempt.giftOrderNumber;
+          giftTotalEuro = attempt.giftTotalEuro ?? 0;
+          giftSuccessItems = attempt.giftSuccessItems ?? [];
+        } else {
+          const giftResult = await createGiftOrder({
+            items: items.filter(isGiftItem).map(i => ({ variant_id: i.variantId ?? '', qty: i.quantity })),
+            customer: { name: formData.name, email: formData.email, phone: formData.phone },
+            handover: 'with_catering',
+            catering_order_number: newOrderNumber,
+            is_pickup: formData.deliveryType === 'pickup',
+            date: formData.date,
+            time: formData.time,
+            address: { street: '', zip: '', city: '', note: '' },
+            payment_method: 'online',
+            gift_message: giftMessage.trim(),
+            age_confirmed: giftAgeOk,
+            agb_accepted: formData.acceptTerms,
+            language: language === 'de' ? 'de' : 'en',
+            website: honeypot,
+            form_started_at: Date.now(),
+          });
+          giftOrderNumber = giftResult.order_number ?? undefined;
+          if (!giftOrderNumber) throw new Error('gift_order_missing');
+          giftTotalEuro = giftResult.total_cents / 100;
+          giftSuccessItems = (giftResult.items ?? []).map(gi => ({
+            name: `${gi.name} – ${gi.variant}`,
+            name_en: `${gi.name} – ${gi.variant}`,
+            quantity: gi.qty,
+            price: gi.unit_price_cents / 100,
+            total: (gi.unit_price_cents * gi.qty) / 100,
+          }));
+          attempt.giftKey = giftKey;
+          attempt.giftOrderNumber = giftOrderNumber;
+          attempt.giftTotalEuro = giftTotalEuro;
+          attempt.giftSuccessItems = giftSuccessItems;
+        }
       }
 
-      const orderId = crypto.randomUUID();
-      const eventItem = isEventBooking ? items.find(item => item.id.startsWith('event-')) : null;
-      const eventGuestCount = eventItem?.quantity || 0;
-      const eventPackageId = eventItem?.id.replace('event-', '') || null;
-      
-      if (isEventBooking && eventItem) {
-        await rpcWithRetry('checkout_create_event_booking', {
-          id: orderId,
-          booking_number: newOrderNumber,
-          customer_name: formData.name,
-          customer_email: formData.email,
-          phone: formData.phone,
-          company_name: formData.company || null,
-          event_date: formData.date,
-          event_time: formData.time,
-          guest_count: eventGuestCount,
-          package_id: eventPackageId,
-          total_amount: grandTotal,
-          payment_status: 'pending',
-          status: 'confirmed',
-          internal_notes: fullNotes || null,
-          menu_selection: null,
-        });
-      } else {
-        await rpcWithRetry('checkout_create_catering_order', {
-          id: orderId,
-          order_number: newOrderNumber,
-          customer_name: formData.name,
-          customer_email: formData.email,
-          customer_phone: formData.phone,
-          company_name: formData.company || null,
-          delivery_street: formData.deliveryType === 'delivery' ? formData.deliveryStreet : null,
-          delivery_zip: formData.deliveryType === 'delivery' ? formData.deliveryZip : null,
-          delivery_city: formData.deliveryType === 'delivery' ? formData.deliveryCity : null,
-          delivery_floor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : null,
-          has_elevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
-          delivery_address: formData.deliveryType === 'delivery' ? fullDeliveryAddress : null,
-          is_pickup: formData.deliveryType === 'pickup',
-          desired_date: formData.date || null,
-          desired_time: formData.time || null,
-          notes: fullNotes || null,
-          items: orderItems,
-          total_amount: grandTotal,
-          billing_name: billingAddress.name || null,
-          billing_street: billingAddress.street || null,
-          billing_zip: billingAddress.zip || null,
-          billing_city: billingAddress.city || null,
-          billing_country: billingAddress.country || null,
-          delivery_cost: deliveryCalc?.deliveryCostGross || 0,
-          minimum_order_surcharge: minimumOrderSurcharge,
-          calculated_distance_km: deliveryCalc?.distanceKm || null,
-          payment_method: paymentMethod,
-          payment_status: 'pending',
-          user_id: existingUserId,
-          reference_number: formData.referenceNumber?.trim() || null,
-        });
+      // Bestellung/Buchung am Server berechnen UND anlegen, dann Zahlung starten (create-catering-payment, mode 'create').
+      // Weicht der Server-Betrag von dem ab, den der Kunde sieht, wird NICHTS angelegt: der neue Betrag wird angezeigt und neu bestätigt.
+      setIsProcessingPayment(true);
+      const params = quoteParamsRef.current;
+      const result = await createOrderAndPay({
+        language: language === 'de' ? 'de' : 'en',
+        items: params?.items ?? [],
+        chafingQuantity: quoteChafing,
+        deliveryType: quoteDeliveryType,
+        address: { street: formData.deliveryStreet, zip: formData.deliveryZip, city: formData.deliveryCity },
+        addressDetails: { floor: formData.deliveryFloor, hasElevator: formData.hasElevator },
+        deliveryAddressText: formData.deliveryType === 'delivery' ? fullDeliveryAddress : null,
+        expectedTotalCents: displayedQuote.totalCents,
+        orderNumber: newOrderNumber,
+        customer: { name: formData.name, email: formData.email, phone: formData.phone, company: formData.company },
+        date: formData.date,
+        time: formData.time,
+        notes: fullNotes,
+        billing: billingAddress,
+        referenceNumber: formData.referenceNumber?.trim() || '',
+        paymentMethod,
+        giftOrderNumber,
+      });
+
+      if (!result.ok) {
+        setIsProcessingPayment(false);
+        setIsSubmitting(false);
+        if (result.code === 'quote_changed' && result.quote) {
+          // Nichts wurde angelegt. Neuen Betrag anzeigen (Hinweis alt → neu) und Warenkorb angleichen; der Kunde bestätigt erneut.
+          const before = displayedQuote.totalCents / 100;
+          const after = result.quote.totalCents / 100;
+          applyQuote(result.quote, currentQuoteKey);
+          if (before !== after) setTotalNotice({ from: before, to: after });
+          toast.error(result.message, { duration: 12000 });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        // Bestellung/Korb-Bestellung gehören nicht mehr zusammen oder wurden vom Server beendet: nächste Absendung beginnt neu
+        if (['order_exists', 'gift_not_pending', 'gift_not_linked', 'gift_hold_expired', 'gift_order_not_found', 'order_create_failed'].includes(result.code)) {
+          attemptRef.current = null;
+        }
+        toast.error(result.message, { duration: 10000 });
+        if (['delivery_unverifiable', 'address_missing', 'invalid_items', 'mixed_cart'].includes(result.code) === false && result.code !== 'rate_limited') {
+          // Alert: Non-blocking Benachrichtigung bei Checkout-Fehler
+          supabase.functions.invoke('notify-checkout-error', {
+            body: {
+              errorMessage: `${result.code}: ${result.message}`,
+              items: items.map(i => ({ name: i.name, quantity: i.quantity })),
+              paymentMethod,
+              deliveryType: formData.deliveryType,
+              timestamp: new Date().toISOString(),
+              customerName: formData.name,
+              customerEmail: formData.email,
+              customerPhone: formData.phone,
+              company: formData.company || null,
+              desiredDate: formData.date || null,
+              desiredTime: formData.time || null,
+              grandTotal,
+            }
+          }).catch(() => {}); // fire-and-forget, nie blockieren
+        }
+        return;
       }
 
       setOrderNumber(newOrderNumber);
+      const paid = result.quote ?? displayedQuote;
+      const paidDelivery = paid.delivery;
+      const deliveryCostEuro = paid.deliveryCents / 100;
+      const surchargeEuro = paid.surchargeCents / 100;
+      const grandTotalEuro = paid.totalCents / 100;
+      const isEventBookingOrder = paid.kind === 'event';
+      const eventLine = isEventBookingOrder ? paid.lines[0] : null;
 
-      // Bei Stripe/Billie: KEINE Mail jetzt senden — erst nach erfolgreicher Zahlung
-      // Bei anderen Zahlarten (Anfrage/Rechnung): Sofort senden
-      if (paymentMethod !== 'stripe' && paymentMethod !== 'billie') {
-        const notificationPayload = {
-          orderId: orderId,
-          orderNumber: newOrderNumber,
-          customerName: formData.name,
-          customerEmail: formData.email,
-          customerPhone: formData.phone,
-          companyName: formData.company || undefined,
-          billingAddress: billingAddress,
-          items: orderItems,
+      const cachedOrderKey = `stripe_order_${newOrderNumber}`;
+      const orderDataForCache = {
+        orderNumber: newOrderNumber,
+        customerName: formData.name,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        companyName: formData.company || undefined,
+        billingAddress: billingAddress,
+        items: orderItems,
+        subtotal: surchargeBase,
+        deliveryCost: deliveryCostEuro,
+        minimumOrderSurcharge: surchargeEuro,
+        distanceKm: paidDelivery?.oneWayDistanceKm,
+        grandTotal: grandTotalEuro,
+        isPickup: formData.deliveryType === 'pickup',
+        desiredDate: formData.date || undefined,
+        desiredTime: formData.time || undefined,
+        deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
+        deliveryFloor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : undefined,
+        hasElevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
+        notes: fullNotes || undefined,
+        paymentMethod: paymentMethod,
+        isEventBooking: isEventBookingOrder,
+        guestCount: eventLine?.quantity,
+        eventPackageName: eventLine?.name,
+        eventPackageId: eventLine?.id.replace('event-', '')
+      };
+      localStorage.setItem(cachedOrderKey, JSON.stringify(orderDataForCache));
+
+      const successDataKey = `stripe_success_${newOrderNumber}`;
+      const successData = {
+        email: formData.email,
+        name: formData.name,
+        orderNumber: newOrderNumber,
+        orderDetails: {
+          items: [...orderItems.map(item => ({
+            name: item.name,
+            name_en: item.name_en,
+            quantity: item.quantity,
+            price: item.price,
+            total: item.price * item.quantity
+          })), ...giftSuccessItems],
+          deliveryType: formData.deliveryType,
+          deliveryAddress: formData.deliveryType === 'delivery'
+            ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
+            : null,
+          date: formData.date,
+          time: formData.time,
           subtotal: surchargeBase,
-          deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-          minimumOrderSurcharge: minimumOrderSurcharge,
-          distanceKm: deliveryCalc?.distanceKm || undefined,
-          grandTotal: grandTotal,
-          isPickup: formData.deliveryType === 'pickup',
-          desiredDate: formData.date || undefined,
-          desiredTime: formData.time || undefined,
-          deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
-          deliveryFloor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : undefined,
-          hasElevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
-          notes: fullNotes || undefined,
+          deliveryCost: deliveryCostEuro,
+          grandTotal: grandTotalEuro + giftTotalEuro,
           paymentMethod: paymentMethod,
-          isEventBooking: isEventBooking,
-          guestCount: eventGuestCount || undefined,
-          eventPackageName: eventItem?.name || undefined,
-          eventPackageId: eventPackageId || undefined,
-          paymentStatus: 'pending',
-        };
-
-        try {
-          await supabase.functions.invoke('send-order-notification', {
-            body: notificationPayload
-          });
-        } catch (notifErr) {
-          console.error('Notification error (non-blocking):', notifErr);
+          company: formData.company,
+          foodVat7: totalVat7,
+          deliveryVat19: totalVat19
         }
+      };
+      localStorage.setItem(successDataKey, JSON.stringify(successData));
+
+      // Bestellung angelegt (Server-Preise): Nummer/Korb-Bestellung nicht erneut verwenden, der Kunde verlässt die Seite zur Zahlung
+      attemptRef.current = null;
+      try {
+        window.location.assign(result.url);
+      } catch {
+        window.open(result.url, '_self');
       }
-
-      if (paymentMethod === 'stripe' || paymentMethod === 'billie') {
-        setIsProcessingPayment(true);
-        
-        const cachedOrderKey = `stripe_order_${newOrderNumber}`;
-        const orderDataForCache = {
-          orderId: orderId,
-          orderNumber: newOrderNumber,
-          customerName: formData.name,
-          customerEmail: formData.email,
-          customerPhone: formData.phone,
-          companyName: formData.company || undefined,
-          billingAddress: billingAddress,
-          items: orderItems,
-          subtotal: surchargeBase,
-          deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-          minimumOrderSurcharge: minimumOrderSurcharge,
-          distanceKm: deliveryCalc?.distanceKm || undefined,
-          grandTotal: grandTotal,
-          isPickup: formData.deliveryType === 'pickup',
-          desiredDate: formData.date || undefined,
-          desiredTime: formData.time || undefined,
-          deliveryAddress: formData.deliveryType === 'delivery' ? fullDeliveryAddress : undefined,
-          deliveryFloor: formData.deliveryType === 'delivery' && formData.deliveryFloor ? formData.deliveryFloor : undefined,
-          hasElevator: formData.deliveryType === 'delivery' ? formData.hasElevator : false,
-          notes: fullNotes || undefined,
-          paymentMethod: paymentMethod,
-          isEventBooking: isEventBooking,
-          guestCount: eventGuestCount || undefined,
-          eventPackageName: eventItem?.name || undefined,
-          eventPackageId: eventPackageId || undefined
-        };
-        localStorage.setItem(cachedOrderKey, JSON.stringify(orderDataForCache));
-        
-        const successDataKey = `stripe_success_${newOrderNumber}`;
-        const successData = {
-          email: formData.email,
-          name: formData.name,
-          orderNumber: newOrderNumber,
-          orderDetails: {
-            items: [...orderItems.map(item => ({
-              name: item.name,
-              name_en: item.name_en,
-              quantity: item.quantity,
-              price: item.price,
-              total: item.price * item.quantity
-            })), ...giftSuccessItems],
-            deliveryType: formData.deliveryType,
-            deliveryAddress: formData.deliveryType === 'delivery' 
-              ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
-              : null,
-            date: formData.date,
-            time: formData.time,
-            subtotal: surchargeBase,
-            deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-            grandTotal: grandTotal + giftTotalEuro,
-            paymentMethod: paymentMethod,
-            company: formData.company,
-            foodVat7: totalVat7,
-            deliveryVat19: totalVat19
-          }
-        };
-        localStorage.setItem(successDataKey, JSON.stringify(successData));
-        
-        try {
-          const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
-            'create-catering-payment',
-            {
-              body: {
-                amount: grandTotal,
-                customerEmail: formData.email,
-                customerName: formData.name,
-                orderNumber: newOrderNumber,
-                items: orderItems.map(i => ({ name: i.name, quantity: i.quantity })),
-                paymentMethod: paymentMethod,
-                // nur Mischbestellung: verknüpfte Korb-Bestellung; der Betrag `amount` bleibt der CATERING-Betrag
-                ...(giftOrderNumber ? { giftOrderNumber } : {}),
-              },
-            }
-          );
-
-          if (paymentError || !paymentData?.url) {
-            console.error('Payment error:', paymentError);
-            setIsProcessingPayment(false);
-            setIsSubmitting(false);
-            localStorage.removeItem(cachedOrderKey);
-            // Servermeldung (create-catering-payment: price_mismatch, delivery_mismatch, ...) lesen und anzeigen.
-            // Bei JEDEM Fehler bleibt der Warenkorb erhalten, kein Weiterleiten zur Erfolgsseite.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const errBody = await (paymentError as any)?.context?.json?.().catch(() => null) ?? null;
-            const code: string | undefined = errBody?.error;
-            const fallbackText = language === 'de'
-              ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
-              : 'Payment could not be started. Your cart has been kept, please try again.';
-            const serverText = typeof errBody?.message === 'string' ? errBody.message : null;
-            toast.error(code === 'delivery_unverifiable'
-              ? (language === 'de' ? 'Die Lieferkosten konnten gerade nicht geprüft werden. Bitte versuchen Sie es in einer Minute erneut. Ihr Warenkorb bleibt erhalten.' : 'Delivery cost could not be verified right now. Please try again in a minute. Your cart has been kept.')
-              : (serverText ?? fallbackText), { duration: 10000 });
-            if (code === 'price_mismatch' || code === 'delivery_mismatch' || code === 'surcharge_mismatch') {
-              if (formData.deliveryType === 'delivery') {
-                calculateDelivery(`${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}`, isPizzaOnly);
-              }
-            }
-            return;
-          }
-
-          try {
-            window.location.assign(paymentData.url);
-          } catch {
-            window.open(paymentData.url, '_self');
-          }
-          return;
-        } catch (payErr) {
-          console.error('Payment error:', payErr);
-          toast.error(language === 'de'
-            ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
-            : 'Payment could not be started. Your cart has been kept, please try again.', { duration: 10000 });
-          setIsProcessingPayment(false);
-          setIsSubmitting(false);
-          localStorage.removeItem(cachedOrderKey);
-          return;
-        }
-      }
-      
-      clearCart();
-      navigate(getPath('account.orderSuccess'), { 
-        state: { 
-          email: formData.email, 
-          name: formData.name, 
-          orderNumber: newOrderNumber,
-          orderDetails: {
-            items: cateringItems.map(item => ({
-              name: item.name,
-              name_en: item.name_en,
-              quantity: item.quantity,
-              price: item.price,
-              total: item.price * item.quantity
-            })),
-            deliveryType: formData.deliveryType,
-            deliveryAddress: formData.deliveryType === 'delivery' 
-              ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}`
-              : null,
-            date: formData.date,
-            time: formData.time,
-            subtotal: surchargeBase,
-            deliveryCost: deliveryCalc?.deliveryCostGross || 0,
-            grandTotal: grandTotal,
-            paymentMethod: paymentMethod,
-            company: formData.company,
-            foodVat7: totalVat7,
-            deliveryVat19: totalVat19
-          }
-        },
-        replace: true
-      });
+      return;
     } catch (error) {
       if (error instanceof GiftApiError) {
         // Korb-Bestellung abgelehnt (ausverkauft, Termin, Limit ...): Hinweis zeigen, nichts wurde angelegt
+        setIsProcessingPayment(false);
         toast.error(giftText.err[error.code] ?? giftText.err.generic, { duration: 8000 });
         return;
       }
+      setIsProcessingPayment(false);
       const errMsg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error ? String((error as { message: unknown }).message) : String(error));
       console.error('Order error:', errMsg, error);
       toast.error(
@@ -1475,6 +1407,41 @@ const CateringCheckout = () => {
               </p>
             )}
 
+            {/* Server-Angebot: Hinweise zu Änderungen (Warenkorb abgeglichen, Betrag geändert, Berechnung fehlgeschlagen) */}
+            {(cartNotice.length > 0 || totalNotice || quoteError) && (
+              <div role="alert" className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-50">
+                {cartNotice.length > 0 && (
+                  <div>
+                    <p className="font-medium">
+                      {language === 'de' ? 'Ihr Warenkorb wurde mit dem aktuellen Angebot abgeglichen:' : 'Your cart has been updated to match the current offer:'}
+                    </p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                      {cartNotice.map((line, idx) => <li key={idx}>{line}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {totalNotice && (
+                  <p className={cn('font-medium', cartNotice.length > 0 && 'mt-2')}>
+                    {language === 'de'
+                      ? `Der Gesamtbetrag hat sich geändert: ${formatEuroText(totalNotice.from)} → ${formatEuroText(totalNotice.to)}. Bitte prüfen Sie den neuen Betrag und bestätigen Sie Ihre Bestellung erneut.`
+                      : `The total has changed: ${formatEuroText(totalNotice.from)} → ${formatEuroText(totalNotice.to)}. Please review the new total and confirm your order again.`}
+                  </p>
+                )}
+                {quoteError && (
+                  <p className={cn('font-medium', (cartNotice.length > 0 || totalNotice) && 'mt-2')}>
+                    {quoteError}
+                    <button type="button" className="ml-2 underline" onClick={() => void runQuote(currentQuoteKey)}>
+                      {language === 'de' ? 'Erneut berechnen' : 'Recalculate'}
+                    </button>
+                  </p>
+                )}
+                {(cartNotice.length > 0 || totalNotice) && (
+                  <button type="button" className="mt-3 text-xs underline" onClick={() => { setCartNotice([]); setTotalNotice(null); }}>
+                    {language === 'de' ? 'Verstanden' : 'Got it'}
+                  </button>
+                )}
+              </div>
+            )}
             <form id="checkout-form" onSubmit={handleSubmit}>
               {/* Honeypot field */}
               <input

@@ -167,6 +167,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           ? (language === 'de' ? 'ab 70 Pers.' : 'from 70 guests')
           : (language === 'de' ? 'Pauschalpreis' : 'Flat Rate'),
       isEventPackage: true,
+      eventPricing: { basePrice: pkg.price, pricePerPerson: !!pkg.price_per_person, minGuests, maxGuests },
       baseGuestCount: isLocationPkg ? LOCATION_BASE_GUESTS : undefined,
       packageId: pkg.id,
     }, guestCount);
