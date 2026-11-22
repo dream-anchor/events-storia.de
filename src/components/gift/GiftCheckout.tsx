@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { trackEvent } from "@/lib/analytics";
 import { getLocalizedPath } from "@/config/routes";
 import { GIFT_COPY } from "@/lib/gift/copy";
+import { MAX_ADVANCE_DAYS } from "@/lib/orderSchedule";
 import {
   createGiftOrder,
   fetchGiftCatalog,
@@ -356,7 +357,7 @@ const GiftCheckout = () => {
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <div>
                       <Label htmlFor="gift-date">{t.date}</Label>
-                      <Input id="gift-date" type="date" min={minDate} value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value, time: "" }))} />
+                      <Input id="gift-date" type="date" min={minDate} max={addDays(today, MAX_ADVANCE_DAYS)} value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value, time: "" }))} />
                       {blackedOut && <p role="alert" className="mt-1 text-sm text-destructive">{t.blackout}</p>}
                     </div>
                     <div>

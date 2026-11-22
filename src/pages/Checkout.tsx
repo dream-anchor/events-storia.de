@@ -9,7 +9,7 @@ import { z } from 'zod';
 import SEO from '@/components/SEO';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
+import { usePriceDisplay, VAT_RATES, cateringLineParts, itemParts } from '@/contexts/PriceDisplayContext';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import CheckoutHeader from '@/components/checkout/CheckoutHeader';
 import AccordionSection from '@/components/checkout/AccordionSection';
 import StickySummary from '@/components/checkout/StickySummary';
+import { VatTotals } from '@/components/checkout/VatTotals';
 import PaymentMethodCard from '@/components/checkout/PaymentMethodCard';
 import TimeSlotGrid from '@/components/checkout/TimeSlotGrid';
 import SaveForLaterCheckbox from '@/components/checkout/SaveForLaterCheckbox';
@@ -41,7 +42,7 @@ import { createGiftOrder, GiftApiError } from '@/lib/gift/api';
 import { formatEuroTruncated, formatMixedTotal, giftSubtotalOf } from '@/lib/gift/mixedCart';
 import { format, parseISO } from 'date-fns';
 import { fetchOrderQuote, createOrderAndPay } from '@/lib/orderApi';
-import { checkOrderSchedule, SCHEDULE_MESSAGES } from '@/lib/orderSchedule';
+import { checkOrderSchedule, MAX_ADVANCE_DAYS, SCHEDULE_MESSAGES } from '@/lib/orderSchedule';
 import {
   deliveryCalcFromQuote,
   describeCartChanges,
@@ -213,7 +214,7 @@ const CateringCheckout = () => {
   );
   const { language } = useLanguage();
   const giftText = GIFT_COPY[language === 'de' ? 'de' : 'en'];
-  const { formatPrice, showGross, setShowGross } = usePriceDisplay();
+  const { formatPrice, formatPriceMixed, showGross, setShowGross } = usePriceDisplay();
   const navigate = useNavigate();
   const { getPath } = useLocalizedPath();
   const { user, profile } = useCustomerAuth();
@@ -316,7 +317,6 @@ const CateringCheckout = () => {
     giftTotalEuro?: number;
     giftSuccessItems?: { name: string; name_en: string; quantity: number; price: number; total: number }[];
   } | null>(null);
-  const [dateTimeWarning, setDateTimeWarning] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'billie'>('stripe');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -423,14 +423,39 @@ const CateringCheckout = () => {
     description_en: 'Warming device for rent'
   };
 
-  // Check step completion
+  const isEventBooking = useMemo(() => {
+    return items.some(item => item.id.startsWith('event-'));
+  }, [items]);
+
+  const isPizzaOnly = cateringItems.length > 0 && cateringItems.every(item => item.category === 'pizza');
+
+  // Minuten-Tick: Vorlauf und Fristen hängen von der aktuellen Uhrzeit ab, Hinweis und gesperrte Zeiten sollen auch ohne Eingabe aktuell bleiben.
+  const [scheduleNow, setScheduleNow] = useState(() => new Date());
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const id = window.setInterval(() => setScheduleNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Terminverstoß (null = Termin ok). Ohne Uhrzeit nur die zeitunabhängigen Gründe (Wochenend-Frist, Sicherheitslimit),
+  // damit der Hinweis schon nach der Datumswahl erscheint. Events sind ausgenommen.
+  const scheduleViolation = useMemo(() => {
+    if (!formData.date || isEventBooking) return null;
+    const reject = checkOrderSchedule(
+      { kind: 'catering', isPickup: formData.deliveryType === 'pickup', isPizzaOnly, date: formData.date, time: formData.time || '18:00' }, scheduleNow);
+    if (!formData.time && reject !== 'schedule_weekend_cutoff' && reject !== 'schedule_too_far') return null;
+    return reject;
+  }, [formData.date, formData.time, formData.deliveryType, isEventBooking, isPizzaOnly, scheduleNow]);
+
+  // Check step completion (ein Termin gegen die Regeln gilt als nicht erledigt)
   const isDeliveryStepComplete = useMemo(() => {
+    if (scheduleViolation) return false;
     if (formData.deliveryType === 'delivery') {
       return !!(formData.deliveryStreet && formData.deliveryZip && formData.deliveryCity && 
                 formData.deliveryFloor && formData.date && formData.time);
     }
     return !!(formData.date && formData.time);
-  }, [formData]);
+  }, [formData, scheduleViolation]);
 
   const isCustomerStepComplete = useMemo(() => {
     // Mischbestellung: ohne Altersbestätigung (Checkbox liegt in diesem Schritt) gilt der Schritt nicht als erledigt
@@ -529,12 +554,6 @@ const CateringCheckout = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only on mount
-
-  const isEventBooking = useMemo(() => {
-    return items.some(item => item.id.startsWith('event-'));
-  }, [items]);
-
-  const isPizzaOnly = cateringItems.length > 0 && cateringItems.every(item => item.category === 'pizza');
 
   const hasWarmDishes = cateringItems.some(item => 
     item.category === 'buffet' || 
@@ -734,101 +753,24 @@ const CateringCheckout = () => {
     }
   }, [language, navigate, clearCart]);
 
-  // Pizza time validation
-  const isPizzaTimeValid = (time: string): boolean => {
-    if (!time) return false;
-    const [hours, minutes] = time.split(':').map(Number);
-    const timeValue = hours * 60 + minutes;
-    
-    const lunch = { start: 12 * 60, end: 14 * 60 + 30 };
-    const dinner = { start: 18 * 60, end: 22 * 60 + 30 };
-    
-    return (timeValue >= lunch.start && timeValue <= lunch.end) ||
-           (timeValue >= dinner.start && timeValue <= dinner.end);
-  };
-
-  const isWeekendDeliveryTooLate = (selectedDate: string, isPickup: boolean, isEvent: boolean): boolean => {
-    // Events happen at the restaurant - no delivery cutoff applies
-    if (isEvent) return false;
-    if (isPickup) return false;
-    
-    const orderDate = new Date(selectedDate);
-    const dayOfWeek = orderDate.getDay();
-    
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) return false;
-    
-    const now = new Date();
-    const daysBeforeDeadline = dayOfWeek === 6 ? 2 : 3;
-    const thursdayDeadline = new Date(orderDate);
-    thursdayDeadline.setDate(orderDate.getDate() - daysBeforeDeadline);
-    thursdayDeadline.setHours(23, 59, 59, 999);
-    
-    return now > thursdayDeadline;
-  };
-
-  useEffect(() => {
-    if (!formData.date || !formData.time) {
-      setDateTimeWarning(null);
-      return;
-    }
-    
-    const phoneText = isMobile 
+  // Termin-Regeln: eine Quelle (src/lib/orderSchedule.ts, Spiegel des Servers). Der Hinweis erscheint direkt am Termin,
+  // „Weiter" bleibt gesperrt (siehe isDeliveryStepComplete), solange der Termin gegen die Regeln verstößt.
+  const dateTimeWarning = useMemo(() => {
+    if (!scheduleViolation) return null;
+    const phoneText = isMobile
       ? '<a href="tel:01636033912" class="underline font-medium hover:text-amber-800 dark:hover:text-amber-200">0163 6033912</a>'
       : '0163 6033912';
-    
-    const isPickup = formData.deliveryType === 'pickup';
-    
-    if (isWeekendDeliveryTooLate(formData.date, isPickup, isEventBooking)) {
-      const selectedDate = new Date(formData.date);
-      const dayName = selectedDate.getDay() === 6 ? 'Samstag' : 'Sonntag';
-      const dayNameEn = selectedDate.getDay() === 6 ? 'Saturday' : 'Sunday';
-      
-      setDateTimeWarning(
-        language === 'de'
-          ? `Lieferungen für ${dayName} müssen bis Donnerstag 23:59 Uhr bestellt werden. Für kurzfristige Anfragen: ${phoneText}`
-          : `Deliveries for ${dayNameEn} must be ordered by Thursday 11:59 PM. For short-notice requests: ${phoneText}`
-      );
-      return;
-    }
-    
-    if (isPizzaOnly) {
-      if (!isPizzaTimeValid(formData.time)) {
-        setDateTimeWarning(
-          language === 'de'
-            ? 'Pizza-Lieferung ist nur zwischen 12:00-14:30 Uhr und 18:00-22:30 Uhr möglich (Mo-So).'
-            : 'Pizza delivery is only available between 12:00-14:30 and 18:00-22:30 (Mon-Sun).'
-        );
-      } else {
-        const now = new Date();
-        const selectedDateTime = new Date(`${formData.date}T${formData.time}`);
-        const minPizzaTime = new Date(now.getTime() + 60 * 60 * 1000);
-        
-        if (selectedDateTime < minPizzaTime) {
-          setDateTimeWarning(
-            language === 'de'
-              ? `Die gewählte Zeit ist zu kurzfristig. Bitte mindestens 1 Stunde im Voraus bestellen. Bei Fragen: ${phoneText}`
-              : `The selected time is too soon. Please order at least 1 hour in advance. Questions? ${phoneText}`
-          );
-        } else {
-          setDateTimeWarning(null);
-        }
-      }
-    } else {
-      const selectedDateTime = new Date(`${formData.date}T${formData.time}`);
-      const minDateTime = new Date();
-      minDateTime.setHours(minDateTime.getHours() + 24);
-      
-      if (selectedDateTime < minDateTime) {
-        setDateTimeWarning(
-          language === 'de'
-            ? `Catering-Bestellungen benötigen mindestens 24 Stunden Vorlauf. In dringenden Fällen: ${phoneText}`
-            : `Catering orders require at least 24 hours advance notice. For urgent cases: ${phoneText}`
-        );
-      } else {
-        setDateTimeWarning(null);
-      }
-    }
-  }, [formData.date, formData.time, formData.deliveryType, language, isMobile, isPizzaOnly, isEventBooking]);
+    return SCHEDULE_MESSAGES[scheduleViolation][language === 'de' ? 'de' : 'en'].replace('0163 6033912', phoneText);
+  }, [scheduleViolation, language, isMobile]);
+
+  // Uhrzeiten, die gegen die Regeln verstoßen (Vorlauf, Pizza-Fenster, Wochenende vor 12:00), werden gar nicht erst angeboten.
+  // Datumsgründe (Wochenend-Frist, Sicherheitslimit) blenden keine Zeiten aus, sie sperren „Weiter" und zeigen den Hinweis.
+  const slotAllowed = useCallback((slot: string): boolean => {
+    if (!formData.date || isEventBooking) return true;
+    const reject = checkOrderSchedule(
+      { kind: 'catering', isPickup: formData.deliveryType === 'pickup', isPizzaOnly, date: formData.date, time: slot }, scheduleNow);
+    return reject === null || reject === 'schedule_weekend_cutoff' || reject === 'schedule_too_far';
+  }, [formData.date, formData.deliveryType, isEventBooking, isPizzaOnly, scheduleNow]);
 
   // VAT calculations
   // Aufschlag, Liefergebühr und Summe: ausschließlich aus dem Server-Angebot (ohne Angebot: 0, die Summe ist dann nur eine Anzeige-Vorschau)
@@ -872,9 +814,12 @@ const CateringCheckout = () => {
   const totalVat19 = drinksVat + deliveryVat;
   const grandTotal = quote ? quote.totalCents / 100 : foodGross + drinksGross + deliveryGross;
   // Anzeige: Catering-Gesamt (+ Körbe brutto). `grandTotal` selbst bleibt der CATERING-Betrag (RPC + create-catering-payment).
-  // Mit Körben immer BRUTTO (Netto-Umschalter gilt nicht für die Gesamtsumme) und mit Zusatz "inkl. MwSt."
-  const displayTotal = hasGiftItems ? formatMixedTotal(grandTotal, giftSubtotal) : formatPrice(grandTotal);
-  const totalVatSuffix = hasGiftItems ? (language === 'de' ? ' inkl. MwSt.' : ' incl. VAT') : '';
+  // Der Endbetrag ist IMMER der Brutto-Zahlbetrag, auch im Netto-Modus (der Umschalter ändert nur die Einzelpreise, nie den Stripe-Betrag);
+  // im Netto-Modus steht dann "brutto" dabei, mit Körben "inkl. MwSt.". Die Netto-Summe samt "zzgl. MwSt." zeigt <VatTotals>.
+  const displayTotal = hasGiftItems ? formatMixedTotal(grandTotal, giftSubtotal) : formatEuroTruncated(grandTotal);
+  const totalVatSuffix = hasGiftItems
+    ? (language === 'de' ? ' inkl. MwSt.' : ' incl. VAT')
+    : (!showGross ? (language === 'de' ? ' brutto' : ' gross') : '');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const target = e.target as HTMLInputElement | HTMLTextAreaElement;
@@ -927,10 +872,14 @@ const CateringCheckout = () => {
     // Check if delivery step is complete - navigate to it if not
     if (!isDeliveryStepComplete) {
       setCurrentStep('delivery');
+      // Regelverstoß: die konkrete Meldung (mit Telefonnummer) statt des allgemeinen Hinweises
       toast.error(
-        language === 'de'
-          ? (isEventBooking ? 'Bitte wählen Sie Datum und Uhrzeit' : 'Bitte füllen Sie zuerst die Lieferdetails aus')
-          : (isEventBooking ? 'Please select date and time' : 'Please complete delivery details first')
+        scheduleViolation
+          ? SCHEDULE_MESSAGES[scheduleViolation][language === 'de' ? 'de' : 'en']
+          : language === 'de'
+            ? (isEventBooking ? 'Bitte wählen Sie Datum und Uhrzeit' : 'Bitte füllen Sie zuerst die Lieferdetails aus')
+            : (isEventBooking ? 'Please select date and time' : 'Please complete delivery details first'),
+        scheduleViolation ? { duration: 10000 } : undefined
       );
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -1482,7 +1431,7 @@ const CateringCheckout = () => {
                     <div className="space-y-2 text-sm mb-3">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">{language === 'de' ? 'Speisen' : 'Food'}</span>
-                        <span>{formatPrice(surchargeBase)}</span>
+                        <span>{formatPriceMixed(cateringLineParts(cateringItems))}</span>
                       </div>
                       {hasGiftItems && (
                       <div className="flex justify-between">
@@ -1516,7 +1465,7 @@ const CateringCheckout = () => {
                               <span className="text-xs ml-1">({deliveryCalc.oneWayDistanceKm} km{deliveryCalc.isRoundTrip ? ' ×2' : ''})</span>
                             )}
                           </span>
-                          <span>+{formatPrice(deliveryCalc.deliveryCostGross)}</span>
+                          <span>+{formatPrice(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)}</span>
                         </div>
                       )}
                       {formData.deliveryType === 'delivery' && deliveryCalc?.isFreeDelivery && (
@@ -1556,7 +1505,7 @@ const CateringCheckout = () => {
                                   {item.kind === 'gift_basket' && (
                                     <p className="text-xs text-muted-foreground truncate">{language === 'en' && item.variantLabelEn ? item.variantLabelEn : item.variantLabel}</p>
                                   )}
-                                  <p className="text-xs text-muted-foreground">{item.quantity}× {isGiftItem(item) ? formatEuroTruncated(item.price) : formatPrice(item.price)}</p>
+                                  <p className="text-xs text-muted-foreground">{item.quantity}× {isGiftItem(item) ? formatEuroTruncated(item.price) : formatPriceMixed(itemParts(item))}</p>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <button type="button" onClick={() => {
@@ -1588,7 +1537,7 @@ const CateringCheckout = () => {
                           <div className="pt-4 mt-4 border-t border-border space-y-2 text-sm">
                             <div className="flex justify-between text-muted-foreground">
                               <span>{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
-                              <span>{formatPrice(surchargeBase)}</span>
+                              <span>{formatPriceMixed(cateringLineParts(cateringItems))}</span>
                             </div>
                             {hasGiftItems && (
                             <div className="flex justify-between">
@@ -1627,30 +1576,22 @@ const CateringCheckout = () => {
                                 <span>
                                   {deliveryCalc.isFreeDelivery
                                     ? (language === 'de' ? 'Kostenlos' : 'Free')
-                                    : `+${formatPrice(deliveryCalc.deliveryCostGross)}`
+                                    : `+${formatPrice(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)}`
                                   }
                                 </span>
                               </div>
                             )}
-                            {/* VAT breakdown */}
-                            <div className="text-xs text-muted-foreground pt-2 border-t border-border/50 space-y-1">
-                              {totalVat7 > 0 && (
-                                <div className="flex justify-between">
-                                  <span>{language === 'de' ? 'inkl. 7% MwSt. (Speisen)' : 'incl. 7% VAT (food)'}</span>
-                                  <span>{formatPrice(totalVat7)}</span>
-                                </div>
-                              )}
-                              {totalVat19 > 0 && (
-                                <div className="flex justify-between">
-                                  <span>{language === 'de' ? 'inkl. 19% MwSt. (Lieferung)' : 'incl. 19% VAT (delivery)'}</span>
-                                  <span>{formatPrice(totalVat19)}</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex justify-between pt-2 border-t border-border font-medium">
-                              <span>{language === 'de' ? 'Gesamt' : 'Total'}{totalVatSuffix}</span>
-                              <span className="text-primary font-bold">{displayTotal}</span>
-                            </div>
+                            {/* MwSt.-Zeilen und Endbetrag (Netto-Modus: zzgl. MwSt., Endbetrag = Brutto-Zahlbetrag) */}
+                            <VatTotals
+                              variant="inline"
+                              language={language === 'de' ? 'de' : 'en'}
+                              showGross={showGross}
+                              grandTotal={grandTotal}
+                              giftSubtotal={giftSubtotal}
+                              vat7Food={totalVat7}
+                              vat19Drinks={drinksVat}
+                              vat19Delivery={deliveryVat}
+                            />
                           </div>
                         </div>
                       </CollapsibleContent>
@@ -1834,7 +1775,7 @@ const CateringCheckout = () => {
                                 {language === 'de' ? deliveryCalc.message : deliveryCalc.messageEn}
                               </span>
                               {!deliveryCalc.isFreeDelivery && (
-                                <span className="font-medium">{formatPrice(deliveryCalc.deliveryCostGross)}</span>
+                                <span className="font-medium">{formatPrice(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)}</span>
                               )}
                             </div>
                             {/* Additional delivery details */}
@@ -1898,6 +1839,7 @@ const CateringCheckout = () => {
                             }}
                             language={language as 'de' | 'en'}
                             minLeadDays={isPizzaOnly ? 0 : 1}
+                            maxDays={isEventBooking ? undefined : MAX_ADVANCE_DAYS}
                             skipSundays={isEventBooking}
                             quickSelectCount={3}
                           />
@@ -1910,6 +1852,7 @@ const CateringCheckout = () => {
                         onChange={(time) => setFormData(prev => ({ ...prev, time }))}
                         isPizzaOnly={isPizzaOnly}
                         isEventBooking={isEventBooking}
+                        isSlotAllowed={slotAllowed}
                       />
                       
                       {dateTimeWarning && (
@@ -2297,7 +2240,8 @@ const CateringCheckout = () => {
                     grandTotal={grandTotal}
                     giftSubtotal={giftSubtotal}
                     foodVat7={totalVat7}
-                    deliveryVat19={totalVat19}
+                    drinksVat19={drinksVat}
+                    deliveryVat19={deliveryVat}
                     isDelivery={formData.deliveryType === 'delivery'}
                     distanceKm={deliveryCalc?.distanceKm}
                     isRoundTrip={deliveryCalc?.isRoundTrip}
@@ -2345,7 +2289,9 @@ const CateringCheckout = () => {
                 {(!isDeliveryStepComplete || !isCustomerStepComplete || !formData.acceptTerms) && (
                   <p className="text-xs text-muted-foreground text-center mb-2">
                     {!isDeliveryStepComplete
-                      ? (language === 'de'
+                      ? scheduleViolation
+                        ? `⚠️ ${SCHEDULE_MESSAGES[scheduleViolation][language === 'de' ? 'de' : 'en']}`
+                        : (language === 'de'
                           ? (isEventBooking ? '⚠️ Bitte Datum & Uhrzeit wählen' : '⚠️ Bitte Lieferdetails ausfüllen')
                           : (isEventBooking ? '⚠️ Please select date & time' : '⚠️ Please fill delivery details'))
                       : !formData.name || !formData.email || !formData.phone

@@ -315,7 +315,7 @@ export type OrderErrorCode =
   | "order_exists"
   | "order_in_progress"
   | "session_check_unavailable"
-  | "schedule_lead_time" | "schedule_pizza_window" | "schedule_pizza_lead_time" | "schedule_weekend_cutoff"
+  | "schedule_lead_time" | "schedule_pizza_window" | "schedule_pizza_lead_time" | "schedule_weekend_cutoff" | "schedule_weekend_open" | "schedule_too_far"
   | "customer_invalid"
   | "payment_method_invalid"
   | "gift_not_pending" | "gift_email_mismatch" | "gift_not_linked" | "gift_hold_expired" | "gift_order_not_found"
@@ -367,6 +367,14 @@ export const ORDER_MESSAGES: Readonly<Record<OrderErrorCode, { de: string; en: s
   schedule_pizza_lead_time: {
     de: "Die gewählte Zeit ist zu kurzfristig. Bitte mindestens 1 Stunde im Voraus bestellen. Bei Fragen: 0163 6033912.",
     en: "The selected time is too soon. Please order at least 1 hour in advance. Questions? 0163 6033912.",
+  },
+  schedule_weekend_open: {
+    de: "Am Samstag und Sonntag sind Catering-Lieferungen und -Abholungen frühestens ab 12:00 Uhr möglich (das Restaurant öffnet dann um 12:00 Uhr).",
+    en: "On Saturdays and Sundays catering deliveries and pickups are available from 12:00 noon at the earliest (the restaurant opens at 12:00 on weekends).",
+  },
+  schedule_too_far: {
+    de: "Bestellungen sind höchstens 2 Jahre im Voraus möglich. Für spätere Termine rufen Sie uns an: 0163 6033912.",
+    en: "Orders can be placed at most 2 years in advance. For later dates please call us: 0163 6033912.",
   },
   schedule_weekend_cutoff: {
     de: "Lieferungen für Samstag und Sonntag müssen bis Donnerstag 23:59 Uhr bestellt werden. Für kurzfristige Anfragen: 0163 6033912.",

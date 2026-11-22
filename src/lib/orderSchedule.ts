@@ -3,7 +3,12 @@
  * Paritätstest gegen die Server-Fassung). Der Server erzwingt sie hart; der Checkout blockiert vorher, BEVOR eine Korb-Bestellung
  * angelegt wird. Zeiten sind Berlin-Ortszeit.
  */
-export type ScheduleReject = 'schedule_lead_time' | 'schedule_pizza_window' | 'schedule_pizza_lead_time' | 'schedule_weekend_cutoff';
+export type ScheduleReject = 'schedule_lead_time' | 'schedule_pizza_window' | 'schedule_pizza_lead_time' | 'schedule_weekend_cutoff' | 'schedule_weekend_open' | 'schedule_too_far';
+
+/** Technisches Sicherheitslimit (kein Geschäftsregel-Ende): 2 Jahre im Voraus. */
+export const MAX_ADVANCE_DAYS = 730;
+/** Früheste Uhrzeit für Catering am Samstag/Sonntag (Restaurant öffnet dann um 12:00). */
+export const WEEKEND_EARLIEST_TIME = '12:00';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -23,6 +28,11 @@ function berlinToUtcMs(date: string, hhmm: string): number {
   return guess;
 }
 
+/** Heutiges Berliner Datum (YYYY-MM-DD). */
+function berlinToday(now: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+
 function minusDays(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - days);
@@ -31,6 +41,7 @@ function minusDays(date: string, days: number): string {
 
 export function checkOrderSchedule(p: { kind: 'catering' | 'event'; isPickup: boolean; isPizzaOnly: boolean; date: string; time: string }, now: Date): ScheduleReject | null {
   if (p.kind === 'event') return null;
+  if (p.date > minusDays(berlinToday(now), -MAX_ADVANCE_DAYS)) return 'schedule_too_far';
   const dow = new Date(`${p.date}T12:00:00Z`).getUTCDay();
   if (!p.isPickup && (dow === 0 || dow === 6)) {
     const deadline = berlinToUtcMs(minusDays(p.date, dow === 6 ? 2 : 3), '23:59');
@@ -45,6 +56,7 @@ export function checkOrderSchedule(p: { kind: 'catering' | 'event'; isPickup: bo
     if (at < now.getTime() + 3600_000) return 'schedule_pizza_lead_time';
     return null;
   }
+  if ((dow === 0 || dow === 6) && p.time < WEEKEND_EARLIEST_TIME) return 'schedule_weekend_open';
   if (at < now.getTime() + 24 * 3600_000) return 'schedule_lead_time';
   return null;
 }
@@ -62,6 +74,14 @@ export const SCHEDULE_MESSAGES: Readonly<Record<ScheduleReject, { de: string; en
   schedule_pizza_lead_time: {
     de: `Die gewählte Zeit ist zu kurzfristig. Bitte mindestens 1 Stunde im Voraus bestellen. Bei Fragen: ${PHONE}.`,
     en: `The selected time is too soon. Please order at least 1 hour in advance. Questions? ${PHONE}.`,
+  },
+  schedule_weekend_open: {
+    de: 'Am Samstag und Sonntag sind Catering-Lieferungen und -Abholungen frühestens ab 12:00 Uhr möglich (das Restaurant öffnet dann um 12:00 Uhr).',
+    en: 'On Saturdays and Sundays catering deliveries and pickups are available from 12:00 noon at the earliest (the restaurant opens at 12:00 on weekends).',
+  },
+  schedule_too_far: {
+    de: `Bestellungen sind höchstens 2 Jahre im Voraus möglich. Für spätere Termine rufen Sie uns an: ${PHONE}.`,
+    en: `Orders can be placed at most 2 years in advance. For later dates please call us: ${PHONE}.`,
   },
   schedule_weekend_cutoff: {
     de: `Lieferungen für Samstag und Sonntag müssen bis Donnerstag 23:59 Uhr bestellt werden. Für kurzfristige Anfragen: ${PHONE}.`,

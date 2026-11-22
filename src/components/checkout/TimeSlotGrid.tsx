@@ -7,6 +7,8 @@ interface TimeSlotGridProps {
   onChange: (time: string) => void;
   isPizzaOnly?: boolean;
   isEventBooking?: boolean;
+  /** Liefert false für Uhrzeiten, die gegen die Termin-Regeln verstoßen; diese werden gar nicht angeboten. */
+  isSlotAllowed?: (slot: string) => boolean;
   className?: string;
 }
 
@@ -22,7 +24,7 @@ interface TimeGroup {
  * - Delivery: 09:00 - 22:00 (30 min intervals)
  * - Pizza: 12:00-14:30 and 18:00-22:30
  */
-const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, isEventBooking = false, className }: TimeSlotGridProps) => {
+const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, isEventBooking = false, isSlotAllowed, className }: TimeSlotGridProps) => {
   const { language } = useLanguage();
 
   // Event times: 17:30-21:30 (In-Haus Event)
@@ -72,6 +74,10 @@ const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, isEventBooking = f
         },
       ];
 
+  const visibleGroups = timeGroups
+    .map((group) => ({ ...group, slots: isSlotAllowed ? group.slots.filter(isSlotAllowed) : group.slots }))
+    .filter((group) => group.slots.length > 0);
+
   return (
     <div className={cn("space-y-4", className)}>
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -84,7 +90,15 @@ const TimeSlotGrid = ({ value, onChange, isPizzaOnly = false, isEventBooking = f
         </span>
       </div>
 
-      {timeGroups.map((group) => (
+      {visibleGroups.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          {language === "de"
+            ? "Für dieses Datum sind keine Uhrzeiten mehr verfügbar. Bitte wählen Sie ein späteres Datum."
+            : "No times are available for this date. Please choose a later date."}
+        </p>
+      )}
+
+      {visibleGroups.map((group) => (
         <div key={group.label} className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             {language === "de" ? group.label : group.labelEn}

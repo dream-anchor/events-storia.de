@@ -18,6 +18,8 @@ export interface SmartDatePickerProps {
   language?: 'de' | 'en';
   /** Minimum lead time in days (default: 1 = tomorrow) */
   minLeadDays?: number;
+  /** Optional technical upper limit in days from today (default: none, unlimited advance booking) */
+  maxDays?: number;
   /** Whether to skip Sundays (default: true for events) */
   skipSundays?: boolean;
   /** Number of quick-select chips to show (default: 3) */
@@ -78,6 +80,7 @@ export function SmartDatePicker({
   onChange,
   language = 'de',
   minLeadDays = 1,
+  maxDays,
   skipSundays = true,
   quickSelectCount = 3,
   placeholder,
@@ -103,6 +106,12 @@ export function SmartDatePicker({
     [minLeadDays]
   );
   
+  // Maximum date for calendar (nur wenn gesetzt; sonst unbegrenzt)
+  const maxDate = React.useMemo(
+    () => (maxDays === undefined ? undefined : startOfDay(addDays(new Date(), maxDays))),
+    [maxDays]
+  );
+
   // Check if a quick date is selected
   const isQuickDateSelected = (date: Date) => value && isValid(value) && isSameDay(value, date);
   
@@ -118,6 +127,7 @@ export function SmartDatePicker({
   // Disabled date function for calendar
   const isDateDisabled = (date: Date) => {
     if (date < minDate) return true;
+    if (maxDate && date > maxDate) return true;
     if (skipSundays && isSunday(date)) return true;
     return false;
   };
