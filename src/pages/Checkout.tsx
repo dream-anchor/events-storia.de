@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackEvent } from '@/lib/analytics';
+import { generateOrderNumber } from '@/lib/orderNumber';
 import { LocalizedLink } from '@/components/LocalizedLink';
 import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import { cn } from '@/lib/utils';
@@ -822,19 +823,6 @@ const CateringCheckout = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const target = e.target as HTMLInputElement | HTMLTextAreaElement;
     setFormData(prev => ({ ...prev, [target.name]: target.value }));
-  };
-
-  // Generate order number - Shop orders are always Stripe-paid
-  // EVT-BUCHUNG for events, CAT-BESTELLUNG for catering
-  const generateOrderNumber = (isEvent: boolean = false) => {
-    const date = new Date();
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    const sequence = Math.floor(Date.now() / 1000) % 1000 + 100;
-    
-    const prefix = isEvent ? 'EVT-BUCHUNG' : 'CAT-BESTELLUNG';
-    return `${prefix}-${day}-${month}-${year}-${sequence}`;
   };
 
   // Accordion navigation

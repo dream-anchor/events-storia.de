@@ -7,7 +7,7 @@ import { berlinToUtc, businessDate, isBlackout, isIsoDate, type BlackoutDate, ty
 export const MIXED_SESSION_MINUTES = 31;
 export const MIXED_MIN_HOLD_MINUTES = 36;
 
-/** Format der Catering-Bestellnummer aus dem Checkout (generateOrderNumber): CAT-BESTELLUNG-TT-MM-JJJJ-NNN(N). */
+/** Format der Catering-Bestellnummer aus dem Checkout (generateOrderNumber): CAT-BESTELLUNG-TT-MM-JJJJ-NNN(NNNNN) (seit 22.11.2026 6 zufällige Ziffern, vorher 3–4). */
 const CATERING_ORDER_NUMBER_RE = /^CAT-BESTELLUNG-\d{2}-\d{2}-\d{4}-\d{3,8}$/;
 export const isCateringOrderNumber = (s: unknown): s is string => typeof s === "string" && CATERING_ORDER_NUMBER_RE.test(s);
 
