@@ -116,3 +116,17 @@ Deno.test("Event-Preis bei Gästezahl-Änderung: Warenkorb rechnet über calcula
   assertEquals(eventUnitPriceForGuests("pp", pp, 33) * 33, 1650);
   assertEquals([clampEventGuests(5, pp), clampEventGuests(33, pp), clampEventGuests(99, pp)], [10, 33, 50]);
 });
+
+import { distanceNote, distanceSemantics } from "../../src/lib/orderQuote.ts";
+Deno.test("A7: Bedeutung der gespeicherten Strecke aus den Daten, nicht aus dem Datum", () => {
+  assertEquals(distanceSemantics(12.34, 154.25), "single");      // neu: einfache Strecke, 2 Fahrten
+  assertEquals(distanceSemantics(12.34, 77.12), "single");       // Pizza-only
+  assertEquals(distanceSemantics(24.68, 154.25), "legacy_total"); // Alt: Strecke x 2 gespeichert, Gebühr für 12,34 km
+  assertEquals(distanceSemantics(5, 119), "single");
+  assertEquals(distanceSemantics(0.9, 0), "single");
+  assertEquals(distanceSemantics(12.3, 154.13), "single"); // 0,1-km-Rundung des alten Checkouts bleibt tolerant
+  assertEquals(distanceSemantics(null, 10), "unknown");
+  assertEquals(distanceNote(12.34, 154.25), " (einfache Strecke)");
+  assertEquals(distanceNote(24.68, 154.25), " (Altbestellung: Strecke × Fahrten)");
+  assertEquals(distanceNote(40, 5), "");
+});

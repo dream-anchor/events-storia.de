@@ -228,11 +228,37 @@ export function quoteRequestKey(p: {
   return JSON.stringify([items, p.chafingQuantity, p.deliveryType, addr]);
 }
 
+/** Liefergebühr brutto in Cent (Tarif wie supabase/functions/_shared/cateringPricing.ts; hier dupliziert, weil diese Datei importfrei bleibt). */
+function feeGrossCents(oneWayKm: number, pizzaOnly: boolean): number {
+  if (oneWayKm <= 1) return 0;
+  const trips = pizzaOnly ? 1 : 2;
+  const net = oneWayKm <= 8 ? 5000 * trips : Math.round((50 * trips + oneWayKm * trips * 1.2) * 100);
+  return Math.floor((net * 119 + 50) / 100);
+}
+
+export type DistanceSemantics = 'single' | 'legacy_total' | 'unknown';
+
 /**
- * Ab diesem Zeitpunkt (Deploy der Abdichtung) speichern Bestellungen die EINFACHE Strecke in calculated_distance_km.
- * Ältere Bestellungen über 8 km tragen Strecke x Fahrten (doppelter Wert) und werden ohne den Zusatz "(einfache Strecke)" angezeigt.
- * Kein Backfill. Beim Einspielen auf das tatsächliche Deploy-Datum setzen.
+ * Was bedeutet der gespeicherte calculated_distance_km einer Bestellung? Unabhängig von Datum/Flags aus den Daten selbst:
+ * passt die gezahlte Liefergebühr zur gespeicherten Strecke (1 oder 2 Fahrten, +-0,05 km Rundung), ist es die EINFACHE Strecke
+ * (Bestellungen seit der Abdichtung); passt sie nur zur halben Strecke, ist es eine Altbestellung > 8 km mit Strecke x Fahrten
+ * (doppelter Wert). Kein Backfill nötig.
  */
-export const SINGLE_WAY_DISTANCE_SINCE = '2026-11-23T00:00:00Z';
-export const hasSingleWayDistance = (createdAt: string | null | undefined): boolean =>
-  !!createdAt && new Date(createdAt).getTime() >= new Date(SINGLE_WAY_DISTANCE_SINCE).getTime();
+export function distanceSemantics(km: number | null | undefined, deliveryGrossEuro: number | null | undefined): DistanceSemantics {
+  if (!km || km <= 0) return 'unknown';
+  const fee = Math.round(Number(deliveryGrossEuro ?? 0) * 100);
+  const near = (d: number) => [false, true].some((pizza) => {
+    const lo = feeGrossCents(Math.max(0, d - 0.05), pizza);
+    const hi = feeGrossCents(d + 0.05, pizza);
+    return fee >= Math.min(lo, hi) - 1 && fee <= Math.max(lo, hi) + 1;
+  });
+  if (km <= 8 || near(km)) return near(km) || fee === 0 ? 'single' : 'unknown';
+  if (near(km / 2)) return 'legacy_total';
+  return 'unknown';
+}
+
+/** Zusatz hinter der Entfernung in der Admin-Anzeige. */
+export function distanceNote(km: number | null | undefined, deliveryGrossEuro: number | null | undefined): string {
+  const sem = distanceSemantics(km, deliveryGrossEuro);
+  return sem === 'single' ? ' (einfache Strecke)' : sem === 'legacy_total' ? ' (Altbestellung: Strecke × Fahrten)' : '';
+}
