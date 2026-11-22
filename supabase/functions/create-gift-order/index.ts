@@ -3,7 +3,8 @@
 // über OpenRouteService berechnet (nicht aus gift-delivery-quote übernommen).
 // Zahlart online: Bestand-Hold + Stripe Checkout (30 Min). Zahlart "vor Ort" (nur Abholung): Double-Opt-in statt
 // CAPTCHA (Inhaber 20.11.2026): Bestellung 'awaiting_confirmation' mit Hold nur 30 Min + Bestätigungsmail; erst der Klick
-// auf den Link (confirm-gift-reservation) macht daraus 'reserved' mit Hold bis Ladenschluss des Abholtags.
+// auf den Link (confirm-gift-reservation) macht daraus 'reserved' mit Hold bis Ladenschluss des Abholtags - bei Abholtag
+// weiter als 2 Tage entfernt aber erst ab 2 Tagen vorher (Z10, _shared/giftHoldWindow.ts; vorher belegt die Reservierung keinen Bestand).
 // Missbrauchsschutz: Honeypot-Feld, Mindest-Ausfüllzeit, Limits je E-Mail/IP (DB-gestützt), Mengen- und Terminlimits.
 // Modus handover 'with_catering' (Mischbestellung, Konzept § 11): Körbe fahren mit dem Catering mit. Serverpreise, vat_split und
 // Hold wie gewohnt, aber Liefergebühr 0, Termin = Catering-Termin (nur Sperrtage), KEINE eigene Stripe-Session, nur Zahlart online.
@@ -26,6 +27,7 @@ import {
   MAX_QTY_PER_ORDER,
   type VatShare,
 } from "../_shared/giftPricing.ts";
+import { isBeyondHoldWindow } from "../_shared/giftHoldWindow.ts";
 import { resolveDistanceKm, RoutingError } from "../_shared/giftRouting.ts";
 import { clientIp, hashIp, rateLimited } from "../_shared/giftRateLimit.ts";
 import { CONFIRM_HOLD_MINUTES, checkFormTiming, confirmUrl, generateConfirmToken, hashConfirmToken } from "../_shared/giftConfirm.ts";
@@ -318,6 +320,9 @@ serve(async (req) => {
       p_order_id: order.id,
       p_items: lines.map((l) => ({ variant_id: l.variant_id, qty: l.qty })),
       p_expires_at: holdUntil.toISOString(),
+      // Vor Ort + Abholtag weiter als 2 Tage entfernt (Z10): heutige Menge ist nicht maßgeblich, der Bestand wird erst
+      // ab 2 Tagen vor der Abholung belegt (gift_activate_deferred_holds). Online/nahe Termine: Bestand wie bisher prüfen.
+      p_check_stock: !(onSite && isBeyondHoldWindow(input.date, now)),
     });
     if (rErr) {
       if (/sold_out/.test(rErr.message)) throw new HttpError(409, "sold_out", { variant_id: rErr.details ?? null });

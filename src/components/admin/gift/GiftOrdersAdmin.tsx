@@ -106,6 +106,9 @@ export function GiftOrdersAdmin() {
                 </span>
               </span>
               <span className="flex items-center gap-2">
+                {/* Z10: Überbuchung beim Eintritt ins 2-Tage-Fenster sichtbar machen, Vor-Ort-Reservierung ohne Bestandsbelegung kennzeichnen */}
+                {o.stock_conflict_at && ["reserved", "ready"].includes(o.status) && <Badge variant="destructive">Bestand reicht nicht</Badge>}
+                {o.status === "reserved" && o.payment_method === "on_site" && !o.stock_conflict_at && o.handover_date > addDays(today, 2) && <Badge variant="outline">Bestand ab 2 Tage vorher</Badge>}
                 <span className="tabular-nums">{formatEuro(o.total_cents)}</span>
                 <Badge variant={["cancelled", "expired", "refunded"].includes(o.status) ? "outline" : "default"}>{STATUS_LABEL[o.status] ?? o.status}</Badge>
               </span>

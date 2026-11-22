@@ -13,6 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { sendGiftMails } from "../_shared/giftMail.ts";
 import { confirmUrl, generateConfirmToken, hashConfirmToken } from "../_shared/giftConfirm.ts";
 import { ensureGiftInvoice, isStaleInvoiceClaim } from "../_shared/giftInvoice.ts";
+import { stockConflictAlert } from "../_shared/giftHoldWindow.ts";
 import { sendGiftOperatorAlert } from "../_shared/giftAlert.ts";
 import { reportEdgeError } from "../_shared/reportError.ts";
 
@@ -59,6 +60,21 @@ serve(async (req) => {
     const { data, error } = await supabase.rpc("gift_sweep_expired_holds");
     if (error) throw new Error(error.message);
     stats.expired = (data ?? []).length;
+  });
+
+  // 1b) Überbuchung beim Eintritt ins 2-Tage-Fenster (gift_activate_deferred_holds, im Sweep): NICHT still lösen, Betreiber alarmieren.
+  //     Der Hold steht trotzdem; die Bestellung trägt stock_conflict_at (Admin-Badge). Alarm je Bestellung genau einmal.
+  await step("stock-conflict", async () => {
+    const { data, error } = await supabase.from("gift_orders").select("id, order_number, handover_date, customer_name")
+      .not("stock_conflict_at", "is", null).is("stock_conflict_notified_at", null).in("status", ["reserved", "ready"]).limit(25);
+    if (error) throw new Error(error.message);
+    for (const o of data ?? []) {
+      const { error: markErr } = await supabase.from("gift_orders").update({ stock_conflict_notified_at: new Date().toISOString() })
+        .eq("id", o.id).is("stock_conflict_notified_at", null);
+      if (markErr) continue;
+      const a = stockConflictAlert(o);
+      await alert(a.subject, a.html);
+    }
   });
 
   // 2) "Reservierung abgelaufen"-Mail: nur bestätigte vor-Ort-Reservierungen (unbestätigte haben nie eine Zusage bekommen)
