@@ -63,7 +63,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Too many requests' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-    const km = await cachedOneWayDistanceKm(supabase, address, OPENROUTE_API_KEY);
+    const km = await cachedOneWayDistanceKm(supabase, address, OPENROUTE_API_KEY, fetch, { clientKey: clientIp(req) });
     if (km === null) {
       return new Response(
         JSON.stringify({ error: 'Could not calculate distance' }),

@@ -4,14 +4,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
 import { REJECT_MESSAGES_DE, verifyCateringOrder, type ClientLine } from '../_shared/cateringPricing.ts';
-import { CATALOG_TENANT_ID, computeServerQuote, loadCatalog, oneWayDistanceKm } from '../_shared/cateringServer.ts';
+import { CATALOG_TENANT_ID, cachedOneWayDistanceKm, computeServerQuote, loadCatalog } from '../_shared/cateringServer.ts';
 import { orderMessage, quoteHasChanges, toLang, type Lang, type OrderErrorCode, type OrderQuote, type QuoteRequestItem } from '../_shared/orderQuote.ts';
 import { buildCateringPayload, buildEventPayload, parseCreateInput } from '../_shared/orderCreate.ts';
 import { checkOrderSchedule } from '../_shared/orderSchedule.ts';
-import { ensureOrder, stripeIdempotencyKey } from '../_shared/orderFlow.ts';
+import { ensureOrder } from '../_shared/orderFlow.ts';
+import { createSessionIdempotent, deterministicExpiresAt, expireSessions, findOpenSessions, reusableSession, sessionIdempotencyKey, type StripeLike } from '../_shared/stripeSessions.ts';
 import { rateLimited, clientIp } from '../_shared/giftRateLimit.ts';
 import { EVENT_REJECT_MESSAGES_DE, verifyEventBooking } from '../_shared/eventPricing.ts';
-import { MIXED_SESSION_MINUTES, giftLineName, mixedPaymentMethodTypes, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
+import { giftLineName, mixedPaymentMethodTypes, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
 
 
 
@@ -73,6 +74,14 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      throw new Error("STRIPE_SECRET_KEY is not set");
+    }
+    const stripe = new Stripe(stripeKey, {
+      apiVersion: '2025-08-27.basil',
+    });
 
     let isEventBooking = false;
     let order: { id: string; total_amount: number; customer_email: string; payment_status: string | null } | null = null;
@@ -177,6 +186,7 @@ serve(async (req) => {
           chafingQuantity: Number(body.chafingQuantity ?? 0),
           deliveryType: String(body.deliveryType ?? 'pickup'),
           address: { street: String(a.street ?? ''), zip: String(a.zip ?? ''), city: String(a.city ?? '') },
+          clientKey: clientIp(req),
         },
         Deno.env.get("OPENROUTE_API_KEY"),
       );
@@ -218,17 +228,6 @@ serve(async (req) => {
       // Geschenkkorb prüfen, bevor etwas angelegt wird (scheitert das hier, entsteht nichts)
       const giftErr = await attachGift();
       if (giftErr) return giftErr;
-      // Ältere, noch offene Korb-Bestellungen derselben Catering-Nummer (Kunde hat den Korb geändert, früherer Versuch): Hold freigeben
-      if (gift.order) {
-        const { data: older } = await supabase.from('gift_orders').select('id')
-          .eq('catering_order_number', orderNumber).eq('status', 'pending').neq('id', gift.order.id);
-        for (const o of older ?? []) {
-          await supabase.from('gift_orders').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', o.id).eq('status', 'pending');
-          await supabase.rpc('gift_release_stock', { p_order_id: o.id });
-          logStep("Superseded gift order released", { giftOrderId: o.id });
-        }
-      }
-
       // Konto (falls eingeloggt) aus dem JWT lesen, nie aus dem Body
       let userId: string | null = null;
       const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
@@ -256,10 +255,39 @@ serve(async (req) => {
         }
         // anderer Inhalt unter alter Nummer (alte unbezahlte Zeile wurde storniert) bzw. schon bezahlt: neue Nummer nötig.
         // Alten Korb-Hold freigeben (nur bei 'mismatch'; eine bezahlte Bestellung behält ihren Korb).
-        if (ensured.reason === 'mismatch') await releaseGift();
+        if (ensured.reason === 'mismatch') {
+          // Korb erst freigeben, wenn sicher ist, dass die alte Stripe-Session abgelaufen ist (sonst könnte noch bezahlt werden)
+          const open = await findOpenSessions(stripe, orderNumber);
+          if (open !== null && await expireSessions(stripe, open)) await releaseGift();
+        }
         return json({ error: 'order_exists', message: orderMessage('order_exists', lang) }, 409);
       }
       const orderId = ensured.orderId;
+      // Offene Sessions dieser Bestellung: passende weiterverwenden, übrige aktiv ablaufen lassen; erst danach ältere Körbe freigeben
+      const giftCents = gift.items.reduce((sum, g) => sum + g.unit_price_cents * g.qty, 0);
+      const openSessions = await findOpenSessions(stripe, orderNumber);
+      let sessionsSettled = false;
+      if (openSessions !== null) {
+        const reuse = ensured.status === 'resumed'
+          ? reusableSession(openSessions.filter((x) => x.metadata?.payment_method_selected === paymentMethod && String(x.customer_email ?? customerEmail).toLowerCase() === customerEmail), quote.totalCents + giftCents)
+          : null;
+        if (reuse) {
+          logStep("Reusing open Stripe session", { orderNumber, sessionId: reuse.id });
+          return json({ url: reuse.url, sessionId: reuse.id, orderNumber, quote }, 200);
+        }
+        sessionsSettled = await expireSessions(stripe, openSessions);
+      }
+      // Ältere, noch offene Korb-Bestellungen derselben Catering-Nummer (früherer Versuch mit anderem Korb): Hold freigeben, aber
+      // nur wenn alte Stripe-Sessions sicher abgelaufen sind
+      if (gift.order && sessionsSettled) {
+        const { data: older } = await supabase.from('gift_orders').select('id')
+          .eq('catering_order_number', orderNumber).eq('status', 'pending').neq('id', gift.order.id);
+        for (const o of older ?? []) {
+          await supabase.from('gift_orders').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', o.id).eq('status', 'pending');
+          await supabase.rpc('gift_release_stock', { p_order_id: o.id });
+          logStep("Superseded gift order released", { giftOrderId: o.id });
+        }
+      }
       logStep(ensured.status === 'resumed' ? "Resuming existing unpaid order" : "Order created (server prices)", { orderNumber, orderId, totalCents: quote.totalCents });
       order = { id: orderId, total_amount: quote.totalCents / 100, customer_email: customerEmail, payment_status: 'pending' };
       verifiedCents = quote.totalCents;
@@ -383,9 +411,12 @@ serve(async (req) => {
         const isPickup = cateringRow.is_pickup === true;
         const oneWayKm = isPickup
           ? null
-          : await oneWayDistanceKm(
+          : await cachedOneWayDistanceKm(
+            supabase,
               `${cateringRow.delivery_street ?? ''}, ${cateringRow.delivery_zip ?? ''} ${cateringRow.delivery_city ?? ''}`,
               Deno.env.get("OPENROUTE_API_KEY"),
+              fetch,
+              { clientKey: clientIp(req) },
             );
         const verdict = verifyCateringOrder({
           lines,
@@ -470,15 +501,6 @@ serve(async (req) => {
       if (giftErr) return giftErr;
     }
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) {
-      throw new Error("STRIPE_SECRET_KEY is not set");
-    }
-
-    const stripe = new Stripe(stripeKey, {
-      apiVersion: '2025-08-27.basil',
-    });
-
     // Check for existing customer
     const customers = await stripe.customers.list({ email: customerEmail, limit: 1 });
     let customerId: string | undefined;
@@ -545,7 +567,7 @@ serve(async (req) => {
       // nur Karte (sofort), außer Billie: asynchrone Methoden würden den Hold überdauern
       const mixedTypes = mixedPaymentMethodTypes(paymentMethod);
       if (mixedTypes) sessionConfig.payment_method_types = mixedTypes as Parameters<typeof stripe.checkout.sessions.create>[0]['payment_method_types'];
-      sessionConfig.expires_at = Math.floor(Date.now() / 1000) + MIXED_SESSION_MINUTES * 60;
+      sessionConfig.expires_at = deterministicExpiresAt(); // deterministisch je 3-Min-Fenster: Wiederholungen haben identische Parameter
       sessionConfig.metadata = { ...sessionConfig.metadata, gift_order_id: gift.order.id, gift_order_number: gift.order.order_number };
     }
 
@@ -556,10 +578,10 @@ serve(async (req) => {
     }
     // For regular stripe, don't set payment_method_types to allow all dashboard-enabled methods
 
-    // Idempotenzschlüssel: gleichzeitige/wiederholte Anfragen derselben Bestellung ergeben dieselbe Session (nie zwei offene mit Körben)
-    const session = await stripe.checkout.sessions.create(sessionConfig, {
-      idempotencyKey: stripeIdempotencyKey(orderNumber, verifiedCents ?? Math.round(amount * 100), gift.order?.id ?? null),
-    });
+    // Idempotenzschlüssel aus Bestellnummer + Hash ALLER Session-Parameter + 3-Min-Fenster: gleiche Anfrage = gleiche Session,
+    // geänderte Parameter (Name, Zahlart, Körbe ...) = neuer Schlüssel statt 400 idempotency_error
+    const session = await createSessionIdempotent(
+      stripe as unknown as StripeLike, sessionConfig, await sessionIdempotencyKey(orderNumber, sessionConfig));
 
     logStep("Checkout session created", { sessionId: session.id, orderNumber, orderType });
 

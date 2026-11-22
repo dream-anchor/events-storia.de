@@ -2,7 +2,7 @@
 // Webhook EVT-Zahlung, Entfernungs-Cache/Tagesbudget, Ratenbegrenzung, Terminregeln, Strecken-Anzeige.
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import { markEventBookingPaid } from "./eventPayment.ts";
-import { addressCacheKey, cachedOneWayDistanceKm, resetDistanceCachesForTest, takeOrsBudget } from "./cateringServer.ts";
+import { addressCacheKey, cachedOneWayDistanceKm, hashedCacheKey, resetDistanceCachesForTest, takeOrsBudget } from "./cateringServer.ts";
 import { rateLimited } from "./giftRateLimit.ts";
 import { checkOrderSchedule } from "./orderSchedule.ts";
 import { deliveryDistanceLabel } from "./cateringPricing.ts";
@@ -40,24 +40,65 @@ const orsFetch = (counter: { n: number }): typeof fetch => (async (url: string |
   if (String(url).includes("geocode")) return new Response(JSON.stringify({ features: [{ geometry: { coordinates: [11.6, 48.2] } }] }));
   return new Response(JSON.stringify({ routes: [{ summary: { distance: 0 } }] })); // 0 m = gültig
 });
-const emptyDb = { from: () => ({ select: () => ({ eq: () => ({ gt: () => ({ maybeSingle: () => Promise.resolve({ data: null }) }) }) }), upsert: () => Promise.resolve({}) }) };
+/** Fake-DB: protokolliert Cache-Zugriffe und liefert steuerbar Treffer; rpc ors_take_budget zählt global. */
+function db(opts: { hit?: number | null; budgetLimit?: number } = {}) {
+  const log = { keys: [] as string[], upserts: [] as { address_key: string }[], deletes: 0, rpcCalls: 0 };
+  let used = 0;
+  const client = {
+    from: () => ({
+      select: () => ({ eq: (_c: string, k: string) => { log.keys.push(k); return { gt: () => ({ maybeSingle: () => Promise.resolve({ data: opts.hit == null ? null : { km: opts.hit } }) }) }; } }),
+      upsert: (r: { address_key: string }) => { log.upserts.push(r); return Promise.resolve({}); },
+      delete: () => ({ lt: () => { log.deletes++; return Promise.resolve({}); } }),
+    }),
+    rpc: (_n: string, a: { p_calls: number; p_limit: number }) => {
+      log.rpcCalls++;
+      if (used + a.p_calls > (opts.budgetLimit ?? a.p_limit)) return Promise.resolve({ data: false, error: null });
+      used += a.p_calls;
+      return Promise.resolve({ data: true, error: null });
+    },
+  };
+  return { client, log };
+}
 
-Deno.test("Entfernungs-Cache: zweite Anfrage gleicher Adresse (andere Schreibweise) ruft ORS nicht erneut; 0 m ist 0 km", async () => {
+Deno.test("Cache ohne Pepper: nur Speicher, die Tabelle wird nie berührt (DSGVO); zweite Anfrage (andere Schreibweise) ohne ORS; 0 m = 0 km", async () => {
   resetDistanceCachesForTest();
-  const c = { n: 0 };
-  assertEquals(await cachedOneWayDistanceKm(emptyDb, "Karlstr. 47a, 80333 München", "k", orsFetch(c)), 0);
+  const c = { n: 0 }; const d = db();
+  assertEquals(await cachedOneWayDistanceKm(d.client, "Karlstr. 47a, 80333 München", "k", orsFetch(c), {}), 0);
   assertEquals(c.n, 2);
-  assertEquals(await cachedOneWayDistanceKm(emptyDb, "karlstr 47a  80333 münchen", "k", orsFetch(c)), 0);
+  assertEquals(await cachedOneWayDistanceKm(d.client, "karlstr 47a  80333 münchen", "k", orsFetch(c), {}), 0);
   assertEquals(c.n, 2);
+  assertEquals([d.log.keys.length, d.log.upserts.length], [0, 0]);
   assertEquals(addressCacheKey("A, B."), addressCacheKey(" a   b "));
 });
 
-Deno.test("DB-Cache-Treffer: kein ORS-Aufruf", async () => {
+Deno.test("Cache mit Pepper: Schlüssel ist ein sha256-Hash (keine Klartext-Adresse), Treffer ohne ORS, beim Schreiben alte Einträge löschen", async () => {
   resetDistanceCachesForTest();
-  const c = { n: 0 };
-  const db = { from: () => ({ select: () => ({ eq: () => ({ gt: () => ({ maybeSingle: () => Promise.resolve({ data: { km: 7.5 } }) }) }) }) }) };
-  assertEquals(await cachedOneWayDistanceKm(db, "Teststr. 1, 80333 München", "k", orsFetch(c)), 7.5);
+  const c = { n: 0 }; const hit = db({ hit: 7.5 });
+  assertEquals(await cachedOneWayDistanceKm(hit.client, "Teststr. 1, 80333 München", "k", orsFetch(c), { pepper: "geheim" }), 7.5);
   assertEquals(c.n, 0);
+  assertEquals(hit.log.keys[0], await hashedCacheKey("teststr 1 80333 münchen", "geheim"));
+  assert(/^[0-9a-f]{64}$/.test(hit.log.keys[0]) && !hit.log.keys[0].includes("teststr"));
+  resetDistanceCachesForTest();
+  const miss = db();
+  assertEquals(await cachedOneWayDistanceKm(miss.client, "Teststr. 2, 80333 München", "k", orsFetch(c), { pepper: "geheim" }), 0);
+  assertEquals([miss.log.upserts.length, miss.log.deletes], [1, 1]);
+  assertEquals(await hashedCacheKey("x", undefined), null);
+});
+
+Deno.test("A5: je Client höchstens 30 Cache-Fehltreffer pro Stunde; globales Budget über DB-Zähler", async () => {
+  resetDistanceCachesForTest();
+  const c = { n: 0 }; const d = db();
+  let ok = 0;
+  for (let i = 0; i < 35; i++) if (await cachedOneWayDistanceKm(d.client, `Strasse ${i}, 80333 München`, "k", orsFetch(c), { clientKey: "ip-A" }) !== null) ok++;
+  assertEquals(ok, 30);
+  // anderer Client wird dadurch nicht blockiert
+  assertEquals(await cachedOneWayDistanceKm(d.client, "Andere Str. 9, 80333 München", "k", orsFetch(c), { clientKey: "ip-B" }), 0);
+  // globales Budget: Limit 4 Aufrufe = 2 Lookups
+  resetDistanceCachesForTest();
+  const g = db({ budgetLimit: 4 });
+  const results = [] as (number | null)[];
+  for (let i = 0; i < 3; i++) results.push(await cachedOneWayDistanceKm(g.client, `Budget ${i}, 80333 München`, "k", orsFetch(c)));
+  assertEquals(results, [0, 0, null]);
 });
 
 Deno.test("Tagesbudget: erschöpft -> null (fail closed), neuer Tag setzt zurück", async () => {
