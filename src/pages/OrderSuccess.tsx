@@ -6,7 +6,8 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import SEO from '@/components/SEO';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
+import { usePriceDisplay, VAT_RATES } from '@/contexts/PriceDisplayContext';
+import { VatTotals, splitNetCents, lineNetCents, subtotalNetCents, formatCents } from '@/components/checkout/VatTotals';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +49,7 @@ interface LocationState {
 
 const OrderSuccess = () => {
   const { t, language } = useLanguage();
-  const { formatPrice } = usePriceDisplay();
+  const { formatPrice, showGross } = usePriceDisplay();
   const navigate = useNavigate();
   const location = useLocation();
   const { getPath } = useLocalizedPath();
@@ -190,41 +191,50 @@ const OrderSuccess = () => {
                   </div>
                   
                   {/* Price Summary */}
-                  <div className="pt-3 border-t border-border space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
-                      <span>{formatPrice(orderDetails.subtotal)}</span>
-                    </div>
-                    {orderDetails.deliveryCost > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
-                        <span>{formatPrice(orderDetails.deliveryCost)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">
-                      <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
-                      <span>{formatPrice(orderDetails.grandTotal)}</span>
-                    </div>
-                    
-                    {/* VAT Breakdown */}
-                    {(orderDetails.foodVat7 !== undefined || orderDetails.deliveryVat19 !== undefined) && (
-                      <div className="pt-2 space-y-1 text-xs text-muted-foreground">
-                        {orderDetails.foodVat7 !== undefined && orderDetails.foodVat7 > 0 && (
+                  {(() => {
+                    const hasVat = orderDetails.foodVat7 !== undefined || orderDetails.deliveryVat19 !== undefined;
+                    // Netto-Ansicht: Steuerbeträge sind echte Beträge und werden NICHT nochmals umgerechnet;
+                    // Zwischensumme = Rest aus dem Netto-Gesamtbetrag minus Netto-Lieferung (Lieferung 19 %, Speisen 7 %).
+                    const net = hasVat && !showGross
+                      ? splitNetCents(orderDetails.grandTotal, orderDetails.foodVat7 ?? 0, 0, orderDetails.deliveryVat19 ?? 0)
+                      : null;
+                    const deliveryNetC = lineNetCents(orderDetails.deliveryCost, VAT_RATES.DELIVERY);
+                    return (
+                      <div className="pt-3 border-t border-border space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
+                          <span>
+                            {net
+                              ? formatCents(subtotalNetCents(net.netC, [orderDetails.deliveryCost > 0 ? deliveryNetC : 0]))
+                              : formatPrice(orderDetails.subtotal)}
+                          </span>
+                        </div>
+                        {orderDetails.deliveryCost > 0 && (
                           <div className="flex justify-between">
-                            <span>{language === 'de' ? 'inkl. 7% MwSt. (Speisen)' : 'incl. 7% VAT (food)'}</span>
-                            <span>{formatPrice(orderDetails.foodVat7)}</span>
+                            <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
+                            <span>{net ? formatCents(deliveryNetC) : formatPrice(orderDetails.deliveryCost, VAT_RATES.DELIVERY)}</span>
                           </div>
                         )}
-                        {orderDetails.deliveryVat19 !== undefined && orderDetails.deliveryVat19 > 0 && (
-                          <div className="flex justify-between">
-                            <span>{language === 'de' ? 'inkl. 19% MwSt. (Lieferung)' : 'incl. 19% VAT (delivery)'}</span>
-                            <span>{formatPrice(orderDetails.deliveryVat19)}</span>
+                        {hasVat ? (
+                          <VatTotals
+                            variant="inline"
+                            language={language === 'de' ? 'de' : 'en'}
+                            showGross={showGross}
+                            grandTotal={orderDetails.grandTotal}
+                            vat7Food={orderDetails.foodVat7 ?? 0}
+                            vat19Drinks={0}
+                            vat19Delivery={orderDetails.deliveryVat19 ?? 0}
+                          />
+                        ) : (
+                          <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">
+                            <span>{language === 'de' ? 'Gesamt (brutto)' : 'Total (gross)'}</span>
+                            <span>{formatCents(Math.round(orderDetails.grandTotal * 100))}</span>
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                  
+                    );
+                  })()}
+
                   {/* Delivery/Pickup Info */}
                   <div className="pt-3 border-t border-border">
                     <div className="flex items-start gap-2">

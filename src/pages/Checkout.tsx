@@ -28,7 +28,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import CheckoutHeader from '@/components/checkout/CheckoutHeader';
 import AccordionSection from '@/components/checkout/AccordionSection';
 import StickySummary from '@/components/checkout/StickySummary';
-import { VatTotals } from '@/components/checkout/VatTotals';
+import { VatTotals, splitNetCents, lineNetCents, subtotalNetCents, formatCents } from '@/components/checkout/VatTotals';
 import PaymentMethodCard from '@/components/checkout/PaymentMethodCard';
 import TimeSlotGrid from '@/components/checkout/TimeSlotGrid';
 import SaveForLaterCheckbox from '@/components/checkout/SaveForLaterCheckbox';
@@ -813,6 +813,18 @@ const CateringCheckout = () => {
   const totalVat7 = foodVat;
   const totalVat19 = drinksVat + deliveryVat;
   const grandTotal = quote ? quote.totalCents / 100 : foodGross + drinksGross + deliveryGross;
+  // Netto-Ansicht: Zwischensumme als REST aus dem Netto-Gesamtbetrag (netC) minus die einzeln gerundeten Netto-Zeilen
+  // (Aufschlag, Chafing Dish, Lieferung), damit Zeilen und Summen auf den Cent aufgehen. Nur Anzeige.
+  const { netC: cateringNetC } = splitNetCents(grandTotal, totalVat7, drinksVat, deliveryVat);
+  const cateringSubtotalDisplay = showGross
+    ? formatPriceMixed(cateringLineParts(cateringItems))
+    : formatCents(subtotalNetCents(cateringNetC, [
+        minimumOrderSurcharge > 0 ? lineNetCents(minimumOrderSurcharge, VAT_RATES.FOOD) : 0,
+        chafingDishQuantity > 0 ? lineNetCents(chafingDishQuantity * CHAFING_DISH.price, VAT_RATES.FOOD) : 0,
+        formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery
+          ? lineNetCents(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)
+          : 0,
+      ]));
   // Anzeige: Catering-Gesamt (+ Körbe brutto). `grandTotal` selbst bleibt der CATERING-Betrag (RPC + create-catering-payment).
   // Der Endbetrag ist IMMER der Brutto-Zahlbetrag, auch im Netto-Modus (der Umschalter ändert nur die Einzelpreise, nie den Stripe-Betrag);
   // im Netto-Modus steht dann "brutto" dabei, mit Körben "inkl. MwSt.". Die Netto-Summe samt "zzgl. MwSt." zeigt <VatTotals>.
@@ -1431,7 +1443,7 @@ const CateringCheckout = () => {
                     <div className="space-y-2 text-sm mb-3">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">{language === 'de' ? 'Speisen' : 'Food'}</span>
-                        <span>{formatPriceMixed(cateringLineParts(cateringItems))}</span>
+                        <span>{cateringSubtotalDisplay}</span>
                       </div>
                       {hasGiftItems && (
                       <div className="flex justify-between">
@@ -1537,7 +1549,7 @@ const CateringCheckout = () => {
                           <div className="pt-4 mt-4 border-t border-border space-y-2 text-sm">
                             <div className="flex justify-between text-muted-foreground">
                               <span>{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
-                              <span>{formatPriceMixed(cateringLineParts(cateringItems))}</span>
+                              <span>{cateringSubtotalDisplay}</span>
                             </div>
                             {hasGiftItems && (
                             <div className="flex justify-between">

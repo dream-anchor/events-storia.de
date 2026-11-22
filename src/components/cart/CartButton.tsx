@@ -2,14 +2,14 @@ import { ShoppingCart } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLocalizedPath } from '@/hooks/useLocalizedPath';
 import { useCart } from '@/contexts/CartContext';
-import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
+import { usePriceDisplay, cateringLineParts } from '@/contexts/PriceDisplayContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { formatEuro } from '@/lib/gift/pricing';
 
 const CartButton = () => {
-  const { totalItems, totalPrice, giftItemCount } = useCart();
-  const { formatPrice } = usePriceDisplay();
+  const { items, totalItems, totalPrice, giftItemCount } = useCart();
+  const { formatPrice, formatPriceMixed, showGross } = usePriceDisplay();
   const { language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,7 +49,7 @@ const CartButton = () => {
         </span>
         <span className="font-medium text-sm">
           {/* Geschenkkörbe haben gemischte Steuersätze: sobald welche im Warenkorb sind, immer Bruttopreis */}
-          {giftItemCount > 0 ? formatEuro(Math.round(totalPrice * 100), language) : formatPrice(totalPrice)}
+          {giftItemCount > 0 ? formatEuro(Math.round(totalPrice * 100), language) : showGross ? formatPrice(totalPrice) : formatPriceMixed(cateringLineParts(items))}
         </span>
       </div>
     </button>

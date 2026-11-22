@@ -2,7 +2,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
+import { usePriceDisplay, itemParts, allocateNetCents } from '@/contexts/PriceDisplayContext';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalizedPath } from '@/hooks/useLocalizedPath';
@@ -20,10 +20,15 @@ import { kiAltSuffix } from "@/lib/kiAlt";
 const CartSheet = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart, totalItems, giftItemCount } = useCart();
   const { language } = useLanguage();
-  const { formatPrice: formatPriceDisplay } = usePriceDisplay();
+  const { formatPrice: formatPriceDisplay, showGross } = usePriceDisplay();
   // Geschenkkörbe haben gemischte Steuersätze: sobald welche im Warenkorb sind, immer Bruttopreis
   const formatPrice = (gross: number): string =>
     giftItemCount > 0 ? formatEuro(Math.round(gross * 100), language === 'en' ? 'en' : 'de') : formatPriceDisplay(gross);
+  // Netto-Ansicht: Event-Pakete 70 % Speisen (7 %) / 30 % Getränke (19 %), alles andere 7 %.
+  // Die Zeilen werden so gerundet, dass ihre Summe genau der Zwischensumme entspricht.
+  const netAllocation = allocateNetCents(items.map(item => itemParts(item, item.quantity)));
+  const formatNetCents = (cents: number): string => `${(cents / 100).toFixed(2).replace('.', ',')} €`;
+  const showNet = !showGross && giftItemCount === 0;
   const navigate = useNavigate();
   const { getPath } = useLocalizedPath();
 
@@ -72,7 +77,7 @@ const CartSheet = () => {
         ) : (
           <>
             <div className="flex-1 overflow-y-auto py-4 space-y-3 -mx-6 px-6">
-              {items.map((item) => {
+              {items.map((item, itemIndex) => {
                 const name = language === 'en' && item.name_en ? item.name_en : item.name;
                 
                 // Check if this is the Location package with tiered pricing
@@ -125,7 +130,7 @@ const CartSheet = () => {
                           )}
                         </div>
                         <p className="text-primary font-semibold">
-                          {formatPrice(itemTotal)}
+                          {showNet ? formatNetCents(netAllocation.lines[itemIndex]) : formatPrice(itemTotal)}
                         </p>
                       </div>
                     </div>
@@ -181,7 +186,7 @@ const CartSheet = () => {
                   {language === 'de' ? 'Zwischensumme' : 'Subtotal'}
                 </span>
                 <span className="text-2xl font-bold text-foreground">
-                  {formatPrice(totalPrice)}
+                  {showNet ? formatNetCents(netAllocation.total) : formatPrice(totalPrice)}
                 </span>
               </div>
               

@@ -47,6 +47,30 @@ export const itemParts = (item: { id: string; price: number }, quantity = 1): Pr
 export const cateringLineParts = (items: { id: string; price: number; quantity: number }[]): PricePart[] =>
   items.flatMap(item => itemParts(item, item.quantity));
 
+/** Netto-Summe mehrerer Steuerteile in Cent, einmal gerundet. */
+export const netCentsOfParts = (parts: PricePart[]): number =>
+  Math.round(parts.reduce((sum, p) => sum + p.gross / (1 + p.vatRate), 0) * 100);
+
+/**
+ * Netto-Zeilen so auf Cent runden, dass ihre Summe genau dem einmal gerundeten Netto-Gesamtbetrag entspricht
+ * (Restverteilung nach größtem Nachkomma-Rest). Je Zeile: Steuerteile der Zeile.
+ */
+export const allocateNetCents = (lines: PricePart[][]): { lines: number[]; total: number } => {
+  const exact = lines.map(parts => parts.reduce((sum, p) => sum + (p.gross / (1 + p.vatRate)) * 100, 0));
+  // 1e-6 gegen Gleitkomma-Rauschen (x,4999999 statt x,5)
+  const floors = exact.map(v => Math.floor(v + 1e-6));
+  const total = Math.round(exact.reduce((sum, v) => sum + v, 0));
+  let rest = total - floors.reduce((sum, c) => sum + c, 0);
+  const order = exact.map((v, i) => ({ i, frac: v - floors[i] })).sort((a, b) => b.frac - a.frac);
+  const result = [...floors];
+  for (const { i } of order) {
+    if (rest <= 0) break;
+    result[i] += 1;
+    rest -= 1;
+  }
+  return { lines: result, total };
+};
+
 interface PriceDisplayContextType {
   showGross: boolean;
   setShowGross: (value: boolean) => void;

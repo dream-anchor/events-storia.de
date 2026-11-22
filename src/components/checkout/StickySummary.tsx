@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { isGiftItem } from "@/lib/gift/cartRules";
 import { GIFT_COPY } from "@/lib/gift/copy";
 import { formatEuroTruncated } from "@/lib/gift/mixedCart";
-import { VatTotals } from "./VatTotals";
+import { VatTotals, splitNetCents, lineNetCents, subtotalNetCents, formatCents } from "./VatTotals";
 import { KiBadge } from "@/components/KiBadge";
 import { kiAltSuffix } from "@/lib/kiAlt";
 
@@ -62,6 +62,15 @@ const StickySummary = ({
   const giftText = GIFT_COPY[language === 'de' ? 'de' : 'en'];
 
   const chafingDishGross = chafingDishQuantity * chafingDishPrice;
+
+  // Netto-Ansicht: Zwischensumme = Rest aus dem Netto-Gesamtbetrag (netC) minus die einzeln gerundeten Netto-Zeilen,
+  // damit Zeilen und Summen auf den Cent aufgehen (Anzeige, der Zahlbetrag bleibt unberührt).
+  const { netC } = splitNetCents(grandTotal, foodVat7, drinksVat19, deliveryVat19);
+  const netSubtotalC = subtotalNetCents(netC, [
+    minimumOrderSurcharge > 0 ? lineNetCents(minimumOrderSurcharge, VAT_RATES.FOOD) : 0,
+    chafingDishQuantity > 0 ? lineNetCents(chafingDishGross, VAT_RATES.FOOD) : 0,
+    isDelivery && deliveryCost > 0 ? lineNetCents(deliveryCost, VAT_RATES.DELIVERY) : 0,
+  ]);
 
   return (
     <div className={cn("sticky top-0 mt-[11px]", className)}>
@@ -171,7 +180,7 @@ const StickySummary = ({
             <span className="text-muted-foreground">
               {language === 'de' ? 'Zwischensumme' : 'Subtotal'}
             </span>
-            <span>{formatPriceMixed(cateringLineParts(items.filter(item => !isGiftItem(item))))}</span>
+            <span>{showGross ? formatPriceMixed(cateringLineParts(items.filter(item => !isGiftItem(item)))) : formatCents(netSubtotalC)}</span>
           </div>
 
           {hasGifts && (
