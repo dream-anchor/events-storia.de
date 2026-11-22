@@ -21,8 +21,8 @@
 --  5. Edge Functions mit service_role (receive-event-inquiry, receive-group-inquiry(-webhook), inbound-maestro-email,
 --       create-inquiry-from-inbox-email, handle-stripe-webhook, ...)  ->  unverändert; sie setzen keine Kundenpreise.
 --       Anfrageformulare (Event-/Gruppenanfrage) laufen ausschließlich über diese Functions, nicht über anon-INSERT.
---  6. View event_inquiries (INSTEAD-OF-INSERT, anon)  ->  bewusst unverändert: Anfragen tragen keinen Kundenpreis, sie sind
---       Eingang für die manuelle Angebotserstellung durch das Personal; es entsteht weder eine Bestellung noch eine Zahlung.
+--  6. View event_inquiries (INSTEAD-OF-INSERT, anon)  ->  Trigger sanitisiert für Kunden-Rollen: Status fest 'new' (vorher
+--       ergab 'confirmed' sofort v2-Status 'paid'), quote_items/selected_*/menu_selection/internal_notes/payment_method verworfen.
 --  7. Geschenkkorb-Shop und Mischbestellung (gift_orders, gift_order_items, gift_stock_holds)  ->  eigene Tabellen, Anlage nur
 --       über die Edge Function create-gift-order (Serverpreise, service_role); schreiben nicht in v2_events. Die Catering-Seite
 --       der Mischbestellung läuft über Weg 1.
@@ -281,6 +281,117 @@ BEGIN
   NEW.id := new_event_id;
   RETURN NEW;
 END $function$;
+
+-- ---------------------------------------------------------------------------
+-- 2b) View event_inquiries: Kunden-Rollen dürfen nur eine Anfrage anlegen (Befund B7). Definition wie 20260501200216, plus Sanitisierung.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.event_inquiries_insert_trigger()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  new_customer_id uuid;
+  new_event_id uuid;
+  v_service v2_event_service;
+  v_loc v2_event_location;
+  v_source v2_event_source;
+BEGIN
+  -- Abdichtung (22.11.2026): Kunden-Rollen (anon, eingeloggte Kunden ohne admin/staff) legen nur eine ANFRAGE an. Status fest 'new'
+  -- (vorher machte 'confirmed' daraus sofort 'paid'), Preis-/Positions-/Menüfelder und interne Notizen werden verworfen.
+  -- service_role (receive-event-inquiry, receive-group-inquiry, ...) und admin/staff bleiben unverändert.
+  IF NOT public.order_insert_allowed() THEN
+    NEW.status := 'new';
+    NEW.quote_items := NULL;
+    NEW.selected_items := NULL;
+    NEW.selected_packages := NULL;
+    NEW.menu_selection := NULL;
+    NEW.internal_notes := NULL;
+    NEW.payment_method := NULL;
+    NEW.invoice_due_days := NULL;
+  END IF;
+
+  SELECT id INTO new_customer_id FROM v2_customers
+  WHERE lower(email) = lower(NEW.email)
+    AND lower(COALESCE(name, '')) = lower(COALESCE(NEW.contact_name, ''))
+  LIMIT 1;
+
+  IF new_customer_id IS NULL THEN
+    INSERT INTO v2_customers (name, email, phone, company, created_at, updated_at)
+    VALUES (NEW.contact_name, NEW.email, NEW.phone, NEW.company_name, now(), now())
+    RETURNING id INTO new_customer_id;
+  END IF;
+
+  IF NEW.inquiry_type::text = 'catering' THEN
+    v_service := 'catering'; v_loc := 'external';
+  ELSE
+    v_service := 'restaurant'; v_loc := 'in_house';
+  END IF;
+
+  v_source := CASE
+    WHEN NEW.source IS NULL OR NEW.source = '' THEN 'website'::v2_event_source
+    WHEN NEW.source LIKE 'package_inquiry%' THEN 'website'::v2_event_source
+    WHEN NEW.source IN ('website','website_contact_form','ristorante-website') THEN 'website'::v2_event_source
+    WHEN NEW.source IN ('manual_entry','manual','test') THEN 'manual'::v2_event_source
+    WHEN NEW.source = 'email_inbound' THEN 'email_inbound'::v2_event_source
+    WHEN NEW.source = 'phone' THEN 'phone'::v2_event_source
+    WHEN NEW.source = 'catering_form' THEN 'catering_form'::v2_event_source
+    ELSE 'website'::v2_event_source
+  END;
+
+  new_event_id := COALESCE(NEW.id, gen_random_uuid());
+
+  INSERT INTO v2_events (
+    id, customer_id, status, location, service_type,
+    date, event_end_date, event_time, guest_count, occasion,
+    customer_notes, internal_notes, source, is_test, notification_sent,
+    created_at, updated_at, selected_items, selected_packages, quote_items, menu_selection,
+    venue, location_type, location_name, location_street, location_postal_code, location_city, location_country,
+    company_street, company_postal_code, company_city, company_country,
+    billing_address_different, billing_company_name, billing_street, billing_postal_code, billing_city, billing_country,
+    delivery_street, delivery_zip, delivery_city, priority,
+    payment_method, invoice_due_days,
+    source_inquiry_id
+  ) VALUES (
+    new_event_id, new_customer_id,
+    CASE COALESCE(NEW.status,'new')
+      WHEN 'new' THEN 'inquiry'::v2_event_status
+      WHEN 'contacted' THEN 'offer_draft'::v2_event_status
+      WHEN 'offer_sent' THEN 'offer_sent'::v2_event_status
+      WHEN 'confirmed' THEN 'paid'::v2_event_status
+      WHEN 'declined' THEN 'offer_declined'::v2_event_status
+      WHEN 'cancelled' THEN 'cancelled'::v2_event_status
+      WHEN 'completed' THEN 'completed'::v2_event_status
+      ELSE 'inquiry'::v2_event_status
+    END,
+    v_loc, v_service,
+    NEW.preferred_date, NEW.event_end_date, NEW.time_slot,
+    NULLIF(regexp_replace(COALESCE(NEW.guest_count,''), '[^0-9]', '', 'g'), '')::integer,
+    NEW.event_type, NEW.message, NEW.internal_notes,
+    v_source, COALESCE(NEW.is_test,false), COALESCE(NEW.notification_sent,false),
+    COALESCE(NEW.created_at, now()), now(),
+    COALESCE(NEW.selected_items, '[]'::jsonb),
+    COALESCE(NEW.selected_packages, '[]'::jsonb),
+    COALESCE(NEW.quote_items, '[]'::jsonb),
+    COALESCE(NEW.menu_selection, '{}'::jsonb),
+    NEW.venue, NEW.location_type, NEW.location_name, NEW.location_street,
+    NEW.location_postal_code, NEW.location_city, COALESCE(NEW.location_country,'Deutschland'),
+    NEW.company_street, NEW.company_postal_code, NEW.company_city, COALESCE(NEW.company_country,'Deutschland'),
+    COALESCE(NEW.billing_address_different,false), NEW.billing_company_name, NEW.billing_street,
+    NEW.billing_postal_code, NEW.billing_city, COALESCE(NEW.billing_country,'Deutschland'),
+    NEW.delivery_street, NEW.delivery_zip, NEW.delivery_city,
+    COALESCE(NEW.priority,'normal')::v2_event_priority,
+    COALESCE(NEW.payment_method, 'deposit_online'),
+    NEW.invoice_due_days,
+    new_event_id
+  );
+
+  NEW.id := new_event_id;
+  RETURN NEW;
+END $function$;
+
+REVOKE EXECUTE ON FUNCTION public.event_inquiries_insert_trigger() FROM PUBLIC, anon, authenticated;
 
 -- Trigger-Funktionen nicht direkt aufrufbar (wie 20260501231257 / 20260502080638)
 REVOKE EXECUTE ON FUNCTION public.event_bookings_insert_trigger() FROM PUBLIC, anon, authenticated;

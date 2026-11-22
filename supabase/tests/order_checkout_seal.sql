@@ -110,6 +110,20 @@ BEGIN
   PERFORM pg_temp.expect('staff v2_events direkt',
     pg_temp.try_as('authenticated', u_staff, $s$INSERT INTO v2_events (source, amount_total) VALUES ('manual', 0.5)$s$), 'ok');
 
+  -- 5b) event_inquiries: Kunde/anon darf nur eine Anfrage anlegen (Status fest new, Preis-/Positionsfelder verworfen), Personal behält alles
+  PERFORM pg_temp.expect('anon anfrage mit status confirmed',
+    pg_temp.try_as('anon', NULL, $s$INSERT INTO event_inquiries (email, contact_name, status, quote_items, selected_packages, internal_notes, payment_method)
+      VALUES ('inq@example.invalid', 'Inq', 'confirmed', '[{"price":1}]', '[{"id":"x"}]', 'intern', 'on_site')$s$), 'ok');
+  SELECT status::text AS st, quote_items, selected_packages, internal_notes, payment_method INTO ev
+    FROM v2_events WHERE customer_id = (SELECT id FROM v2_customers WHERE email = 'inq@example.invalid');
+  PERFORM pg_temp.expect('anfrage status new statt paid', ev.st, 'inquiry');
+  PERFORM pg_temp.expect('anfrage ohne preisfelder', (COALESCE(ev.quote_items::text, '[]') = '[]' AND COALESCE(ev.selected_packages::text, '[]') = '[]')::text, 'true');
+  PERFORM pg_temp.expect('anfrage ohne interne notiz und mit Standard-Zahlart', COALESCE(ev.internal_notes, '') || '|' || COALESCE(ev.payment_method, ''), '|deposit_online');
+  PERFORM pg_temp.expect('staff anfrage bleibt unveraendert',
+    pg_temp.try_as('authenticated', u_staff, $s$INSERT INTO event_inquiries (email, contact_name, status, internal_notes) VALUES ('inq2@example.invalid', 'Inq2', 'confirmed', 'notiz')$s$), 'ok');
+  PERFORM pg_temp.expect('staff anfrage status paid erhalten',
+    (SELECT status::text FROM v2_events WHERE customer_id = (SELECT id FROM v2_customers WHERE email = 'inq2@example.invalid')), 'paid');
+
   -- 6) Preis-Trigger (zweite Verteidigungslinie) ist weiterhin aktiv
   SELECT count(*) INTO n FROM pg_trigger WHERE tgname = 'tg_v2_events_order_price_guard' AND NOT tgisinternal;
   PERFORM pg_temp.expect('guard-trigger aktiv', n::text, '1');
