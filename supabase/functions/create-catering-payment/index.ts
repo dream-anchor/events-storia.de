@@ -3,6 +3,8 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
+import { REJECT_MESSAGES_DE, verifyCateringOrder, type ClientLine } from '../_shared/cateringPricing.ts';
+import { loadCatalog, oneWayDistanceKm } from '../_shared/cateringServer.ts';
 import { MIXED_SESSION_MINUTES, giftLineName, mixedPaymentMethodTypes, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
 
 
@@ -67,6 +69,11 @@ serve(async (req) => {
     const isEventBooking = orderNumber.startsWith('EVT-BUCHUNG');
     let order: { id: string; total_amount: number; customer_email: string; payment_status: string | null } | null = null;
     let orderType = 'catering';
+    // Catering: Zeile für die Preisprüfung (Positionen, Lieferung); bei Event-Buchungen null
+    // deno-lint-ignore no-explicit-any
+    let cateringRow: any = null;
+    // Serverseitig verifizierter Betrag in Cent (nur Catering); Stripe berechnet NUR diesen Wert
+    let verifiedCents: number | null = null;
 
     if (isEventBooking) {
       // Query event_bookings table
@@ -96,7 +103,7 @@ serve(async (req) => {
       // Query catering_orders table
       const { data: cateringOrder, error: orderError } = await supabase
         .from('catering_orders')
-        .select('id, order_number, total_amount, customer_email, payment_status')
+        .select('id, order_number, total_amount, customer_email, payment_status, items, is_pickup, delivery_street, delivery_zip, delivery_city, delivery_cost, minimum_order_surcharge')
         .eq('order_number', orderNumber)
         .single();
 
@@ -114,6 +121,7 @@ serve(async (req) => {
         customer_email: cateringOrder.customer_email,
         payment_status: cateringOrder.payment_status,
       };
+      cateringRow = cateringOrder;
       logStep("Found catering order", { orderId: order.id });
     }
 
@@ -150,6 +158,56 @@ serve(async (req) => {
         JSON.stringify({ error: "Order already paid" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
+    }
+
+    // SECURITY (I3): Preise NICHT dem Client glauben. Positionen aus menu_items, Liefergebühr aus Server-Entfernung,
+    // Mindestbestellwert und Summe werden nachgerechnet; Abweichung > 1 Cent => Ablehnung, Stripe wird nie erreicht.
+    if (cateringRow) {
+      const rawItems = Array.isArray(cateringRow.items) ? cateringRow.items : [];
+      const lines: ClientLine[] = rawItems.map((i: { id?: unknown; quantity?: unknown; price?: unknown }) => ({
+        id: String(i?.id ?? ''),
+        quantity: Number(i?.quantity),
+        price: Number(i?.price),
+      }));
+      const catalog = await loadCatalog(supabase, lines.map((l) => l.id));
+      const isPickup = cateringRow.is_pickup === true;
+      const oneWayKm = isPickup
+        ? null
+        : await oneWayDistanceKm(
+            `${cateringRow.delivery_street ?? ''}, ${cateringRow.delivery_zip ?? ''} ${cateringRow.delivery_city ?? ''}`,
+            Deno.env.get("OPENROUTE_API_KEY"),
+          );
+      const verdict = verifyCateringOrder({
+        lines,
+        catalog,
+        isPickup,
+        oneWayKm,
+        clientDeliveryEuro: Number(cateringRow.delivery_cost ?? 0),
+        clientSurchargeEuro: Number(cateringRow.minimum_order_surcharge ?? 0),
+        clientTotalEuro: Number(order.total_amount),
+      });
+      if (!verdict.ok) {
+        logStep("ERROR: Catering price verification failed", { orderNumber, code: verdict.code, detail: verdict.detail });
+        reportEdgeError({
+          source: 'edge:create-catering-payment',
+          severity: verdict.code === 'delivery_unverifiable' ? 'critical' : 'warning',
+          message: `price_verification_failed:${verdict.code} order=${orderNumber} ${JSON.stringify(verdict.detail)}`,
+        });
+        return new Response(
+          JSON.stringify({ error: verdict.code, message: REJECT_MESSAGES_DE[verdict.code] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: verdict.code === 'delivery_unverifiable' ? 503 : 409 }
+        );
+      }
+      // auch der angefragte Betrag muss zum Serverwert passen
+      if (Math.abs(Math.round(Number(amount) * 100) - verdict.expectedTotalCents) > 1) {
+        logStep("ERROR: Request amount differs from server price", { amount, expectedCents: verdict.expectedTotalCents });
+        return new Response(
+          JSON.stringify({ error: 'total_mismatch', message: REJECT_MESSAGES_DE.total_mismatch }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 }
+        );
+      }
+      verifiedCents = verdict.expectedTotalCents;
+      logStep("Catering prices verified", { orderNumber, expectedCents: verdict.expectedTotalCents });
     }
 
     logStep("Order validated successfully", { 
@@ -255,7 +313,7 @@ serve(async (req) => {
               name: productName,
               description: itemDescription,
             },
-            unit_amount: Math.round(amount * 100), // Stripe expects cents
+            unit_amount: verifiedCents ?? Math.round(amount * 100), // Stripe expects cents; Catering: Serverwert (I3)
           },
           quantity: 1,
         },
