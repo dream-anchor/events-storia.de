@@ -595,7 +595,11 @@ serve(async (req) => {
     logStep("Checkout session created", { sessionId: session.id, orderNumber, orderType });
     // Session-ID an der Bestellung merken (Tabelle catering_checkout_sessions), damit spätere Anfragen sie gezielt finden.
     // Fehlertolerant: fehlt die Tabelle noch, bleibt nur der Rückfall über die Listensuche.
-    if (!await recordSession(supabase, orderNumber, session.id)) logStep("WARN: session id not recorded", { orderNumber, sessionId: session.id });
+    if (!await recordSession(supabase, orderNumber, session.id)) {
+      logStep("WARN: session id not recorded", { orderNumber, sessionId: session.id });
+      // nicht nur loggen: eine Session ohne Ledger-Eintrag ist nur über die Listensuche auffindbar (Betreiber informieren)
+      reportEdgeError({ source: 'edge:create-catering-payment', severity: 'critical', message: `session_ledger_write_failed ${orderNumber} ${session.id}` });
+    }
 
     return new Response(JSON.stringify({ url: session.url, sessionId: session.id, orderNumber, ...(createdQuote ? { quote: createdQuote } : {}) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

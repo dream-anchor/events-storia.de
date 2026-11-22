@@ -110,7 +110,10 @@ Deno.test("B1: offene Session OHNE customer_details (echte Stripe-Semantik) wird
   assertEquals(found.complete, true);
   assertEquals(found.sessions.map((x) => x.id).sort(), ["s1", "s2", "s3"]);
   // kein customer_details-Filter mehr; Lookback 25 h
-  assertEquals(calls.list, [{ status: "open", created: { gte: Math.floor(T / 1000) - 25 * 3600 }, limit: 100 }]);
+  assertEquals(calls.list, [
+    { status: "open", created: { gte: Math.floor(T / 1000) - 25 * 3600 }, limit: 100 },
+    { status: "complete", created: { gte: Math.floor(T / 1000) - 25 * 3600 }, limit: 100 },
+  ]);
   assertEquals(reusableSession(found.sessions, 51425, T)?.id, "s1");
   assertEquals(await settleSessions(s, { sessions: found.sessions.filter((x) => x.id !== "s1"), complete: true }), "expired");
   assertEquals(calls.expired.sort(), ["s2", "s3"]);
@@ -149,17 +152,39 @@ Deno.test("B1: leere Trefferliste zählt NIE als sicher abgelaufen, wenn die Suc
   assertEquals(await settleSessions(none.s, f5), "expired");
 });
 
+Deno.test("W-A: bezahlte Session (complete, auch SEPA complete/unpaid) ohne Ledger-Eintrag wird per Rückfall-Liste gefunden => paid, keine Freigabe", async () => {
+  const { s, calls } = realisticStripe([
+    sess("paid1", "CAT-1", { status: "complete", url: null }), sess("fremd", "CAT-2", { status: "complete", url: null }),
+  ]);
+  const found = await findOpenSessions(s, "CAT-1", [], T); // Ledger lesbar, aber leer (recordSession war gescheitert)
+  assertEquals(found.sessions.map((x) => x.id), ["paid1"]);
+  assertEquals(found.complete, true);
+  assertEquals(await settleSessions(s, found), "paid");
+  assertEquals(calls.expired, []);
+  assertEquals(calls.list.map((c) => c.status), ["open", "complete"]);
+});
+
+Deno.test("W-A: complete-Liste wird ebenso vollständig geblättert; nicht ausgeschöpftes Seitenlimit der complete-Liste => unvollständig", async () => {
+  const paid = [...Array.from({ length: 3 }, (_, i) => sess(`c${i}`, "CAT-9", { status: "complete", url: null })), sess("mine", "CAT-1", { status: "complete", url: null })];
+  const f = await findOpenSessions(realisticStripe(paid, { pageSize: 2 }).s, "CAT-1", [], T);
+  assertEquals(f.sessions.map((x) => x.id), ["mine"]);
+  assertEquals(f.complete, true);
+  const many = Array.from({ length: 12 }, (_, i) => sess(`y${i}`, "CAT-9", { status: "complete", url: null }));
+  const f2 = await findOpenSessions(realisticStripe(many, { pageSize: 1 }).s, "CAT-1", [], T);
+  assertEquals(f2.complete, false);
+});
+
 Deno.test("B1: Blättern über mehrere Seiten findet die Session der Bestellung auch hinter Fremd-Sessions", async () => {
   const many = [...Array.from({ length: 5 }, (_, i) => sess(`x${i}`, "CAT-9")), sess("mine", "CAT-1")];
   const { s, calls } = realisticStripe(many, { pageSize: 2 });
   const f = await findOpenSessions(s, "CAT-1", [], T);
   assertEquals(f.sessions.map((x) => x.id), ["mine"]);
   assertEquals(f.complete, true);
-  assertEquals(calls.list.length, 3);
+  assertEquals(calls.list.length, 4); // 3 Seiten open + 1 Seite complete
 });
 
 Deno.test("B1: abgelaufene Ledger-Session zählt nicht als offen; Fake-Semantik: expire auf complete wirft, retrieve entscheidet", async () => {
-  const { s } = realisticStripe([sess("old", "CAT-1", { status: "expired", url: null }), sess("paid", "CAT-1", { status: "complete", url: null })]);
+  const { s } = realisticStripe([sess("old", "CAT-1", { status: "expired", url: null }), sess("paid", "CAT-2", { status: "complete", url: null })]);
   let threw = false;
   try { await s.checkout.sessions.expire("paid"); } catch { threw = true; }
   assert(threw);

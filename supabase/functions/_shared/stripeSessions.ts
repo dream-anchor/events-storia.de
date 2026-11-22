@@ -93,8 +93,8 @@ export interface FoundSessions {
  * offenen Sessions leer ist:
  *  1. Ledger (Tabelle catering_checkout_sessions): jede bekannte ID wird per retrieve geprüft (findet auch bezahlte, deren Webhook
  *     noch aussteht).
- *  2. Rückfall für Altbestand/fehlende Einträge: list(status=open, created >= jetzt-25h) komplett durchblättern, lokal nach
- *     metadata.order_number filtern.
+ *  2. Rückfall für Altbestand/fehlende Einträge: list(status=open) und list(status=complete), je created >= jetzt-25h, komplett
+ *     durchblättern, lokal nach metadata.order_number filtern (bezahlte Sessions außerhalb des Ledgers => 'paid', nie Freigabe).
  * Eine leere Trefferliste ist nur dann "nichts offen", wenn complete=true; Fehler, nicht ausgeschöpftes has_more oder ein
  * nicht lesbares Ledger setzen complete=false.
  */
@@ -109,22 +109,26 @@ export async function findOpenSessions(stripe: StripeLike, orderNumber: string, 
       complete = false;
     }
   }
-  try {
-    let after: string | undefined;
-    let exhausted = false;
-    for (let page = 0; page < MAX_PAGES && !exhausted; page++) {
-      const r = await stripe.checkout.sessions.list({
-        status: "open", created: { gte: Math.floor(now / 1000) - SESSION_LOOKBACK_S }, limit: 100,
-        ...(after ? { starting_after: after } : {}),
-      });
-      const data = r.data ?? [];
-      for (const s of data) if (s?.metadata?.order_number === orderNumber && s.status !== "expired" && !byId.has(s.id)) byId.set(s.id, s);
-      if (!r.has_more || data.length === 0) exhausted = true;
-      else after = data[data.length - 1].id;
+  // Rückfall: offene UND bezahlte (complete, auch SEPA complete/unpaid) Sessions, je Status vollständig geblättert (gleiches Seitenlimit).
+  // Eine bezahlte Session, die nicht im Ledger steht (recordSession gescheitert, Altbestand), darf nie unsichtbar bleiben.
+  for (const status of ["open", "complete"] as const) {
+    try {
+      let after: string | undefined;
+      let exhausted = false;
+      for (let page = 0; page < MAX_PAGES && !exhausted; page++) {
+        const r = await stripe.checkout.sessions.list({
+          status, created: { gte: Math.floor(now / 1000) - SESSION_LOOKBACK_S }, limit: 100,
+          ...(after ? { starting_after: after } : {}),
+        });
+        const data = r.data ?? [];
+        for (const s of data) if (s?.metadata?.order_number === orderNumber && s.status !== "expired" && !byId.has(s.id)) byId.set(s.id, s);
+        if (!r.has_more || data.length === 0) exhausted = true;
+        else after = data[data.length - 1].id;
+      }
+      if (!exhausted) complete = false;
+    } catch {
+      complete = false;
     }
-    if (!exhausted) complete = false;
-  } catch {
-    complete = false;
   }
   return { sessions: [...byId.values()], complete };
 }
