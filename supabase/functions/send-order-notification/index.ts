@@ -1,3 +1,4 @@
+import { deliveryDistanceLabel } from '../_shared/cateringPricing.ts';
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
@@ -177,7 +178,7 @@ const generateCustomerHtml = (data: OrderNotificationRequest): string => {
       <td style="padding:6px 0;font-size:13px;color:#666;text-align:right;white-space:nowrap;">kostenlos</td>
     </tr>`;
     } else if (data.deliveryCost !== undefined) {
-      const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1).replace('.', ',')} km)` : '';
+      const distanceText = data.distanceKm ? ` (${deliveryDistanceLabel(data.distanceKm, data.deliveryCost, 'de')})` : '';
       summaryRows += `
     <tr>
       <td style="padding:6px 0;font-size:13px;color:#666;">Lieferung${escapeHtml(distanceText)}</td>
@@ -357,7 +358,7 @@ const generateCustomerEmailText = (data: OrderNotificationRequest): string => {
     if (data.isPickup) {
       priceBreakdown += `Selbstabholung: kostenlos\n`;
     } else if (data.deliveryCost !== undefined) {
-      const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
+      const distanceText = data.distanceKm ? ` (${deliveryDistanceLabel(data.distanceKm, data.deliveryCost, 'de')})` : '';
       priceBreakdown += `Lieferung${distanceText}: ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
     }
   }
@@ -462,7 +463,7 @@ const generateRestaurantEmailText = (data: OrderNotificationRequest): string => 
     if (data.isPickup) {
       priceBreakdown += `Selbstabholung: kostenlos\n`;
     } else if (data.deliveryCost !== undefined) {
-      const distanceText = data.distanceKm ? ` (${data.distanceKm.toFixed(1)} km)` : '';
+      const distanceText = data.distanceKm ? ` (${deliveryDistanceLabel(data.distanceKm, data.deliveryCost, 'de')})` : '';
       priceBreakdown += `Lieferkosten${distanceText}: ${data.deliveryCost === 0 ? 'kostenlos' : formatPrice(data.deliveryCost)}\n`;
     }
   }

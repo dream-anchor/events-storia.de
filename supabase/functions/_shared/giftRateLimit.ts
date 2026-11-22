@@ -33,6 +33,14 @@ export function rateLimited(key: string, max: number, windowMs: number): boolean
   const arr = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
   arr.push(now);
   hits.set(key, arr);
-  if (hits.size > 5000) hits.clear();
+  // Map nie komplett leeren (das würde jede Begrenzung zurücksetzen): bei Überlauf nur die ältesten Schlüssel entfernen
+  // (Map behält die Einfüge-Reihenfolge; ein aktualisierter Schlüssel wird ans Ende gesetzt).
+  hits.delete(key);
+  hits.set(key, arr);
+  while (hits.size > 5000) {
+    const oldest = hits.keys().next().value;
+    if (oldest === undefined) break;
+    hits.delete(oldest);
+  }
   return arr.length > max;
 }

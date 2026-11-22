@@ -9,6 +9,7 @@ import { isGiftSessionMetadata } from '../_shared/giftWebhook.ts';
 import { sendGiftMails } from '../_shared/giftMail.ts';
 import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
 import { asyncHoldExtensionUntil, computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
+import { markEventBookingPaid } from '../_shared/eventPayment.ts';
 import {
   buildOrderPayload,
   enqueueMaestroHandoff,
@@ -1270,6 +1271,14 @@ async function handleEventBookingPayment(
 
   if (updateError) {
     logStep("ERROR: Failed to update event booking", { error: updateError.message });
+    return;
+  }
+
+  // Seit der Abdichtung (22.11.2026) legt der Server EVT-Buchungen "offen" an; erst die bestätigte Zahlung setzt 'paid'
+  // und trägt v2_payments ein (_shared/eventPayment.ts, getestet).
+  const marked = await markEventBookingPaid(supabase, booking, session);
+  if (!marked.ok) {
+    logStep("ERROR: Failed to record event booking payment", { step: marked.step, error: marked.message });
     return;
   }
 

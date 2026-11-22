@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { cachedOneWayDistanceKm } from '../_shared/cateringServer.ts';
+import { clientIp, rateLimited } from '../_shared/giftRateLimit.ts';
+import { deliveryFeeGrossCents, deliveryFeeNetCents, minimumOrderCents, roundKm, tripCount } from '../_shared/cateringPricing.ts';
 
 
 
@@ -10,7 +14,12 @@ const RESTAURANT_COORDS = {
 };
 
 interface DeliveryCalculation {
+  /** einfache Strecke in km (Alias von oneWayDistanceKm) */
   distanceKm: number;
+  /** Fahrtenzahl: 0 (bis 1 km), 1 (Pizza-only), 2 (Hin- und Rückfahrt) */
+  trips: 0 | 1 | 2;
+  /** Strecke × Fahrten, nur zur Anzeige ("24 km gesamt") */
+  totalDistanceKm: number;
   deliveryCostNet: number;
   deliveryCostGross: number;
   deliveryVat: number;
@@ -49,148 +58,66 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Geocode the delivery address
-    console.log('Geocoding address:', address);
-    console.log('isPizzaOnly:', isPizzaOnly);
-    const geocodeUrl = `https://api.openrouteservice.org/geocode/search?api_key=${OPENROUTE_API_KEY}&text=${encodeURIComponent(address)}&boundary.country=DE`;
-    
-    const geocodeResponse = await fetch(geocodeUrl);
-    if (!geocodeResponse.ok) {
-      console.error('Geocode error:', await geocodeResponse.text());
-      return new Response(
-        JSON.stringify({ error: 'Could not find address' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Entfernung (Cache -> OpenRouteService, Tagesbudget): gemeinsam mit quote-catering-order, siehe _shared/cateringServer.ts
+    if (rateLimited(`calc-delivery:${clientIp(req)}`, 18, 60_000)) {
+      return new Response(JSON.stringify({ error: 'Too many requests' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-
-    const geocodeData = await geocodeResponse.json();
-    console.log('Geocode result:', JSON.stringify(geocodeData.features?.[0]));
-    
-    if (!geocodeData.features || geocodeData.features.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'Address not found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const [destLng, destLat] = geocodeData.features[0].geometry.coordinates;
-    console.log('Destination coords:', destLat, destLng);
-
-    // Step 2: Calculate driving distance using Directions API
-    const directionsUrl = 'https://api.openrouteservice.org/v2/directions/driving-car';
-    const directionsResponse = await fetch(directionsUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': OPENROUTE_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        coordinates: [
-          [RESTAURANT_COORDS.lng, RESTAURANT_COORDS.lat],
-          [destLng, destLat]
-        ]
-      })
-    });
-
-    if (!directionsResponse.ok) {
-      console.error('Directions error:', await directionsResponse.text());
-      return new Response(
-        JSON.stringify({ error: 'Could not calculate route' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const directionsData = await directionsResponse.json();
-    const distanceMeters = directionsData.routes?.[0]?.summary?.distance;
-    
-    if (!distanceMeters) {
+    const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    const km = await cachedOneWayDistanceKm(supabase, address, OPENROUTE_API_KEY);
+    if (km === null) {
       return new Response(
         JSON.stringify({ error: 'Could not calculate distance' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const distanceMeters = km * 1000;
 
-    const oneWayDistanceKm = distanceMeters / 1000;
+    // Entfernung = EINFACHE Strecke, auf 0,01 km gerundet. Gebühr, Mindestbestellwert und Fahrtenzahl kommen aus
+    // _shared/cateringPricing.ts (dieselbe Rechnung wie quote-catering-order/create-catering-payment).
+    const oneWayDistanceKm = roundKm(distanceMeters / 1000);
     console.log('One-way distance:', oneWayDistanceKm, 'km');
 
-    // Step 3: Calculate delivery cost based on distance
-    let result: DeliveryCalculation;
-
-    // VAT rate for delivery is 19%
+    const pizzaOnly = isPizzaOnly === true;
+    const trips = tripCount(oneWayDistanceKm, pizzaOnly);
+    const netCents = deliveryFeeNetCents(oneWayDistanceKm, pizzaOnly);
+    const grossCents = deliveryFeeGrossCents(oneWayDistanceKm, pizzaOnly);
     const VAT_RATE = 0.19;
-    const NET_COST_PER_KM = 1.20;
-    
-    if (oneWayDistanceKm <= 1) {
-      // Free delivery within 1km, minimum order €50
-      result = {
-        distanceKm: Math.round(oneWayDistanceKm * 10) / 10,
-        deliveryCostNet: 0,
-        deliveryCostGross: 0,
-        deliveryVat: 0,
-        deliveryVatRate: VAT_RATE,
-        isFreeDelivery: true,
-        minimumOrder: 50,
-        message: 'Kostenlose Lieferung',
-        messageEn: 'Free delivery',
-        isRoundTrip: false,
-        oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
-      };
+    const kmRounded = Math.round(oneWayDistanceKm);
+
+    let message: string;
+    let messageEn: string;
+    if (trips === 0) {
+      message = 'Kostenlose Lieferung';
+      messageEn = 'Free delivery';
     } else if (oneWayDistanceKm <= 8) {
-      // €50 NET per trip for 1-8km in Munich area
-      // Round trip (2×50 = €100) for equipment pickup, single trip (€50) for pizza-only
-      const tripMultiplier = isPizzaOnly ? 1 : 2;
-      const netCostPerTrip = 50;
-      const netCost = netCostPerTrip * tripMultiplier;
-      const grossCost = Math.round(netCost * (1 + VAT_RATE) * 100) / 100;
-      const vatAmount = Math.round((grossCost - netCost) * 100) / 100;
-
-      result = {
-        distanceKm: Math.round(oneWayDistanceKm * 10) / 10,
-        deliveryCostNet: netCost,
-        deliveryCostGross: grossCost,
-        deliveryVat: vatAmount,
-        deliveryVatRate: VAT_RATE,
-        isFreeDelivery: false,
-        minimumOrder: 150,
-        message: isPizzaOnly
-          ? 'Lieferung im Münchner Raum (nur Hinfahrt)'
-          : 'Lieferung im Münchner Raum (Hin- und Rückfahrt)',
-        messageEn: isPizzaOnly
-          ? 'Delivery in Munich area (one-way)'
-          : 'Delivery in Munich area (round trip)',
-        isRoundTrip: !isPizzaOnly,
-        oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
-      };
+      message = pizzaOnly ? 'Lieferung im Münchner Raum (nur Hinfahrt)' : 'Lieferung im Münchner Raum (Hin- und Rückfahrt)';
+      messageEn = pizzaOnly ? 'Delivery in Munich area (one-way)' : 'Delivery in Munich area (round trip)';
     } else {
-      // Beyond 8km: €50 Anfahrtspauschale pro Fahrt + €1.20 per km NET (+ 19% VAT)
-      // Pizza: single trip (one-way, ×1), Equipment: round trip (×2)
-      const tripMultiplier = isPizzaOnly ? 1 : 2;
-      const BASE_FEE_PER_TRIP = 50;
-      const totalDistanceKm = oneWayDistanceKm * tripMultiplier;
-      const netCost = Math.round(
-        (BASE_FEE_PER_TRIP * tripMultiplier + totalDistanceKm * NET_COST_PER_KM) * 100
-      ) / 100;
-      const grossCost = Math.round(netCost * (1 + VAT_RATE) * 100) / 100;
-      const vatAmount = Math.round((grossCost - netCost) * 100) / 100;
-
-      result = {
-        distanceKm: Math.round(totalDistanceKm * 10) / 10,
-        deliveryCostNet: netCost,
-        deliveryCostGross: grossCost,
-        deliveryVat: vatAmount,
-        deliveryVatRate: VAT_RATE,
-        isFreeDelivery: false,
-        minimumOrder: 200,
-        message: isPizzaOnly
-          ? `Lieferung (${Math.round(oneWayDistanceKm)} km, inkl. Anfahrtspauschale)`
-          : `Lieferung (${Math.round(oneWayDistanceKm)} km × 2 Fahrten, inkl. Anfahrtspauschale)`,
-        messageEn: isPizzaOnly
-          ? `Delivery (${Math.round(oneWayDistanceKm)} km, incl. base fee)`
-          : `Delivery (${Math.round(oneWayDistanceKm)} km × 2 trips, incl. base fee)`,
-        isRoundTrip: !isPizzaOnly,
-        oneWayDistanceKm: Math.round(oneWayDistanceKm * 10) / 10
-      };
+      message = pizzaOnly
+        ? `Lieferung (${kmRounded} km, inkl. Anfahrtspauschale)`
+        : `Lieferung (${kmRounded} km × 2 Fahrten, inkl. Anfahrtspauschale)`;
+      messageEn = pizzaOnly
+        ? `Delivery (${kmRounded} km, incl. base fee)`
+        : `Delivery (${kmRounded} km × 2 trips, incl. base fee)`;
     }
+
+    const result: DeliveryCalculation = {
+      // BREAKING (22.11.2026): distanceKm ist jetzt die einfache Strecke (früher bei > 8 km Strecke × Fahrten).
+      // Gespeichert wird calculated_distance_km = einfache Strecke; die Fahrtenzahl steht getrennt in `trips`.
+      distanceKm: oneWayDistanceKm,
+      oneWayDistanceKm,
+      trips,
+      totalDistanceKm: roundKm(oneWayDistanceKm * trips),
+      deliveryCostNet: netCents / 100,
+      deliveryCostGross: grossCents / 100,
+      deliveryVat: (grossCents - netCents) / 100,
+      deliveryVatRate: VAT_RATE,
+      isFreeDelivery: trips === 0,
+      minimumOrder: minimumOrderCents(oneWayDistanceKm) / 100,
+      message,
+      messageEn,
+      isRoundTrip: trips === 2,
+    };
 
     console.log('Delivery calculation:', result);
 
