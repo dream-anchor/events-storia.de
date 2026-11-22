@@ -8,7 +8,8 @@ import TrustBadges from "./TrustBadges";
 import { cn } from "@/lib/utils";
 import { isGiftItem } from "@/lib/gift/cartRules";
 import { GIFT_COPY } from "@/lib/gift/copy";
-import { formatEuroTruncated, formatMixedTotal } from "@/lib/gift/mixedCart";
+import { formatEuroTruncated } from "@/lib/gift/mixedCart";
+import { VatTotals } from "./VatTotals";
 
 interface StickySummaryProps {
   deliveryCost?: number;
@@ -19,6 +20,9 @@ interface StickySummaryProps {
   /** Mischbestellung: Korb-Anteil (brutto, Anzeige); 0 = reine Catering-Bestellung */
   giftSubtotal?: number;
   foodVat7?: number;
+  /** 19-%-Steuer auf den Getränke-Anteil der Event-Pakete */
+  drinksVat19?: number;
+  /** 19-%-Steuer auf die Lieferung */
   deliveryVat19?: number;
   isDelivery?: boolean;
   isSubmitting?: boolean;
@@ -38,6 +42,7 @@ const StickySummary = ({
   grandTotal,
   giftSubtotal = 0,
   foodVat7 = 0,
+  drinksVat19 = 0,
   deliveryVat19 = 0,
   isDelivery = true,
   distanceKm,
@@ -227,31 +232,17 @@ const StickySummary = ({
             </div>
           )}
 
-          {/* VAT breakdown */}
-          <div className="text-xs text-muted-foreground pt-2 border-t border-border/50 space-y-1">
-            {foodVat7 > 0 && (
-              <div className="flex justify-between">
-                <span>{language === 'de' ? 'inkl. 7% MwSt. (Speisen)' : 'incl. 7% VAT (food)'}</span>
-                <span>{formatPrice(foodVat7)}</span>
-              </div>
-            )}
-            {deliveryVat19 > 0 && (
-              <div className="flex justify-between">
-                <span>{language === 'de' ? 'inkl. 19% MwSt. (Lieferung)' : 'incl. 19% VAT (delivery)'}</span>
-                <span>{formatPrice(deliveryVat19)}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Grand Total */}
-          <div className="flex justify-between items-center pt-3 border-t border-border">
-            <span className="font-serif text-lg font-semibold">
-              {language === 'de' ? 'Gesamt' : 'Total'}{hasGifts ? (language === 'de' ? ' inkl. MwSt.' : ' incl. VAT') : ''}
-            </span>
-            <span className="font-serif text-xl font-bold text-amber-950 dark:text-amber-50">
-              {hasGifts ? formatMixedTotal(grandTotal, giftSubtotal) : formatPrice(grandTotal)}
-            </span>
-          </div>
+          {/* MwSt.-Zeilen und Endbetrag (Netto-Modus: zzgl. MwSt., Endbetrag = Brutto-Zahlbetrag) */}
+          <VatTotals
+            variant="sticky"
+            language={language === 'de' ? 'de' : 'en'}
+            showGross={showGross}
+            grandTotal={grandTotal}
+            giftSubtotal={giftSubtotal}
+            vat7Food={foodVat7}
+            vat19Drinks={drinksVat19}
+            vat19Delivery={deliveryVat19}
+          />
         </div>
 
         {/* CTA Button slot */}
