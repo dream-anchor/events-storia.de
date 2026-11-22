@@ -43,6 +43,13 @@
       "when": 1795363426355,
       "tag": "0005_catering_checkout_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795364590434,
+      "tag": "0006_order_price_guard",
+      "breakpoints": true
     }
   ]
 }

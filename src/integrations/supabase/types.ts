@@ -8085,6 +8085,30 @@ export type Database = {
         Returns: boolean
       }
       is_current_tenant: { Args: { _tenant_id: string }; Returns: boolean }
+      order_guard_catering: {
+        Args: {
+          p_delivery_cents: number
+          p_is_pickup: boolean
+          p_items: Json
+          p_km: number
+          p_surcharge_cents: number
+          p_total: number
+        }
+        Returns: undefined
+      }
+      order_guard_delivery_fee_cents: {
+        Args: { p_km: number; p_pizza_only: boolean }
+        Returns: number
+      }
+      order_guard_event_booking: {
+        Args: { p_guests: number; p_package_id: string; p_total: number }
+        Returns: undefined
+      }
+      order_guard_min_order_cents: { Args: { p_km: number }; Returns: number }
+      order_guard_reject: {
+        Args: { p_code: string; p_message: string }
+        Returns: undefined
+      }
       ors_take_budget: {
         Args: { p_calls: number; p_limit: number }
         Returns: boolean
