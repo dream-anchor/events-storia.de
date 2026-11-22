@@ -56,8 +56,11 @@ export interface OrderQuote {
   checkoutChafingCents: number;
   surchargeCents: number;
   deliveryCents: number;
+  /** Catering-Summe (Positionen + Aufschlag + Lieferung), OHNE Geschenkkörbe */
   totalCents: number;
   delivery: QuoteDelivery | null;
+  /** Korbwert (Cent), der zum Mindestbestellwert zählte (Mischbestellung); fehlt bei älteren Server-Versionen = 0 */
+  giftCents?: number;
 }
 
 /** Form, in der der Checkout seine Lieferanzeige bisher aus `calculate-delivery` bekam (JSX bleibt unverändert). */
@@ -222,10 +225,14 @@ export function quoteRequestKey(p: {
   chafingQuantity: number;
   deliveryType: string;
   address: { street: string; zip: string; city: string };
+  /** Körbe zählen zum Mindestbestellwert: ändern sie sich, ändert sich der Aufschlag */
+  giftItems?: { variant_id: string; qty: number }[];
 }): string {
   const items = [...p.items].map((i) => `${i.id}:${i.quantity}`).sort();
+  const gifts = [...(p.giftItems ?? [])].map((g) => `${g.variant_id}:${g.qty}`).sort();
   const addr = p.deliveryType === 'delivery' ? [p.address.street, p.address.zip, p.address.city].map((s) => s.trim().toLowerCase()) : [];
-  return JSON.stringify([items, p.chafingQuantity, p.deliveryType, addr]);
+  // ohne Körbe bleibt der Schlüssel wie bisher (kein zusätzliches Element)
+  return JSON.stringify(gifts.length > 0 ? [items, p.chafingQuantity, p.deliveryType, addr, gifts] : [items, p.chafingQuantity, p.deliveryType, addr]);
 }
 
 /** Liefergebühr brutto in Cent (Tarif wie supabase/functions/_shared/cateringPricing.ts; hier dupliziert, weil diese Datei importfrei bleibt). */

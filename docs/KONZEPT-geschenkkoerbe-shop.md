@@ -224,8 +224,9 @@ Auftrag Antoine 21.11.2026: „nichts neues erfinden“ – Körbe werden ein no
 
 ### 11.1 Entscheidungen Antoine (21.11.2026, verbindlich)
 18. **Eigene Kategorie „Geschenkkörbe“** im Shop-Menü (Navigation, Startseiten-Raster), neben den Catering-Kategorien.
-19. **Gemischter Warenkorb = „getrennt behandeln“:** Mindestbestellwert/Aufschlag und 24-h-Vorlauf gelten nur für den
-    Catering-Anteil; Körbe ohne Aufschlag. **Ein** Liefertermin (Catering-Termin). **Liefergebühr = nur die normale
+19. **Gemischter Warenkorb = „getrennt behandeln“:** 24-h-Vorlauf gilt nur für den Catering-Anteil; Körbe ohne Aufschlag.
+    **Geändert 22.11.2026 (Antoine): Körbe zählen zum Mindestbestellwert mit** (Beispiel: Pizza 15,90 € + Korb 249 € bei > 8 km
+    => Aufschlag 0 € statt 184,10 €); Staffel 50/150/200 € unverändert, der Korbwert kommt vom Server und steht nicht in der Catering-Summe. **Ein** Liefertermin (Catering-Termin). **Liefergebühr = nur die normale
     Catering-Liefergebühr** (`calculate-delivery`), Körbe fahren ohne Aufpreis mit.
 20. **Reine Korb-Bestellung** = unverändert wie Korb-Shop: Abholung sofort bei Vorrat, Lieferung ab Folgetag, Taxitarif
     exakt auf den Cent, „Bei Abholung vor Ort zahlen“ (Double-Opt-in) **nur** hier. Catering bleibt Vorkasse (Stripe/Billie).

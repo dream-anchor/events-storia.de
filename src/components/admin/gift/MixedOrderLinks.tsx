@@ -17,6 +17,10 @@ export interface LinkedGiftOrder {
 
 const INACTIVE = ["cancelled", "expired", "refunded"];
 
+/** Wert der verknüpften, nicht stornierten Korb-Bestellungen in Cent. Zählt zum Mindestbestellwert der Catering-Bestellung (Entscheidung 22.11.2026). */
+export const activeGiftCents = (orders: LinkedGiftOrder[] | undefined): number =>
+  (orders ?? []).filter((o) => !INACTIVE.includes(o.status)).reduce((sum, o) => sum + (o.total_cents ?? 0), 0);
+
 /** Deep-Link in die Korb-Verwaltung: öffnet die Bestellung direkt. */
 const giftOrderHref = (orderNumber: string) => `/admin/geschenkkoerbe?order=${encodeURIComponent(orderNumber)}`;
 

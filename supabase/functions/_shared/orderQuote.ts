@@ -38,6 +38,12 @@ export interface QuoteRequest {
   /** im Checkout zugewählte Chafing-Dish-Leihgeräte (zählen nicht für den Mindestbestellwert) */
   chafingQuantity: number;
   isPickup: boolean;
+  /**
+   * Wert der Geschenkkörbe einer Mischbestellung in Cent, SERVERSEITIG ermittelt (cateringServer.ts: gift_basket_variants bzw.
+   * gift_order_items), nie aus dem Browser. Zählt zum Mindestbestellwert (Entscheidung Antoine 22.11.2026), ist aber NICHT Teil von
+   * itemsCents/totalCents (Körbe werden separat über create-gift-order berechnet und bezahlt). Fehlt = 0.
+   */
+  giftCents?: number;
 }
 
 export interface QuotePackage extends EventPackageRow {
@@ -109,8 +115,11 @@ export interface OrderQuote {
   checkoutChafingCents: number;
   surchargeCents: number;
   deliveryCents: number;
+  /** Summe Catering (Positionen + Aufschlag + Lieferung); OHNE Geschenkkörbe */
   totalCents: number;
   delivery: QuoteDelivery | null;
+  /** Korbwert, der zum Mindestbestellwert zählte (0 ohne Körbe); nur Information, nicht in totalCents enthalten */
+  giftCents: number;
 }
 
 export type QuoteReject = "invalid_items" | "mixed_cart" | "delivery_unverifiable" | "address_missing";
@@ -194,6 +203,7 @@ function buildEventQuote(req: QuoteRequest, ctx: QuoteContext): QuoteOutcome {
       deliveryCents: 0,
       totalCents: total,
       delivery: null,
+      giftCents: 0,
     },
   };
 }
@@ -201,7 +211,7 @@ function buildEventQuote(req: QuoteRequest, ctx: QuoteContext): QuoteOutcome {
 function buildCateringQuote(req: QuoteRequest, ctx: QuoteContext): QuoteOutcome {
   const lines: QuoteLine[] = [];
   const issues: QuoteIssue[] = [];
-  let cartCents = 0; // Warenkorb inkl. Warenkorb-Chafing, OHNE Checkout-Chafing: Basis des Mindestbestellwerts (wie Checkout surchargeBase)
+  let cartCents = 0; // Warenkorb inkl. Warenkorb-Chafing, OHNE Checkout-Chafing: Catering-Basis des Mindestbestellwerts (dazu kommt der Korbwert giftCents)
   let allPizza = true;
 
   for (const i of req.items) {
@@ -244,6 +254,8 @@ function buildCateringQuote(req: QuoteRequest, ctx: QuoteContext): QuoteOutcome 
   const itemsCents = cartCents + checkoutChafingCents;
   const isPizzaOnly = req.items.length > 0 && allPizza;
 
+  // Mischbestellung: Körbe zählen zum Mindestbestellwert (Entscheidung 22.11.2026); Wert kommt vom Server
+  const giftCents = Number.isFinite(req.giftCents) ? Math.max(0, Math.trunc(req.giftCents as number)) : 0;
   let surchargeCents = 0;
   let deliveryCents = 0;
   let delivery: QuoteDelivery | null = null;
@@ -254,7 +266,7 @@ function buildCateringQuote(req: QuoteRequest, ctx: QuoteContext): QuoteOutcome 
     const net = deliveryFeeNetCents(km, isPizzaOnly);
     deliveryCents = deliveryFeeGrossCents(km, isPizzaOnly);
     const minimum = minimumOrderCents(km);
-    surchargeCents = Math.max(0, minimum - cartCents);
+    surchargeCents = Math.max(0, minimum - cartCents - giftCents);
     delivery = {
       oneWayDistanceKm: km,
       trips,
@@ -282,6 +294,7 @@ function buildCateringQuote(req: QuoteRequest, ctx: QuoteContext): QuoteOutcome 
       deliveryCents,
       totalCents: itemsCents + surchargeCents + deliveryCents,
       delivery,
+      giftCents,
     },
   };
 }

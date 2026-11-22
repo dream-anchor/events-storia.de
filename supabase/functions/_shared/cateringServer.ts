@@ -3,6 +3,7 @@
 import type { Catalog } from "./cateringPricing.ts";
 import { EVENT_ID_PREFIX, buildOrderQuote, type QuoteOutcome, type QuotePackage, type QuoteRequestItem } from "./orderQuote.ts";
 import { CHAFING_DISH_ID } from "./cateringPricing.ts";
+import { giftLinesCents } from "./giftMixed.ts";
 
 /** Mandant dieser Website (events-storia.de). Katalog und Pakete werden darauf begrenzt (tenant_id NULL zählt als Default). */
 export const CATALOG_TENANT_ID = "00000000-0000-0000-0000-000000000001"; // = DEFAULT_TENANT_ID in tenant.ts
@@ -53,6 +54,44 @@ export async function loadCatalog(supabase: Supa, ids: string[]): Promise<Catalo
     };
   }
   return catalog;
+}
+
+/**
+ * Korbwert für den Mindestbestellwert aus Variante + Menge (Quote VOR dem Anlegen der Korb-Bestellung). Preise = Server
+ * (gift_basket_variants + gift_baskets, wie create-gift-order: Einzelpreis = Korbpreis + Varianten-Aufpreis). Nicht verkäufliche
+ * Varianten zählen 0 (create-gift-order lehnt sie ohnehin ab). Wirft nur bei Datenbankfehlern.
+ */
+export async function loadGiftVariantCents(supabase: Supa, items: { variant_id: string; qty: number }[]): Promise<number> {
+  if (items.length === 0) return 0;
+  const { data, error } = await supabase
+    .from("gift_basket_variants")
+    .select("id, active, deleted_at, price_delta_cents, gift_baskets!inner(price_cents, active, deleted_at)")
+    .in("id", items.map((i) => i.variant_id));
+  if (error) throw new Error(`gift_catalog_load_failed: ${error.message}`);
+  // deno-lint-ignore no-explicit-any
+  const byId = new Map<string, any>((data ?? []).map((v: any) => [String(v.id).toLowerCase(), v]));
+  const lines: { unit_price_cents: number; qty: number }[] = [];
+  for (const it of items) {
+    const v = byId.get(it.variant_id);
+    const b = v?.gift_baskets;
+    if (!v || !v.active || v.deleted_at || !b || !b.active || b.deleted_at) continue;
+    lines.push({ unit_price_cents: Number(b.price_cents) + Number(v.price_delta_cents), qty: it.qty });
+  }
+  return giftLinesCents(lines);
+}
+
+/**
+ * Korbwert einer bereits angelegten Korb-Bestellung (create-catering-payment): Summe gift_order_items (Server-Preise zum Zeitpunkt
+ * der Bestellung). Unbekannte Nummer = 0; ob die Bestellung zu dieser Catering-Bestellung gehört, prüft attachGift danach.
+ */
+export async function loadGiftOrderCents(supabase: Supa, giftOrderNumber: unknown): Promise<number> {
+  if (typeof giftOrderNumber !== "string" || giftOrderNumber === "") return 0;
+  const { data: g, error } = await supabase.from("gift_orders").select("id").eq("order_number", giftOrderNumber).maybeSingle();
+  if (error) throw new Error(`gift_order_load_failed: ${error.message}`);
+  if (!g) return 0;
+  const { data: items, error: iErr } = await supabase.from("gift_order_items").select("unit_price_cents, qty").eq("order_id", g.id);
+  if (iErr) throw new Error(`gift_order_load_failed: ${iErr.message}`);
+  return giftLinesCents((items ?? []).map((r: { unit_price_cents: number; qty: number }) => ({ unit_price_cents: Number(r.unit_price_cents), qty: Number(r.qty) })));
 }
 
 /** Eventpakete (nur dieser Mandant) zu den gegebenen IDs. Inaktive Pakete werden mitgeliefert (is_active=false), die Quote lehnt sie ab. */
@@ -211,6 +250,8 @@ export interface ServerQuoteInput {
   address?: { street?: string; zip?: string; city?: string } | null;
   /** Client-Kennung (IP) für die Fehltreffer-Begrenzung der Entfernungsabfrage */
   clientKey?: string;
+  /** Korbwert (Cent, vom Server ermittelt: loadGiftVariantCents / loadGiftOrderCents); zählt zum Mindestbestellwert */
+  giftCents?: number;
 }
 
 /**
@@ -233,5 +274,5 @@ export async function computeServerQuote(supabase: Supa, input: ServerQuoteInput
     if (!street || !zip || !city) return { ok: false, code: "address_missing", detail: {} };
     oneWayKm = await cachedOneWayDistanceKm(supabase, `${street}, ${zip} ${city}`, apiKey, fetchFn, { clientKey: input.clientKey });
   }
-  return buildOrderQuote({ items, chafingQuantity: input.chafingQuantity ?? 0, isPickup }, { catalog, packages, oneWayKm });
+  return buildOrderQuote({ items, chafingQuantity: input.chafingQuantity ?? 0, isPickup, giftCents: isEvent ? 0 : input.giftCents ?? 0 }, { catalog, packages, oneWayKm });
 }

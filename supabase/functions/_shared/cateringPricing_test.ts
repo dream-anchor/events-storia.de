@@ -215,3 +215,49 @@ Deno.test("W2: Distanz +-0,05 km: Gebuehr ueber 8 km und Grenze 8 km / 1 km", ()
   const m = verifyCateringOrder({ lines: lines2, catalog, isPickup: false, oneWayKm: 8.02, clientDeliveryEuro: 59.5, clientSurchargeEuro: 51, clientTotalEuro: 99 + 51 + 59.5 });
   assert(m.ok);
 });
+
+// ---------------------------------------------------------------------------
+// Mischbestellung (Entscheidung 22.11.2026): Körbe zählen zum Mindestbestellwert; Altpfad bleibt für alte Tabs tolerant
+// ---------------------------------------------------------------------------
+Deno.test("Altpfad Misch: Aufschlag MIT Korbwert (neue Regel) wird akzeptiert", () => {
+  // Pizza-Position 129 EUR (a x10) + Korb 100 EUR bei 12 km (Mindestwert 200): neu Aufschlag 0, alt 71
+  const lines: ClientLine[] = [{ id: "a", quantity: 10, price: 12.9 }];
+  const fee = deliveryFeeGrossCents(12, false) / 100;
+  const r = verifyCateringOrder({
+    lines, catalog, isPickup: false, oneWayKm: 12, giftCents: 10000,
+    clientDeliveryEuro: fee, clientSurchargeEuro: 0, clientTotalEuro: 129 + fee,
+  });
+  assert(r.ok);
+});
+
+Deno.test("Altpfad Misch: alter Tab mit Catering-only-Aufschlag läuft NICHT in surcharge_mismatch (Obergrenze unverändert)", () => {
+  const lines: ClientLine[] = [{ id: "a", quantity: 10, price: 12.9 }];
+  const fee = deliveryFeeGrossCents(12, false) / 100;
+  const r = verifyCateringOrder({
+    lines, catalog, isPickup: false, oneWayKm: 12, giftCents: 10000,
+    clientDeliveryEuro: fee, clientSurchargeEuro: 71, clientTotalEuro: 129 + 71 + fee,
+  });
+  assert(r.ok);
+});
+
+Deno.test("Altpfad Misch: zu niedriger Aufschlag (unter der neuen Regel) wird abgelehnt", () => {
+  // 129 + Korb 50 = 179 < 200 => mindestens 21 EUR Aufschlag; 0 ist zu wenig
+  const lines: ClientLine[] = [{ id: "a", quantity: 10, price: 12.9 }];
+  const fee = deliveryFeeGrossCents(12, false) / 100;
+  const r = verifyCateringOrder({
+    lines, catalog, isPickup: false, oneWayKm: 12, giftCents: 5000,
+    clientDeliveryEuro: fee, clientSurchargeEuro: 0, clientTotalEuro: 129 + fee,
+  });
+  assert(!r.ok);
+  if (!r.ok) assertEquals(r.code, "surcharge_mismatch");
+});
+
+Deno.test("Altpfad ohne Korb: Untergrenze unverändert (Aufschlag 0 bei 12 km abgelehnt)", () => {
+  const lines: ClientLine[] = [{ id: "a", quantity: 10, price: 12.9 }];
+  const fee = deliveryFeeGrossCents(12, false) / 100;
+  const r = verifyCateringOrder({
+    lines, catalog, isPickup: false, oneWayKm: 12,
+    clientDeliveryEuro: fee, clientSurchargeEuro: 0, clientTotalEuro: 129 + fee,
+  });
+  assert(!r.ok);
+});

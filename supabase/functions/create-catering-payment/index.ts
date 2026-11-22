@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
 import { REJECT_MESSAGES_DE, verifyCateringOrder, type ClientLine } from '../_shared/cateringPricing.ts';
-import { CATALOG_TENANT_ID, cachedOneWayDistanceKm, computeServerQuote, loadCatalog } from '../_shared/cateringServer.ts';
+import { CATALOG_TENANT_ID, cachedOneWayDistanceKm, computeServerQuote, loadCatalog, loadGiftOrderCents } from '../_shared/cateringServer.ts';
 import { orderMessage, quoteHasChanges, toLang, type Lang, type OrderErrorCode, type OrderQuote, type QuoteRequestItem } from '../_shared/orderQuote.ts';
 import { buildCateringPayload, buildEventPayload, parseCreateInput } from '../_shared/orderCreate.ts';
 import { checkOrderSchedule } from '../_shared/orderSchedule.ts';
@@ -185,6 +185,9 @@ serve(async (req) => {
         };
       });
       const a = (body.address ?? {}) as Record<string, unknown>;
+      // Korbwert der verknüpften Korb-Bestellung (gift_order_items, Server-Preise) zählt zum Mindestbestellwert (Entscheidung 22.11.2026).
+      // Ob die Korb-Bestellung zu DIESER Bestellung gehört, prüft attachGift unten, bevor etwas angelegt wird.
+      const giftCentsForQuote = await loadGiftOrderCents(supabase, giftOrderNumber);
       const outcome = await computeServerQuote(
         supabase,
         {
@@ -193,6 +196,7 @@ serve(async (req) => {
           deliveryType: String(body.deliveryType ?? 'pickup'),
           address: { street: String(a.street ?? ''), zip: String(a.zip ?? ''), city: String(a.city ?? '') },
           clientKey: clientIp(req),
+          giftCents: giftCentsForQuote,
         },
         Deno.env.get("OPENROUTE_API_KEY"),
       );
@@ -223,6 +227,11 @@ serve(async (req) => {
       amount = quote.totalCents / 100;
       items = quote.lines.map((l) => ({ name: lang === 'en' && l.name_en ? l.name_en : l.name, quantity: l.quantity }));
 
+      // Geschenkkorb prüfen, bevor etwas angelegt wird (scheitert das hier, entsteht nichts). VOR dem Betragsvergleich: attachGift liest nur,
+      // und der Korbwert fließt in den Mindestbestellwert ein; ein ungültiger Korb soll nicht als bloßer Betragswechsel erscheinen.
+      const giftErr = await attachGift();
+      if (giftErr) return giftErr;
+
       // Abweichung zu dem, was der Kunde zuletzt sah (Artikel entfernt/Gäste außerhalb der Grenzen, Preis, Summe):
       // NICHTS anlegen, das neue Angebot zurückgeben; der Kunde bestätigt den neuen Betrag erneut (keine stille Änderung).
       const expected = Number(body.expectedTotalCents);
@@ -231,9 +240,6 @@ serve(async (req) => {
         return json({ error: 'quote_changed', message: orderMessage('quote_changed', lang), quote }, 409);
       }
 
-      // Geschenkkorb prüfen, bevor etwas angelegt wird (scheitert das hier, entsteht nichts)
-      const giftErr = await attachGift();
-      if (giftErr) return giftErr;
       // Konto (falls eingeloggt) aus dem JWT lesen, nie aus dem Body
       let userId: string | null = null;
       const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
@@ -436,7 +442,10 @@ serve(async (req) => {
               fetch,
               { clientKey: clientIp(req) },
             );
+        // Mischbestellung: Korbwert (Server) zählt zum Mindestbestellwert; alte Tabs mit Catering-only-Aufschlag bleiben zulässig (verifyCateringOrder)
+        const giftCentsLegacy = await loadGiftOrderCents(supabase, giftOrderNumber);
         const verdict = verifyCateringOrder({
+          giftCents: giftCentsLegacy,
           lines,
           catalog,
           isPickup,

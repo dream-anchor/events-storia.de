@@ -175,3 +175,69 @@ Deno.test("Meldungen: jeder Fehlercode hat deutsche und englische Fassung", () =
     assert(m.de !== m.en, code);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Mischbestellung: Geschenkkörbe zählen zum Mindestbestellwert (Entscheidung Antoine 22.11.2026)
+// ---------------------------------------------------------------------------
+Deno.test("Misch: Pizza 15,90 + Korb 249 bei > 8 km (Mindestwert 200) => Aufschlag 0 (vorher 184,10)", () => {
+  const items = [{ id: "pz", quantity: 1 }]; // 10 EUR im Test-Katalog; Aufschlag hängt nur von der Summe ab
+  const catalog2: Catalog = { ...catalog, pz: { price: 15.9, active: true, menuSlug: "pizze-napoletane", name: "Margherita", nameEn: "Margherita" } };
+  const ohne = ok(buildOrderQuote(req({ isPickup: false, items }), ctx({ catalog: catalog2, oneWayKm: 12 })));
+  assertEquals(ohne.surchargeCents, 20000 - 1590); // 184,10: Rechnung ohne Korb
+  const mit = ok(buildOrderQuote(req({ isPickup: false, items, giftCents: 24900 }), ctx({ catalog: catalog2, oneWayKm: 12 })));
+  assertEquals(mit.surchargeCents, 0);
+  assertEquals(mit.giftCents, 24900);
+  // Korb ist NICHT Teil der Catering-Summe (wird über create-gift-order bezahlt)
+  assertEquals(mit.itemsCents, 1590);
+  assertEquals(mit.totalCents, 1590 + mit.deliveryCents);
+});
+
+Deno.test("Misch: Korb deckt den Mindestwert nur teilweise => Aufschlag = Rest", () => {
+  // Pizza 10 EUR + Korb 100 EUR bei 12 km (200): Aufschlag 90
+  const q = ok(buildOrderQuote(req({ isPickup: false, items: [{ id: "pz", quantity: 1 }], giftCents: 10000 }), ctx({ oneWayKm: 12 })));
+  assertEquals(q.surchargeCents, 20000 - 1000 - 10000);
+});
+
+Deno.test("Misch: Grenzwerte, Catering + Korb exakt = Mindestwert => 0; 1 Cent darunter => 1 Cent", () => {
+  // 4 Lasagne = 120 EUR, Mindestwert bei 5 km = 150
+  const at = ok(buildOrderQuote(req({ isPickup: false, items: [{ id: "a", quantity: 4 }], giftCents: 3000 }), ctx({ oneWayKm: 5 })));
+  assertEquals(at.surchargeCents, 0);
+  const below = ok(buildOrderQuote(req({ isPickup: false, items: [{ id: "a", quantity: 4 }], giftCents: 2999 }), ctx({ oneWayKm: 5 })));
+  assertEquals(below.surchargeCents, 1);
+  // Entfernungsstaffel bleibt: 8,00 km => 150, 8,01 km => 200
+  assertEquals(ok(buildOrderQuote(req({ isPickup: false, items: [{ id: "a", quantity: 4 }], giftCents: 3000 }), ctx({ oneWayKm: 8 }))).surchargeCents, 0);
+  assertEquals(ok(buildOrderQuote(req({ isPickup: false, items: [{ id: "a", quantity: 4 }], giftCents: 3000 }), ctx({ oneWayKm: 8.01 }))).surchargeCents, 5000);
+});
+
+Deno.test("Misch: Korb größer als Mindestwert allein => Aufschlag nie negativ", () => {
+  const q = ok(buildOrderQuote(req({ isPickup: false, items: [{ id: "b", quantity: 1 }], giftCents: 99999 }), ctx({ oneWayKm: 20 })));
+  assertEquals(q.surchargeCents, 0);
+});
+
+Deno.test("Misch: Checkout-Chafing zählt weiterhin nicht, Korb schon", () => {
+  // 4 Tiramisu 34 EUR + Korb 50 EUR, Chafing im Checkout 2 x 25: Aufschlag bei 5 km = 150 - 34 - 50
+  const q = ok(buildOrderQuote(req({ isPickup: false, items: [{ id: "b", quantity: 4 }], chafingQuantity: 2, giftCents: 5000 }), ctx({ oneWayKm: 5 })));
+  assertEquals(q.surchargeCents, 15000 - 3400 - 5000);
+});
+
+Deno.test("Misch: Abholung hat keinen Aufschlag; Korbwert wird trotzdem ausgewiesen", () => {
+  const q = ok(buildOrderQuote(req({ giftCents: 5000 }), ctx()));
+  assertEquals(q.surchargeCents, 0);
+  assertEquals(q.giftCents, 5000);
+});
+
+Deno.test("Ohne Korb unverändert: giftCents fehlt/0/negativ/NaN => wie bisher", () => {
+  const items = [{ id: "a", quantity: 4 }];
+  const base = ok(buildOrderQuote(req({ isPickup: false, items }), ctx({ oneWayKm: 5 })));
+  assertEquals(base.surchargeCents, 3000);
+  assertEquals(base.giftCents, 0);
+  for (const g of [0, -500, Number.NaN]) {
+    assertEquals(ok(buildOrderQuote(req({ isPickup: false, items, giftCents: g }), ctx({ oneWayKm: 5 }))).surchargeCents, 3000);
+  }
+});
+
+Deno.test("Event-Buchung: Korbwert spielt keine Rolle (kein Aufschlag, giftCents 0)", () => {
+  const q = ok(buildOrderQuote(req({ items: [{ id: "event-pp", quantity: 10 }], giftCents: 9999 }), ctx()));
+  assertEquals(q.giftCents, 0);
+  assertEquals(q.surchargeCents, 0);
+});
