@@ -450,7 +450,7 @@
         "sub": []
        },
        {
-        "text": "Lieferkosten und den von der Entfernung abhängigen Mindestbestellwert zeigen wir vor Abgabe der Bestellung im Warenkorb in Euro einschließlich Umsatzsteuer an. Liegt der Warenwert unter dem Mindestbestellwert, kann der Kunde trotzdem bestellen; wir berechnen dann einen Mindermengenzuschlag in Höhe der Differenz, der ebenfalls vorher angezeigt wird.",
+        "text": "Lieferkosten und den von der Entfernung abhängigen Mindestbestellwert zeigen wir vor Abgabe der Bestellung im Warenkorb in Euro einschließlich Umsatzsteuer an. Liegt der Warenwert unter dem Mindestbestellwert, kann der Kunde trotzdem bestellen; wir berechnen dann einen Mindermengenzuschlag in Höhe der Differenz, der ebenfalls vorher angezeigt wird. Bestellt der Kunde zusammen mit der Lieferung Geschenkkörbe (Teil G), die wir gemeinsam mit ihr übergeben, zählt deren Preis zum Warenwert. Storniert der Kunde einen oder mehrere dieser Körbe vor der Übergabe (§ 42 Abs. 1), berechnen wir den Mindermengenzuschlag auf Grundlage des verbleibenden Warenwerts neu und verrechnen den Unterschied mit der Erstattung für die stornierten Körbe; ist nichts zu erstatten, stellen wir ihn gesondert in Rechnung. Ein Widerruf nach § 41 ändert den Mindermengenzuschlag nicht.",
         "sub": []
        },
        {
@@ -779,7 +779,7 @@
      },
      {
       "type": "p",
-      "text": "Stand: 20. November 2026 · Version AGB-2026-11"
+      "text": "Stand: 22. November 2026 · Version AGB-2026-11b"
      }
     ]
    }
@@ -799,7 +799,11 @@
         "sub": []
        },
        {
-        "text": "Teil C (§§ 18–24) gilt für Geschenkkörbe nicht. Insbesondere gelten die dortigen Regelungen zu Liefergebiet, Mindestbestellwert, Hin- und Rückfahrt, Geschirr und Leihgeräten sowie die Stornierungsstufen nicht.",
+        "text": "Teil C (§§ 18–24) gilt für Geschenkkörbe nicht. Insbesondere gelten die dortigen Regelungen zu Liefergebiet, Mindestbestellwert, Hin- und Rückfahrt, Geschirr und Leihgeräten sowie die Stornierungsstufen nicht; für Körbe allein gibt es keinen Mindestbestellwert. Abs. 3 bleibt unberührt.",
+        "sub": []
+       },
+       {
+        "text": "Bestellt der Kunde Körbe zusammen mit einer Catering- oder Pizza-Bestellung nach Teil C, übergeben wir sie gemeinsam mit dieser Bestellung zum selben Termin ohne zusätzliche Liefergebühr. Der Preis der Körbe zählt dann zum Warenwert für den Mindestbestellwert dieser Lieferung (§ 20 Abs. 3). Storniert der Kunde einen solchen Korb vor der Übergabe, kann sich der Mindermengenzuschlag nach § 20 Abs. 3 erhöhen; ein Widerruf nach § 41 hat darauf keinen Einfluss.",
         "sub": []
        }
       ]
@@ -947,7 +951,7 @@
       "type": "ol",
       "items": [
        {
-        "text": "Bis zur Abholung bzw. Übergabe kann der Kunde seine Bestellung kostenfrei stornieren; bereits online gezahlte Beträge erstatten wir über Stripe. Sein Widerrufsrecht nach § 41 bleibt unberührt.",
+        "text": "Bis zur Abholung bzw. Übergabe kann der Kunde seine Bestellung ohne Stornokosten stornieren; bereits online gezahlte Beträge erstatten wir über Stripe. Wurde der Korb zusammen mit einer Bestellung nach Teil C bestellt, gilt für den Mindermengenzuschlag § 20 Abs. 3 Satz 4; den Unterschied verrechnen wir mit der Erstattung. Sein Widerrufsrecht nach § 41 bleibt unberührt.",
         "sub": []
        },
        {

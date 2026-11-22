@@ -21,6 +21,11 @@ export interface QuoteParams {
   deliveryType: 'delivery' | 'pickup' | 'event';
   address: { street: string; zip: string; city: string };
   language: 'de' | 'en';
+  /**
+   * Mischbestellung: Geschenkkörbe im Warenkorb (nur Variante + Menge). Der Server ermittelt den Korbwert selbst; er zählt zum
+   * Mindestbestellwert (Entscheidung 22.11.2026). Nie ein Betrag aus dem Browser.
+   */
+  giftItems?: { variant_id: string; qty: number }[];
 }
 
 export type QuoteResult =

@@ -109,6 +109,8 @@ export interface VerifyInput {
   clientDeliveryEuro: number;
   clientSurchargeEuro: number;
   clientTotalEuro: number;
+  /** Serverseitig ermittelter Wert verknüpfter Geschenkkörbe in Cent (Mischbestellung); 0 = keine. Zählt zum Mindestbestellwert (Entscheidung 22.11.2026). */
+  giftCents?: number;
 }
 
 export type VerifyResult =
@@ -185,9 +187,13 @@ export function verifyCateringOrder(input: VerifyInput): VerifyResult {
 
     // Aufschlag: Der Client rechnet auf Warenkorb OHNE das im Checkout zugewählte Chafing-Leihgerät. Gespeichert wird nicht,
     // woher die Chafing-Zeile stammt -> jeder Wert zwischen "mit" und "ohne Chafing" (und Mindestwert-Fenster) ist zulässig.
+    // Geschenkkörbe (Mischbestellung, Entscheidung 22.11.2026) zählen mit: Untergrenze = Aufschlag MIT Korbwert (Server-Wert).
+    // Obergrenze bleibt der Aufschlag OHNE Korbwert: so läuft ein alter Browser-Tab (rechnet noch nur den Catering-Anteil) nicht
+    // in surcharge_mismatch; zu wenig Aufschlag (unter der neuen Regel) wird weiterhin abgelehnt.
+    const gift = Number.isFinite(input.giftCents) ? Math.max(0, Math.trunc(input.giftCents as number)) : 0;
     const minLo = minimumOrderCents(kmLo);
     const minHi = minimumOrderCents(kmHi);
-    const sLo = Math.max(0, Math.min(minLo, minHi) - itemsCents);
+    const sLo = Math.max(0, Math.min(minLo, minHi) - itemsCents - gift);
     const sHi = Math.max(0, Math.max(minLo, minHi) - (itemsCents - chafingCents));
     if (clientSurcharge < sLo - TOLERANCE_CENTS || clientSurcharge > sHi + TOLERANCE_CENTS) {
       return fail("surcharge_mismatch", { clientCents: clientSurcharge, serverRangeCents: [sLo, sHi] });

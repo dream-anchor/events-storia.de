@@ -2,7 +2,7 @@ import { deterministicExpiresAt, HOLD_BUFFER_MS } from "./stripeSessions.ts";
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import {
   asyncHoldExtensionUntil, mixedPaymentMethodTypes, checkMixedSchedule, computeExpectedMixedAmount, isMixedAmountOk, giftLinkedToCatering, holdCoversSession, isCateringOrderNumber,
-  mixedHoldMinutes, shouldHandleGiftInCatering, validateGiftForCateringPayment,
+  mixedHoldMinutes, shouldHandleGiftInCatering, validateGiftForCateringPayment, giftLinesCents, normalizeGiftRequest,
 } from "./giftMixed.ts";
 import { isGiftSessionMetadata } from "./giftWebhook.ts";
 import type { ScheduleSettings } from "./giftPricing.ts";
@@ -138,4 +138,19 @@ Deno.test("Fenstergrenze: Prüfung und Session-Ablauf mit demselben now; ein sp�
   assertEquals(expLater + HOLD_BUFFER_MS > new Date(hold).getTime(), true);
   // Idempotenzfenster ist ebenfalls an dasselbe now gebunden
   assert(Math.floor(checked.getTime() / 180_000) !== Math.floor(later.getTime() / 180_000));
+});
+
+Deno.test("Korbwert: Summe Einzelpreis x Menge in Cent; leer = 0", () => {
+  assertEquals(giftLinesCents([]), 0);
+  assertEquals(giftLinesCents([{ unit_price_cents: 4900, qty: 2 }, { unit_price_cents: 14900, qty: 1 }]), 24700);
+});
+
+Deno.test("Korb-Anfrage des Browsers: nur gültige UUIDs/Mengen, gleiche Variante zusammengefasst, nie Beträge", () => {
+  const a = "11111111-1111-4111-8111-111111111111";
+  const b = "22222222-2222-4222-8222-222222222222";
+  assertEquals(normalizeGiftRequest([{ variant_id: a, qty: 1, price: 0 }, { variant_id: a.toUpperCase(), qty: 2 }, { variant_id: b, qty: 1 }]),
+    [{ variant_id: a, qty: 3 }, { variant_id: b, qty: 1 }]);
+  assertEquals(normalizeGiftRequest([{ variant_id: "x", qty: 1 }, { variant_id: a, qty: 0 }, { variant_id: a, qty: 1.5 }, { variant_id: a, qty: 11 }, null]), []);
+  assertEquals(normalizeGiftRequest(undefined), []);
+  assertEquals(normalizeGiftRequest("x"), []);
 });

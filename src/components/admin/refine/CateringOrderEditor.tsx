@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { GiftBasketBadge, GiftBasketPanel, useGiftOrdersByCateringNumber } from "@/components/admin/gift/MixedOrderLinks";
+import { GiftBasketBadge, GiftBasketPanel, fetchActiveGiftCents, useGiftOrdersByCateringNumber } from "@/components/admin/gift/MixedOrderLinks";
 import { 
   ArrowLeft, Loader2, Save, Phone, Mail, Building2, MapPin, 
   Calendar, Clock, CreditCard, Receipt, User, BadgeCheck, 
@@ -405,12 +405,14 @@ export const CateringOrderEditor = () => {
       const gross = Number(data?.deliveryCostGross ?? 0);
       const minimumOrder = Number(data?.minimumOrder ?? 0);
       setDeliveryCost(gross);
-      // Mindestbestellwert-Aufschlag: nur falls aktuelle Speisensumme unter minimumOrder
-      const surcharge = Math.max(0, minimumOrder - itemsSubtotal);
+      // Mindestbestellwert-Aufschlag: nur falls Speisensumme PLUS verknüpfte Geschenkkörbe unter minimumOrder liegt
+      // (Mischbestellung: Körbe zählen mit, Entscheidung 22.11.2026; Korbwert frisch aus gift_orders, nicht stornierte)
+      const giftEuro = order?.order_number ? (await fetchActiveGiftCents(order.order_number)) / 100 : 0;
+      const surcharge = Math.max(0, minimumOrder - itemsSubtotal - giftEuro);
       setMinimumOrderSurcharge(surcharge);
       const dist = data?.oneWayDistanceKm ? ` · ${Number(data.oneWayDistanceKm).toFixed(1)} km (einfache Strecke)` : "";
       const surMsg = surcharge > 0
-        ? ` · Mindestbestellwert ${minimumOrder} € → Aufschlag ${surcharge.toFixed(2)} €`
+        ? ` · Mindestbestellwert ${minimumOrder} €${giftEuro > 0 ? ` (Körbe ${giftEuro.toFixed(2)} € zählen mit)` : ""} → Aufschlag ${surcharge.toFixed(2)} €`
         : "";
       toast.success(`Liefergebühr: ${gross.toFixed(2)} €${dist}${surMsg}`);
     } catch (e: any) {
@@ -418,7 +420,7 @@ export const CateringOrderEditor = () => {
     } finally {
       setIsRecalcDelivery(false);
     }
-  }, [isPickup, deliveryStreet, deliveryZip, deliveryCity, itemsSubtotal, itemsState]);
+  }, [isPickup, deliveryStreet, deliveryZip, deliveryCity, itemsSubtotal, itemsState, order?.order_number]);
 
   const handleCancelOrder = async (cancelMessage?: string) => {
     if (!id || !order) return;

@@ -4,7 +4,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { computeServerQuote } from "../_shared/cateringServer.ts";
+import { computeServerQuote, loadGiftVariantCents } from "../_shared/cateringServer.ts";
+import { normalizeGiftRequest } from "../_shared/giftMixed.ts";
 import { orderMessage, toLang, type QuoteRequestItem } from "../_shared/orderQuote.ts";
 import { reportEdgeError } from "../_shared/reportError.ts";
 import { readJsonObject } from "../_shared/requestBody.ts";
@@ -53,6 +54,10 @@ serve(async (req) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
     const a = (body?.address ?? {}) as Record<string, unknown>;
+    // Mischbestellung: Geschenkkörbe zählen zum Mindestbestellwert (Entscheidung 22.11.2026). Der Browser nennt nur Variante + Menge,
+    // der Korbwert kommt aus der Datenbank. Alte Browser-Tabs senden das Feld nicht: dann gilt der Catering-Anteil allein (siehe
+    // create-catering-payment: quote_changed führt sie zum neuen Betrag).
+    const giftCents = await loadGiftVariantCents(supabase, normalizeGiftRequest(body?.giftItems));
     const outcome = await computeServerQuote(
       supabase,
       {
@@ -61,6 +66,7 @@ serve(async (req) => {
         deliveryType: String(body?.deliveryType ?? "pickup"),
         address: { street: str(a.street, 200) ?? "", zip: str(a.zip, 20) ?? "", city: str(a.city, 120) ?? "" },
         clientKey: clientIp(req),
+        giftCents,
       },
       Deno.env.get("OPENROUTE_API_KEY"),
     );

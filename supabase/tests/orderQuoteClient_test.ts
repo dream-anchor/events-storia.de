@@ -130,3 +130,19 @@ Deno.test("A7: Bedeutung der gespeicherten Strecke aus den Daten, nicht aus dem 
   assertEquals(distanceNote(24.68, 154.25), " (Altbestellung: Strecke × Fahrten)");
   assertEquals(distanceNote(40, 5), "");
 });
+
+Deno.test("Anfrage-Schlüssel: Körbe ändern den Schlüssel (Aufschlag hängt vom Korbwert ab), ohne Körbe bleibt er wie bisher", () => {
+  const p = { items: [{ id: "a", quantity: 2 }], chafingQuantity: 0, deliveryType: "delivery", address: { street: "S", zip: "80333", city: "M" } };
+  const none = quoteRequestKey(p);
+  assertEquals(quoteRequestKey({ ...p, giftItems: [] }), none);
+  const v1 = "11111111-1111-4111-8111-111111111111";
+  const withGift = quoteRequestKey({ ...p, giftItems: [{ variant_id: v1, qty: 1 }] });
+  assert(withGift !== none);
+  assert(withGift !== quoteRequestKey({ ...p, giftItems: [{ variant_id: v1, qty: 2 }] }));
+  // Reihenfolge egal
+  const v2 = "22222222-2222-4222-8222-222222222222";
+  assertEquals(
+    quoteRequestKey({ ...p, giftItems: [{ variant_id: v1, qty: 1 }, { variant_id: v2, qty: 1 }] }),
+    quoteRequestKey({ ...p, giftItems: [{ variant_id: v2, qty: 1 }, { variant_id: v1, qty: 1 }] }),
+  );
+});

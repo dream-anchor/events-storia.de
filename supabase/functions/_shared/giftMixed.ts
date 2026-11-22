@@ -34,6 +34,30 @@ export function checkMixedSchedule(
 export const mixedHoldMinutes = (settingsHoldMinutes: number): number =>
   Math.max(Number.isFinite(settingsHoldMinutes) ? settingsHoldMinutes : 0, MIXED_MIN_HOLD_MINUTES);
 
+/**
+ * Korbwert für den Mindestbestellwert (Entscheidung Antoine 22.11.2026: bei Mischbestellungen zählen die Körbe mit; vorher
+ * "Entscheidung 19": nur der Catering-Anteil). Eine Zeile = Einzelpreis in Cent x Menge. Die Preise kommen IMMER vom Server
+ * (gift_basket_variants bzw. gift_order_items), nie vom Browser. Der Korbwert verändert weder Catering-Summe noch Stripe-Betrag,
+ * er senkt nur den Mindermengenzuschlag (orderQuote.ts).
+ */
+export const giftLinesCents = (lines: { unit_price_cents: number; qty: number }[]): number =>
+  lines.reduce((sum, l) => sum + l.unit_price_cents * l.qty, 0);
+
+/** Anfrage-Positionen des Browsers (Variante + Menge) bereinigen: nur gültige UUIDs, ganzzahlige Mengen, gleiche Variante zusammengefasst. Höchstens 6 Zeilen. */
+export function normalizeGiftRequest(raw: unknown): { variant_id: string; qty: number }[] {
+  if (!Array.isArray(raw)) return [];
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const merged = new Map<string, number>();
+  for (const r of raw.slice(0, 6)) {
+    const i = (r ?? {}) as Record<string, unknown>;
+    const qty = Number(i.qty);
+    if (typeof i.variant_id !== "string" || !uuid.test(i.variant_id) || !Number.isInteger(qty) || qty < 1 || qty > 10) continue;
+    const id = i.variant_id.toLowerCase();
+    merged.set(id, (merged.get(id) ?? 0) + qty);
+  }
+  return [...merged.entries()].map(([variant_id, qty]) => ({ variant_id, qty }));
+}
+
 /** Erwarteter Stripe-Gesamtbetrag in Cent: Catering (Euro, vom Catering-Datensatz) + Korb-Anteil (Cent, serverseitig). */
 export const computeExpectedMixedAmount = (cateringTotalEuro: number, giftTotalCents: number): number =>
   Math.round(Number(cateringTotalEuro) * 100) + giftTotalCents;

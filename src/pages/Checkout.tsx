@@ -198,10 +198,17 @@ const CateringCheckout = () => {
   const hasGiftItems = items.some(isGiftItem);
   // Catering-Positionen (ohne Körbe); ohne Körbe exakt dieselbe Liste wie bisher
   const cateringItems = hasGiftItems ? items.filter(item => !isGiftItem(item)) : items;
-  // Mindestbestellwert/Aufschlag gelten nur für den Catering-Anteil (Entscheidung 19); ohne Körbe unverändert totalPrice
+  // Mindestbestellwert: Geschenkkörbe zählen MIT (Entscheidung Antoine 22.11.2026, ersetzt "Entscheidung 19"). Den Aufschlag rechnet allein
+  // der Server (quote-catering-order mit giftItems, Korbwert aus der Datenbank); hier steht nur die Anzeige-Basis "Speisen" ohne Körbe.
   const surchargeBase = hasGiftItems ? cateringSubtotal : totalPrice;
   // Korb-Anteil (Anzeige, brutto); wird NICHT an RPC/create-catering-payment gesendet
   const giftSubtotal = hasGiftItems ? giftSubtotalOf(totalPrice, cateringSubtotal) : 0;
+  // Körbe für das Server-Angebot: nur Variante + Menge (der Server rechnet den Korbwert für den Mindestbestellwert selbst)
+  const giftQuoteItems = useMemo(
+    () => items.filter(isGiftItem).filter(i => !!i.variantId).map(i => ({ variant_id: i.variantId as string, qty: i.quantity })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items.filter(isGiftItem).map(i => `${i.variantId}:${i.quantity}`).join('|')],
+  );
   const { language } = useLanguage();
   const giftText = GIFT_COPY[language === 'de' ? 'de' : 'en'];
   const { formatPrice, showGross, setShowGross } = usePriceDisplay();
@@ -569,9 +576,10 @@ const CateringCheckout = () => {
       chafingQuantity: quoteChafing,
       deliveryType: quoteDeliveryType,
       address: { street: formData.deliveryStreet, zip: formData.deliveryZip, city: formData.deliveryCity },
+      giftItems: giftQuoteItems,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cateringItems.map(i => `${i.id}:${i.quantity}`).join('|'), quoteChafing, quoteDeliveryType, formData.deliveryStreet, formData.deliveryZip, formData.deliveryCity],
+    [cateringItems.map(i => `${i.id}:${i.quantity}`).join('|'), giftQuoteItems, quoteChafing, quoteDeliveryType, formData.deliveryStreet, formData.deliveryZip, formData.deliveryCity],
   );
   // aktuelle Anfrage und Warenkorb für asynchrone Antworten (keine veralteten Closures)
   const quoteParamsRef = useRef<Parameters<typeof fetchOrderQuote>[0] | null>(null);
@@ -581,6 +589,7 @@ const CateringCheckout = () => {
     deliveryType: quoteDeliveryType,
     address: { street: formData.deliveryStreet, zip: formData.deliveryZip, city: formData.deliveryCity },
     language: language === 'de' ? 'de' : 'en',
+    giftItems: giftQuoteItems,
   };
   const cateringItemsRef = useRef(cateringItems);
   cateringItemsRef.current = cateringItems;
@@ -1834,8 +1843,8 @@ const CateringCheckout = () => {
                               )}
                               <p>
                                 {language === 'de'
-                                  ? `Mindestbestellwert: ${formatPrice(deliveryCalc.minimumOrder)}`
-                                  : `Minimum order: ${formatPrice(deliveryCalc.minimumOrder)}`}
+                                  ? `Mindestbestellwert: ${formatPrice(deliveryCalc.minimumOrder)}${hasGiftItems ? ' (Geschenkkörbe zählen mit)' : ''}`
+                                  : `Minimum order: ${formatPrice(deliveryCalc.minimumOrder)}${hasGiftItems ? ' (gift baskets count towards it)' : ''}`}
                               </p>
                             </div>
                           </div>

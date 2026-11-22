@@ -12,10 +12,42 @@ export interface LinkedGiftOrder {
   catering_order_number: string;
   status: string;
   total_cents: number;
+  /** Übergabe-Zeitstempel; null = nicht übergeben, undefined = nicht geladen. */
+  handed_over_at?: string | null;
   items: { id: string; basket_name: string; variant_label: string; qty: number }[];
 }
 
-const INACTIVE = ["cancelled", "expired", "refunded"];
+/** Vor der Übergabe weggefallen: zählt nicht zum Mindestbestellwert (AGB § 20 Abs. 3). */
+const INACTIVE = ["cancelled", "expired"];
+
+/**
+ * Wert der verknüpften Korb-Bestellungen in Cent, der zum Mindestbestellwert der Catering-Bestellung zählt
+ * (Entscheidung 22.11.2026, AGB-2026-11b § 20 Abs. 3). `cancelled`/`expired` zählen nicht. `refunded` zählt weiter mit:
+ * Ein Widerruf nach der Übergabe (§ 41) ändert den Mindermengenzuschlag nicht. Der Webhook setzt `refunded` auch aus
+ * paid/ready (Erstattung vor Übergabe = Storno); das erkennt man an leerem `handed_over_at` (null) → zählt nicht.
+ * Ist `handed_over_at` nicht geladen (undefined), zählt `refunded` konservativ mit.
+ */
+export const activeGiftCents = (orders: LinkedGiftOrder[] | undefined): number =>
+  (orders ?? [])
+    .filter((o) => !INACTIVE.includes(o.status))
+    .filter((o) => !(o.status === "refunded" && o.handed_over_at === null))
+    .reduce((sum, o) => sum + (o.total_cents ?? 0), 0);
+
+/**
+ * Korbwert (Cent) der nicht stornierten Körbe GENAU einer Catering-Bestellung, frisch aus der DB.
+ * Für Geldrechnungen (Mindestbestellwert-Aufschlag im Editor) statt der gecachten Liste, die auf 500 Einträge begrenzt ist
+ * und beim Klick noch laden kann. Fehler werden geworfen (kein stilles 0 → sonst zu hoher Aufschlag).
+ */
+export async function fetchActiveGiftCents(cateringOrderNumber: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("gift_orders")
+    .select("status, total_cents, handed_over_at")
+    .eq("handover", "with_catering")
+    .eq("catering_order_number", cateringOrderNumber)
+    .is("deleted_at", null);
+  if (error) throw error;
+  return activeGiftCents((data ?? []) as LinkedGiftOrder[]);
+}
 
 /** Deep-Link in die Korb-Verwaltung: öffnet die Bestellung direkt. */
 const giftOrderHref = (orderNumber: string) => `/admin/geschenkkoerbe?order=${encodeURIComponent(orderNumber)}`;
@@ -32,15 +64,16 @@ export function useGiftOrdersByCateringNumber() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("gift_orders")
-        .select("id, order_number, catering_order_number, status, total_cents, gift_order_items(id, basket_name, variant_label, qty)")
+        .select("id, order_number, catering_order_number, status, total_cents, handed_over_at, gift_order_items(id, basket_name, variant_label, qty)")
         .eq("handover", "with_catering")
         .not("catering_order_number", "is", null)
         .is("deleted_at", null)
-        .order("created_at", { ascending: true })
+        // neueste 500 laden (nicht die ältesten), innerhalb einer Catering-Nummer danach wieder chronologisch gruppieren
+        .order("created_at", { ascending: false })
         .limit(500);
       if (error) throw error;
       const map = new Map<string, LinkedGiftOrder[]>();
-      for (const row of data ?? []) {
+      for (const row of [...(data ?? [])].reverse()) {
         if (!row.catering_order_number) continue;
         const entry: LinkedGiftOrder = {
           id: row.id,
@@ -48,6 +81,7 @@ export function useGiftOrdersByCateringNumber() {
           catering_order_number: row.catering_order_number,
           status: row.status,
           total_cents: row.total_cents,
+          handed_over_at: row.handed_over_at,
           items: row.gift_order_items ?? [],
         };
         map.set(row.catering_order_number, [...(map.get(row.catering_order_number) ?? []), entry]);

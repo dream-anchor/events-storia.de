@@ -50,7 +50,7 @@ const StickySummary = ({
   const { language } = useLanguage();
   const { formatPrice, showGross, setShowGross } = usePriceDisplay();
   const hasGifts = giftSubtotal > 0;
-  // Mindestbestellwert/Aufschlag gelten nur für den Catering-Anteil; ohne Körbe unverändert totalPrice
+  // Zwischensumme-Zeile zeigt den Catering-Anteil (Körbe stehen in eigener Zeile); ohne Körbe unverändert totalPrice
   const subtotalBase = hasGifts ? cateringSubtotal : totalPrice;
   const giftText = GIFT_COPY[language === 'de' ? 'de' : 'en'];
 
