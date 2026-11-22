@@ -41,6 +41,7 @@ import { createGiftOrder, GiftApiError } from '@/lib/gift/api';
 import { formatEuroTruncated, formatMixedTotal, giftSubtotalOf } from '@/lib/gift/mixedCart';
 import { format, parseISO } from 'date-fns';
 import { fetchOrderQuote, createOrderAndPay } from '@/lib/orderApi';
+import { checkOrderSchedule, SCHEDULE_MESSAGES } from '@/lib/orderSchedule';
 import {
   deliveryCalcFromQuote,
   describeCartChanges,
@@ -1035,6 +1036,16 @@ const CateringCheckout = () => {
       toast.error(language === 'de'
         ? 'Ihr Warenkorb wurde angepasst. Bitte prüfen Sie ihn und bestätigen Sie die Bestellung erneut.'
         : 'Your cart has been updated. Please review it and confirm your order again.', { duration: 8000 });
+      return;
+    }
+
+    // Termin-Regeln (Vorlauf, Pizza-Zeiten, Wochenend-Frist) wie am Server: blockieren, BEVOR eine Korb-Bestellung (Bestand-Hold) angelegt wird
+    const scheduleRejected = checkOrderSchedule(
+      { kind: quote.kind, isPickup: quote.isPickup, isPizzaOnly: quote.isPizzaOnly, date: formData.date, time: formData.time }, new Date());
+    if (scheduleRejected) {
+      setCurrentStep('delivery');
+      toast.error(SCHEDULE_MESSAGES[scheduleRejected][language === 'de' ? 'de' : 'en'], { duration: 10000 });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 

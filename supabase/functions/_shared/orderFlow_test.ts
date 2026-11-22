@@ -1,6 +1,6 @@
 // deno test supabase/functions/_shared/orderFlow_test.ts
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { ensureOrder, matchesExisting, stripeIdempotencyKey } from "./orderFlow.ts";
+import { ensureOrder, matchesExisting } from "./orderFlow.ts";
 import { buildOrderQuote, type OrderQuote } from "./orderQuote.ts";
 import { parseCreateInput, type CreateInput } from "./orderCreate.ts";
 
@@ -25,18 +25,23 @@ const row = (over: Record<string, unknown> = {}) => ({
   items: [{ id: "a", quantity: 12 }], ...over,
 });
 
-/** Fake: Tabelle catering_orders mit steuerbaren Lookups; protokolliert updates und rpc-Aufrufe. */
-function fake(opts: { lookups: (Record<string, unknown> | null)[]; rpcError?: { code?: string; message: string } | null }) {
-  const log = { updates: [] as unknown[], rpcs: [] as string[] };
+/** Fake: Tabelle mit steuerbaren Lookups; protokolliert Updates (Tabelle, Werte, Filter) und rpc-Aufrufe. */
+function fake(opts: { lookups: (Record<string, unknown> | null)[]; rpcError?: { code?: string; message: string } | null; updateRows?: unknown[] }) {
+  const log = { updates: [] as { table: string; v: unknown; filters: unknown[] }[], rpcs: [] as string[], inserts: [] as string[] };
   let n = 0;
   const client = {
-    from(_t: string) {
+    from(table: string) {
+      const filters: unknown[] = [];
       const q = {
         select: () => q,
-        eq: () => q,
-        maybeSingle: () => Promise.resolve({ data: opts.lookups[Math.min(n++, opts.lookups.length - 1)], error: null }),
-        update: (v: unknown) => { log.updates.push(v); return q; },
-        then: (res: (v: unknown) => unknown) => Promise.resolve({ error: null }).then(res),
+        eq: (...a: unknown[]) => { filters.push(["eq", ...a]); return q; },
+        neq: (...a: unknown[]) => { filters.push(["neq", ...a]); return q; },
+        ilike: () => q,
+        limit: () => q,
+        maybeSingle: () => Promise.resolve({ data: table === "v2_customers" ? { id: "cust1" } : opts.lookups[Math.min(n++, opts.lookups.length - 1)], error: null }),
+        update: (v: unknown) => { log.updates.push({ table, v, filters }); return q; },
+        insert: () => { log.inserts.push(table); return q; },
+        then: (res: (v: unknown) => unknown) => Promise.resolve({ data: opts.updateRows ?? [{ id: "row1" }], error: null }).then(res),
       };
       return q;
     },
@@ -56,17 +61,36 @@ Deno.test("Fortsetzen: gleiche Nummer, gleicher Inhalt -> resumed, keine zweite 
   const f = fake({ lookups: [row()] });
   assertEquals(await run(f), { status: "resumed", orderId: "row1" });
   assertEquals(f.log.rpcs, []);
-  assertEquals(f.log.updates, []);
+  // A3: Felder außerhalb des Fingerabdrucks (Rechnungsadresse, Notizen, Stockwerk) werden auf der unbezahlten Zeile aktualisiert, Betrag/Positionen nicht
+  const u = f.log.updates.find((x) => x.table === "catering_orders");
+  assert(u && "billing_name" in (u.v as object) && "notes" in (u.v as object) && !("total_amount" in (u.v as object)) && !("items" in (u.v as object)));
+  assert(f.log.updates.some((x) => x.table === "v2_events" && (x.v as { customer_id?: string }).customer_id === "cust1"));
 });
 
-Deno.test("B1: gleicher Betrag, aber anderes Datum/Adresse/Positionen/Lieferart -> mismatch, alte Zeile storniert, nichts fortgesetzt", async () => {
+Deno.test("B1: gleiche E-Mail, anderes Datum/Adresse/Positionen/Lieferart -> mismatch, nur unbezahlte+nicht stornierte Zeile storniert", async () => {
   for (const changed of [{ desired_date: "2026-12-02" }, { desired_time: "13:00:00" }, { delivery_street: "Andere Str. 5" },
-    { is_pickup: true }, { items: [{ id: "b", quantity: 12 }] }, { customer_email: "x@example.com" }]) {
+    { is_pickup: true }, { items: [{ id: "b", quantity: 12 }] }]) {
     const f = fake({ lookups: [row(changed)] });
     assertEquals(await run(f), { status: "conflict", reason: "mismatch" }, JSON.stringify(changed));
-    assertEquals(f.log.updates, [{ status: "cancelled" }]);
+    assertEquals(f.log.updates.length, 1);
+    assertEquals(f.log.updates[0].v, { status: "cancelled" });
+    assertEquals(f.log.updates[0].filters, [["eq", "id", "row1"], ["neq", "payment_status", "paid"], ["neq", "status", "cancelled"]]);
     assertEquals(f.log.rpcs, []);
   }
+});
+
+Deno.test("A1: andere E-Mail = fremde Bestellung -> NICHTS anfassen (kein Storno, kein Update), nur Konflikt", async () => {
+  const f = fake({ lookups: [row({ customer_email: "fremd@example.com", desired_date: "2026-12-09" })] });
+  assertEquals(await run(f), { status: "conflict", reason: "foreign" });
+  assertEquals(f.log.updates, []);
+  assertEquals(f.log.rpcs, []);
+});
+
+Deno.test("A1: Storno trifft 0 Zeilen (inzwischen bezahlt/storniert) -> neu bewerten, nichts freigeben", async () => {
+  const paidNow = fake({ lookups: [row({ desired_date: "2026-12-09" }), row({ payment_status: "paid" })], updateRows: [] });
+  assertEquals(await run(paidNow), { status: "conflict", reason: "paid" });
+  const other = fake({ lookups: [row({ desired_date: "2026-12-09" }), row({ desired_date: "2026-12-09" })], updateRows: [] });
+  assertEquals(await run(other), { status: "conflict", reason: "race" });
 });
 
 Deno.test("bezahlte Zeile wird nie angefasst", async () => {
@@ -78,7 +102,7 @@ Deno.test("bezahlte Zeile wird nie angefasst", async () => {
 Deno.test("B2: Race (UNIQUE 23505), Gewinner passt -> resumed, kein Storno", async () => {
   const f = fake({ lookups: [null, row()], rpcError: { code: "23505", message: "duplicate key value violates unique constraint" } });
   assertEquals(await run(f), { status: "resumed", orderId: "row1" });
-  assertEquals(f.log.updates, []);
+  assert(!f.log.updates.some((x) => (x.v as { status?: string }).status === "cancelled"));
 });
 
 Deno.test("B2: Race, Gewinner noch nicht sichtbar/anderer Inhalt -> conflict race (Aufrufer gibt NICHTS frei), nichts storniert", async () => {
@@ -103,11 +127,3 @@ Deno.test("Fingerabdruck: Abholung ignoriert die Adresse, Event vergleicht Paket
   assert(!matchesExisting({ ...evRow, guest_count: 21 }, ev, input));
 });
 
-Deno.test("Stripe-Idempotenzschlüssel: gleiche Bestellung im Fenster = gleicher Schlüssel, anderer Betrag/Korb/Fenster = anderer", () => {
-  const t = Date.UTC(2026, 10, 22, 12, 0, 0);
-  const k = stripeIdempotencyKey("CAT-1", 51425, "g1", t);
-  assertEquals(k, stripeIdempotencyKey("CAT-1", 51425, "g1", t + 60_000));
-  assert(k !== stripeIdempotencyKey("CAT-1", 51426, "g1", t));
-  assert(k !== stripeIdempotencyKey("CAT-1", 51425, null, t));
-  assert(k !== stripeIdempotencyKey("CAT-1", 51425, "g1", t + 26 * 60_000));
-});

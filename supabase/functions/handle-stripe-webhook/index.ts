@@ -10,6 +10,7 @@ import { sendGiftMails } from '../_shared/giftMail.ts';
 import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
 import { asyncHoldExtensionUntil, computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
 import { markEventBookingPaid } from '../_shared/eventPayment.ts';
+import { checkPaymentMatchesOrder } from '../_shared/paymentGuard.ts';
 import {
   buildOrderPayload,
   enqueueMaestroHandoff,
@@ -867,6 +868,21 @@ async function handleCateringPayment(
     return;
   }
 
+  // 2b. Storniert oder Betrag weicht ab: NICHT bestätigen (keine stille Wiederbelebung), Betreiber alarmieren, Zahlung protokollieren
+  const guard = checkPaymentMatchesOrder(order, session, !!metadata.gift_order_id);
+  if (!guard.ok) {
+    logStep("ERROR: payment does not match order, NOT confirming", { orderNumber, reason: guard.reason, detail: guard.detail });
+    reportEdgeError({
+      source: "edge:handle-stripe-webhook", severity: "critical",
+      message: `payment_order_mismatch:${guard.reason} order=${orderNumber} session=${session.id} ${guard.detail}`,
+    });
+    await sendOperatorAlert(
+      `Zahlung ohne passende Bestellung: ${orderNumber}`,
+      `<p>Stripe-Zahlung (Session ${esc(session.id)}) für Bestellung ${esc(orderNumber)} eingegangen, aber ${esc(guard.detail)}. Die Bestellung wurde NICHT bestätigt. Bitte prüfen und ggf. zurückerstatten oder manuell bestätigen.</p>`,
+    );
+    return;
+  }
+
   // 3. Update payment status + stripe reference
   const { error: updateError } = await supabase
     .from("catering_orders")
@@ -1278,8 +1294,8 @@ async function handleEventBookingPayment(
   // und trägt v2_payments ein (_shared/eventPayment.ts, getestet).
   const marked = await markEventBookingPaid(supabase, booking, session);
   if (!marked.ok) {
-    logStep("ERROR: Failed to record event booking payment", { step: marked.step, error: marked.message });
-    return;
+    // werfen, damit der Webhook 500 liefert und Stripe erneut zustellt (payment_status der Buchung ist noch nicht 'paid')
+    throw new GiftRetryError(`event booking paid-marking failed (${marked.step}): ${marked.message}`);
   }
 
   logStep("Event booking payment confirmed", { bookingId: booking.id });

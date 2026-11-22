@@ -58,6 +58,7 @@ serve(async (req) => {
         chafingQuantity: Number(body?.chafingQuantity ?? 0),
         deliveryType: String(body?.deliveryType ?? "pickup"),
         address: { street: str(a.street, 200) ?? "", zip: str(a.zip, 20) ?? "", city: str(a.city, 120) ?? "" },
+        clientKey: clientIp(req),
       },
       Deno.env.get("OPENROUTE_API_KEY"),
     );
