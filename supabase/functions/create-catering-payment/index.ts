@@ -9,7 +9,7 @@ import { orderMessage, quoteHasChanges, toLang, type Lang, type OrderErrorCode, 
 import { buildCateringPayload, buildEventPayload, parseCreateInput } from '../_shared/orderCreate.ts';
 import { checkOrderSchedule } from '../_shared/orderSchedule.ts';
 import { ensureOrder } from '../_shared/orderFlow.ts';
-import { createSessionIdempotent, deterministicExpiresAt, expireSessions, findOpenSessions, reusableSession, sessionIdempotencyKey, type StripeLike } from '../_shared/stripeSessions.ts';
+import { createSessionIdempotent, deterministicExpiresAt, findOpenSessions, loadSessionLedger, recordSession, reusableSession, sessionIdempotencyKey, settleSessions, type StripeLike } from '../_shared/stripeSessions.ts';
 import { rateLimited, clientIp } from '../_shared/giftRateLimit.ts';
 import { EVENT_REJECT_MESSAGES_DE, verifyEventBooking } from '../_shared/eventPricing.ts';
 import { giftLineName, mixedPaymentMethodTypes, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
@@ -70,6 +70,10 @@ serve(async (req) => {
 
     logStep("Base URL determined", { origin, referer, baseUrl, isCreate });
 
+    // EIN Zeitpunkt je Anfrage: Hold-Prüfung, Session-Ablauf (expires_at) und Idempotenzfenster müssen vom selben Moment ausgehen,
+    // sonst kann die Session länger laufen, als der geprüfte Hold reicht.
+    const requestNowMs = Date.now();
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -127,7 +131,7 @@ serve(async (req) => {
       const holdExpiresAt = (holds ?? []).length > 0
         ? (holds ?? []).map((h: { expires_at: string }) => h.expires_at).sort()[0]
         : null;
-      const check = validateGiftForCateringPayment(g, { orderNumber, customerEmail, holdExpiresAt, now: new Date() });
+      const check = validateGiftForCateringPayment(g, { orderNumber, customerEmail, holdExpiresAt, now: new Date(requestNowMs) });
       if (!check.ok) {
         logStep("ERROR: Gift order rejected", { giftOrderNumber, reason: check.error });
         return fail(409, check.error);
@@ -257,33 +261,31 @@ serve(async (req) => {
         // Alten Korb-Hold freigeben (nur bei 'mismatch'; eine bezahlte Bestellung behält ihren Korb).
         if (ensured.reason === 'mismatch') {
           // Korb erst freigeben, wenn sicher ist, dass die alte Stripe-Session abgelaufen ist (sonst könnte noch bezahlt werden)
-          const open = await findOpenSessions(stripe, orderNumber, customerEmail);
-          // bezahlte oder unklare Session: Korb-Hold bleibt (Freigabe nur bei sicher abgelaufenen Sessions)
-          if (open !== null && await expireSessions(stripe, open) === 'expired') await releaseGift();
+          const found = await findOpenSessions(stripe as unknown as StripeLike, orderNumber, await loadSessionLedger(supabase, orderNumber), requestNowMs);
+          // bezahlte, unklare oder nicht nachweislich vollständig gesuchte Sessions: Korb-Hold bleibt (Freigabe nur bei sicher abgelaufenen)
+          if (await settleSessions(stripe as unknown as StripeLike, found) === 'expired') await releaseGift();
         }
         return json({ error: 'order_exists', message: orderMessage('order_exists', lang) }, 409);
       }
       const orderId = ensured.orderId;
       // Offene Sessions dieser Bestellung: passende weiterverwenden, übrige aktiv ablaufen lassen; erst danach ältere Körbe freigeben
       const giftCents = gift.items.reduce((sum, g) => sum + g.unit_price_cents * g.qty, 0);
-      const openSessions = await findOpenSessions(stripe, orderNumber, customerEmail);
-      let sessionsSettled = false;
-      if (openSessions !== null) {
-        const reuse = ensured.status === 'resumed'
-          ? reusableSession(openSessions.filter((x) => x.metadata?.payment_method_selected === paymentMethod && String(x.customer_email ?? customerEmail).toLowerCase() === customerEmail), quote.totalCents + giftCents)
-          : null;
-        if (reuse) {
-          logStep("Reusing open Stripe session", { orderNumber, sessionId: reuse.id });
-          return json({ url: reuse.url, sessionId: reuse.id, orderNumber, quote }, 200);
-        }
-        const expireOutcome = await expireSessions(stripe, openSessions);
-        if (expireOutcome === 'paid') {
-          // eine offene Session wurde inzwischen bezahlt: keine neue Session, nichts freigeben (der Webhook bestätigt die Bestellung)
-          logStep("Open session already paid, no new session", { orderNumber });
-          return json({ error: 'order_exists', message: orderMessage('order_exists', lang) }, 409);
-        }
-        sessionsSettled = expireOutcome === 'expired';
+      const found = await findOpenSessions(stripe as unknown as StripeLike, orderNumber, await loadSessionLedger(supabase, orderNumber), requestNowMs);
+      const reuse = ensured.status === 'resumed'
+        ? reusableSession(found.sessions.filter((x) => x.metadata?.payment_method_selected === paymentMethod && String(x.customer_email ?? customerEmail).toLowerCase() === customerEmail), quote.totalCents + giftCents)
+        : null;
+      if (reuse) {
+        logStep("Reusing open Stripe session", { orderNumber, sessionId: reuse.id });
+        return json({ url: reuse.url, sessionId: reuse.id, orderNumber, quote }, 200);
       }
+      const expireOutcome = await settleSessions(stripe as unknown as StripeLike, found);
+      if (expireOutcome === 'paid') {
+        // eine Session wurde inzwischen bezahlt: keine neue Session, nichts freigeben (der Webhook bestätigt die Bestellung)
+        logStep("Session already paid, no new session", { orderNumber });
+        return json({ error: 'order_exists', message: orderMessage('order_exists', lang) }, 409);
+      }
+      // nur "expired" (vollständige Suche, alle sicher abgelaufen) erlaubt, ältere Körbe freizugeben; unsafe = Hold bleibt
+      const sessionsSettled = expireOutcome === 'expired';
       // Ältere, noch offene Korb-Bestellungen derselben Catering-Nummer (früherer Versuch mit anderem Korb): Hold freigeben, aber
       // nur wenn alte Stripe-Sessions sicher abgelaufen sind
       if (gift.order && sessionsSettled) {
@@ -574,7 +576,7 @@ serve(async (req) => {
       // nur Karte (sofort), außer Billie: asynchrone Methoden würden den Hold überdauern
       const mixedTypes = mixedPaymentMethodTypes(paymentMethod);
       if (mixedTypes) sessionConfig.payment_method_types = mixedTypes as Parameters<typeof stripe.checkout.sessions.create>[0]['payment_method_types'];
-      sessionConfig.expires_at = deterministicExpiresAt(); // deterministisch je 3-Min-Fenster: Wiederholungen haben identische Parameter
+      sessionConfig.expires_at = deterministicExpiresAt(requestNowMs); // deterministisch je 3-Min-Fenster: Wiederholungen haben identische Parameter
       sessionConfig.metadata = { ...sessionConfig.metadata, gift_order_id: gift.order.id, gift_order_number: gift.order.order_number };
     }
 
@@ -588,9 +590,12 @@ serve(async (req) => {
     // Idempotenzschlüssel aus Bestellnummer + Hash ALLER Session-Parameter + 3-Min-Fenster: gleiche Anfrage = gleiche Session,
     // geänderte Parameter (Name, Zahlart, Körbe ...) = neuer Schlüssel statt 400 idempotency_error
     const session = await createSessionIdempotent(
-      stripe as unknown as StripeLike, sessionConfig, await sessionIdempotencyKey(orderNumber, sessionConfig));
+      stripe as unknown as StripeLike, sessionConfig, await sessionIdempotencyKey(orderNumber, sessionConfig, requestNowMs));
 
     logStep("Checkout session created", { sessionId: session.id, orderNumber, orderType });
+    // Session-ID an der Bestellung merken (Tabelle catering_checkout_sessions), damit spätere Anfragen sie gezielt finden.
+    // Fehlertolerant: fehlt die Tabelle noch, bleibt nur der Rückfall über die Listensuche.
+    if (!await recordSession(supabase, orderNumber, session.id)) logStep("WARN: session id not recorded", { orderNumber, sessionId: session.id });
 
     return new Response(JSON.stringify({ url: session.url, sessionId: session.id, orderNumber, ...(createdQuote ? { quote: createdQuote } : {}) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
