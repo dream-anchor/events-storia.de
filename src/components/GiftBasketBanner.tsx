@@ -1,6 +1,8 @@
 import { ArrowRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LocalizedLink } from "@/components/LocalizedLink";
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 /** Startseiten-Banner für die Geschenkkörbe, direkt unter dem Kategorienraster.
  *  Ersetzt die frühere 7. Kachel im Raster (Entscheidung Antoine 22.11.2026, Mockup-Variante A).
@@ -142,15 +144,18 @@ const GiftBasketBanner = () => {
               >
                 {/* Innerer Rahmen: Prozent-Abstände beziehen sich so auf die Polaroid-Breite */}
                 <div className="flex h-full flex-col px-[5.4%] pt-[6.5%]">
-                  <img
-                    src={basket.image}
-                    alt={de ? basket.altDe : basket.altEn}
-                    className="block aspect-[78.9/76.8] w-full shrink-0 object-cover object-[50%_60%] shadow-[inset_0_0_0_1px_rgb(0_0_0/0.06)]"
-                    width="600"
-                    height="584"
-                    loading="lazy"
-                    decoding="async"
-                  />
+                  <div className="relative shrink-0">
+                    <img
+                      src={basket.image}
+                      alt={`${de ? basket.altDe : basket.altEn} ${kiAltSuffix(de ? "de" : "en")}`}
+                      className="block aspect-[78.9/76.8] w-full object-cover object-[50%_60%] shadow-[inset_0_0_0_1px_rgb(0_0_0/0.06)]"
+                      width="600"
+                      height="584"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <KiBadge size="mini" lang={de ? "de" : "en"} className="top-1 right-1" />
+                  </div>
                   <figcaption
                     className={`flex flex-1 items-center ${CAPTION_ALIGN[i]} whitespace-nowrap font-signature text-[clamp(0.85rem,3.6vw,1.5rem)] leading-none text-[hsl(25_25%_22%)]`}
                   >

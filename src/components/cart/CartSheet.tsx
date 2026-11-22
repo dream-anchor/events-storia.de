@@ -14,6 +14,8 @@ import {
   LOCATION_BASE_GUESTS,
   LOCATION_PACKAGE_ID
 } from '@/lib/eventPricing';
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 const CartSheet = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, totalPrice, clearCart, totalItems, giftItemCount } = useCart();
@@ -92,13 +94,14 @@ const CartSheet = () => {
                         <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
                           <img 
                             src={item.image} 
-                            alt={`${name} – Warenkorb`}
+                            alt={`${name} – Warenkorb ${kiAltSuffix(language)}`}
                             className="w-full h-full object-cover"
                             width="80"
                             height="80"
                             loading="lazy"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                          <KiBadge size="mini" className="top-1 right-1" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0 flex flex-col justify-between">

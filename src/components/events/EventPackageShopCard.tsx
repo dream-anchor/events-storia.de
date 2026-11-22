@@ -25,6 +25,8 @@ import geburtstagsfeier from "@/assets/events/geburtstagsfeier-catering-muenchen
 import weihnachtsfeier from "@/assets/events/weihnachtsfeier-catering-muenchen-storia.webp";
 import cocktailsAperitivo from "@/assets/events/cocktails-aperitivo.webp";
 import locationAussen from "@/assets/events/location-aussen.webp";
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 // Bild je Paket per Namens-Muster — ausschließlich echte STORIA-Fotos.
 // Reihenfolge wichtig: zuerst die Paket-STUFE (Classico/Premium/Deluxe), damit die
@@ -202,13 +204,14 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
       <div className="relative h-44 overflow-hidden">
         <img
           src={image}
-          alt={name}
+          alt={`${name} ${kiAltSuffix(language === 'de' ? 'de' : 'en')}`}
           className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
           width="600"
           height="280"
           loading="lazy"
           decoding="async"
         />
+        <KiBadge />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
       </div>
 

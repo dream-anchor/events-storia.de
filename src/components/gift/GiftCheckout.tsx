@@ -41,6 +41,8 @@ import type { GiftBasket, GiftPublicSettings } from "@/lib/gift/types";
 import { qtyLeft } from "@/lib/gift/stock";
 import { formatPickupHours } from "@/lib/gift/hours";
 import { giftImageProps } from "@/lib/gift/image";
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 const FORM_KEY = "storia-gift-form";
 
@@ -496,7 +498,12 @@ const GiftCheckout = () => {
                         const thumb = img.src?.replace(/\.webp$/, "-600.webp");
                         return (
                           <li key={l.variantId} className="flex items-center gap-3 py-3">
-                            {thumb && <img src={thumb} alt={name} className="h-14 w-14 shrink-0 rounded-lg object-cover" width="56" height="56" loading="lazy" decoding="async" />}
+                            {thumb && (
+                              <div className="relative h-14 w-14 shrink-0">
+                                <img src={thumb} alt={`${name} ${kiAltSuffix(lang)}`} className="h-full w-full rounded-lg object-cover" width="56" height="56" loading="lazy" decoding="async" />
+                                <KiBadge size="mini" lang={lang} className="top-0.5 right-0.5" />
+                              </div>
+                            )}
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium leading-snug">{name}</p>
                               <p className="text-xs text-muted-foreground">{lang === "de" ? l.variant.label_de : l.variant.label_en}</p>

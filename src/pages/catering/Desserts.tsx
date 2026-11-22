@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Plus, Minus, ShoppingCart, Check, ArrowRight } from "lucide-react";
 import { ServicesGrid } from "@/components/catering/ServiceInfoCard";
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 interface DessertCardProps {
   item: CateringMenuItem;
@@ -58,12 +60,13 @@ const DessertCard = ({ item, language }: DessertCardProps) => {
         <div className="aspect-square overflow-hidden relative">
           <img
             src={item.image_url}
-            alt={`${name} – STORIA Catering München`}
+            alt={`${name} – STORIA Catering München ${kiAltSuffix(language)}`}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             width="400"
             height="400"
             loading="lazy"
           />
+          <KiBadge />
           {isInCart && (
             <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
               <Check className="h-3 w-3" />

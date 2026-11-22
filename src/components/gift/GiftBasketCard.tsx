@@ -9,6 +9,8 @@ import { qtyLeft, showFewLeft } from "@/lib/gift/stock";
 import type { GiftBasket } from "@/lib/gift/types";
 import { giftImageProps } from "@/lib/gift/image";
 import { GiftLmiv } from "./GiftLmiv";
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 interface Props {
   basket: GiftBasket;
@@ -36,14 +38,12 @@ export const GiftBasketCard = ({ basket, lang, onAdd }: Props) => {
               src={img.src}
               srcSet={img.srcSet}
               sizes="(min-width: 768px) 320px, 100vw"
-              alt={name}
+              alt={`${name} ${kiAltSuffix(lang)}`}
               loading="lazy"
               className="h-full w-full object-cover"
             />
           )}
-          <span className="absolute bottom-2 left-2 rounded bg-background/80 px-2 py-0.5 text-[11px] text-muted-foreground">
-            {t.kiHint}
-          </span>
+          {img.src && <KiBadge lang={lang} />}
         </div>
 
         <div className="p-5">
