@@ -28,7 +28,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import CheckoutHeader from '@/components/checkout/CheckoutHeader';
 import AccordionSection from '@/components/checkout/AccordionSection';
 import StickySummary from '@/components/checkout/StickySummary';
-import { VatTotals, splitNetCents, lineNetCents, subtotalNetCents, formatCents } from '@/components/checkout/VatTotals';
+import { VatTotals } from '@/components/checkout/VatTotals';
+import { splitNetCents, lineNetCents, subtotalNetCents, formatCents, quoteNetBreakdown } from '@/lib/netDisplay';
 import PaymentMethodCard from '@/components/checkout/PaymentMethodCard';
 import TimeSlotGrid from '@/components/checkout/TimeSlotGrid';
 import SaveForLaterCheckbox from '@/components/checkout/SaveForLaterCheckbox';
@@ -813,18 +814,25 @@ const CateringCheckout = () => {
   const totalVat7 = foodVat;
   const totalVat19 = drinksVat + deliveryVat;
   const grandTotal = quote ? quote.totalCents / 100 : foodGross + drinksGross + deliveryGross;
-  // Netto-Ansicht: Zwischensumme als REST aus dem Netto-Gesamtbetrag (netC) minus die einzeln gerundeten Netto-Zeilen
-  // (Aufschlag, Chafing Dish, Lieferung), damit Zeilen und Summen auf den Cent aufgehen. Nur Anzeige.
-  const { netC: cateringNetC } = splitNetCents(grandTotal, totalVat7, drinksVat, deliveryVat);
+  // Netto-Ansicht: alle Steuergrundlagen aus DERSELBEN Quelle wie `grandTotal` (Server-Angebot: Positionen, Aufschlag, Lieferung).
+  // So kann die Zwischensumme nicht negativ werden, wenn Warenkorb/Chafing sich geändert haben, das neue Angebot aber noch fehlt.
+  // Ohne Angebot (Vorschau) rechnet der Browser selbst; die Zwischensumme ist der REST aus netC, nie negativ. Nur Anzeige.
+  const quoteNet = quote ? quoteNetBreakdown(quote) : null;
+  const vat7ForDisplay = quoteNet ? quoteNet.vat7Food : totalVat7;
+  const vat19DrinksForDisplay = quoteNet ? quoteNet.vat19Drinks : drinksVat;
+  const vat19DeliveryForDisplay = quoteNet ? quoteNet.vat19Delivery : deliveryVat;
+  const { netC: cateringNetC } = splitNetCents(grandTotal, vat7ForDisplay, vat19DrinksForDisplay, vat19DeliveryForDisplay);
   const cateringSubtotalDisplay = showGross
     ? formatPriceMixed(cateringLineParts(cateringItems))
-    : formatCents(subtotalNetCents(cateringNetC, [
-        minimumOrderSurcharge > 0 ? lineNetCents(minimumOrderSurcharge, VAT_RATES.FOOD) : 0,
-        chafingDishQuantity > 0 ? lineNetCents(chafingDishQuantity * CHAFING_DISH.price, VAT_RATES.FOOD) : 0,
-        formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery
-          ? lineNetCents(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)
-          : 0,
-      ]));
+    : formatCents(quoteNet
+        ? quoteNet.subtotalNetC
+        : subtotalNetCents(cateringNetC, [
+            chafingDishQuantity > 0 ? lineNetCents(chafingDishQuantity * CHAFING_DISH.price, VAT_RATES.FOOD) : 0,
+            formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery
+              ? lineNetCents(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)
+              : 0,
+          ]));
+  const hasEventPackageItems = cateringItems.some(item => item.id.startsWith('event-'));
   // Anzeige: Catering-Gesamt (+ Körbe brutto). `grandTotal` selbst bleibt der CATERING-Betrag (RPC + create-catering-payment).
   // Der Endbetrag ist IMMER der Brutto-Zahlbetrag, auch im Netto-Modus (der Umschalter ändert nur die Einzelpreise, nie den Stripe-Betrag);
   // im Netto-Modus steht dann "brutto" dabei, mit Körben "inkl. MwSt.". Die Netto-Summe samt "zzgl. MwSt." zeigt <VatTotals>.
@@ -1043,6 +1051,8 @@ const CateringCheckout = () => {
       name_en: l.name_en ?? l.name,
       quantity: l.quantity,
       price: l.unitCents / 100,
+      // maßgeblich ist der Zeilenbetrag (Event-Pakete: Stückpreis nur Durchschnitt)
+      total: l.lineCents / 100,
     }));
 
     let fullNotes = formData.notes || '';
@@ -1191,6 +1201,7 @@ const CateringCheckout = () => {
       const deliveryCostEuro = paid.deliveryCents / 100;
       const surchargeEuro = paid.surchargeCents / 100;
       const grandTotalEuro = paid.totalCents / 100;
+      const paidNet = quoteNetBreakdown(paid);
       const isEventBookingOrder = paid.kind === 'event';
       const eventLine = isEventBookingOrder ? paid.lines[0] : null;
 
@@ -1234,8 +1245,9 @@ const CateringCheckout = () => {
             name_en: item.name_en,
             quantity: item.quantity,
             price: item.price,
-            total: item.price * item.quantity
-          })), ...giftSuccessItems],
+            total: item.total,
+            id: item.id,
+          })), ...giftSuccessItems.map(gi => ({ ...gi, kind: 'gift' as const }))],
           deliveryType: formData.deliveryType,
           deliveryAddress: formData.deliveryType === 'delivery'
             ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
@@ -1247,8 +1259,13 @@ const CateringCheckout = () => {
           grandTotal: grandTotalEuro + giftTotalEuro,
           paymentMethod: paymentMethod,
           company: formData.company,
-          foodVat7: totalVat7,
-          deliveryVat19: totalVat19
+          // Teilbeträge für die Erfolgsseite (Netto-Anzeige): Catering und Körbe getrennt, Steuer aus dem BEZAHLTEN Angebot
+          cateringTotal: grandTotalEuro,
+          giftTotal: giftTotalEuro,
+          minimumOrderSurcharge: surchargeEuro,
+          foodVat7: paidNet.vat7Food,
+          drinksVat19: paidNet.vat19Drinks,
+          deliveryVat19: paidNet.vat19Delivery,
         }
       };
       localStorage.setItem(successDataKey, JSON.stringify(successData));
@@ -1442,7 +1459,11 @@ const CateringCheckout = () => {
                     {/* Always visible cost summary */}
                     <div className="space-y-2 text-sm mb-3">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">{language === 'de' ? 'Speisen' : 'Food'}</span>
+                        <span className="text-muted-foreground">
+                          {hasEventPackageItems
+                            ? (language === 'de' ? 'Speisen & Getränke' : 'Food & drinks')
+                            : (language === 'de' ? 'Speisen' : 'Food')}
+                        </span>
                         <span>{cateringSubtotalDisplay}</span>
                       </div>
                       {hasGiftItems && (
@@ -1486,10 +1507,19 @@ const CateringCheckout = () => {
                           <span>{language === 'de' ? 'Kostenlos' : 'Free'}</span>
                         </div>
                       )}
-                      <div className="flex justify-between pt-2 border-t border-border font-semibold">
-                        <span>{language === 'de' ? 'Gesamt' : 'Total'}{totalVatSuffix}</span>
-                        <span className="text-primary">{displayTotal}</span>
-                      </div>
+                    </div>
+                    {/* MwSt.-Zeilen und Endbetrag immer sichtbar (Netto-Modus: Netto-Summe, zzgl. MwSt., Endbetrag = Brutto-Zahlbetrag) */}
+                    <div className="mb-3">
+                      <VatTotals
+                        variant="inline"
+                        language={language === 'de' ? 'de' : 'en'}
+                        showGross={showGross}
+                        grandTotal={grandTotal}
+                        giftSubtotal={giftSubtotal}
+                        vat7Food={vat7ForDisplay}
+                        vat19Drinks={vat19DrinksForDisplay}
+                        vat19Delivery={vat19DeliveryForDisplay}
+                      />
                     </div>
 
                     <Collapsible defaultOpen={false}>
@@ -1600,9 +1630,9 @@ const CateringCheckout = () => {
                               showGross={showGross}
                               grandTotal={grandTotal}
                               giftSubtotal={giftSubtotal}
-                              vat7Food={totalVat7}
-                              vat19Drinks={drinksVat}
-                              vat19Delivery={deliveryVat}
+                              vat7Food={vat7ForDisplay}
+                              vat19Drinks={vat19DrinksForDisplay}
+                              vat19Delivery={vat19DeliveryForDisplay}
                             />
                           </div>
                         </div>
@@ -2251,9 +2281,10 @@ const CateringCheckout = () => {
                     chafingDishPrice={CHAFING_DISH.price}
                     grandTotal={grandTotal}
                     giftSubtotal={giftSubtotal}
-                    foodVat7={totalVat7}
-                    drinksVat19={drinksVat}
-                    deliveryVat19={deliveryVat}
+                    foodVat7={vat7ForDisplay}
+                    drinksVat19={vat19DrinksForDisplay}
+                    deliveryVat19={vat19DeliveryForDisplay}
+                    netSubtotalDisplay={cateringSubtotalDisplay}
                     isDelivery={formData.deliveryType === 'delivery'}
                     distanceKm={deliveryCalc?.distanceKm}
                     isRoundTrip={deliveryCalc?.isRoundTrip}

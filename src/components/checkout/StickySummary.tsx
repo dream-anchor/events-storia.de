@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { isGiftItem } from "@/lib/gift/cartRules";
 import { GIFT_COPY } from "@/lib/gift/copy";
 import { formatEuroTruncated } from "@/lib/gift/mixedCart";
-import { VatTotals, splitNetCents, lineNetCents, subtotalNetCents, formatCents } from "./VatTotals";
+import { VatTotals } from "./VatTotals";
 import { KiBadge } from "@/components/KiBadge";
 import { kiAltSuffix } from "@/lib/kiAlt";
 
@@ -26,6 +26,8 @@ interface StickySummaryProps {
   drinksVat19?: number;
   /** 19-%-Steuer auf die Lieferung */
   deliveryVat19?: number;
+  /** Netto-Zwischensumme (fertig formatiert, Rest aus dem Netto-Gesamtbetrag); nur in der Netto-Ansicht genutzt */
+  netSubtotalDisplay?: string;
   isDelivery?: boolean;
   isSubmitting?: boolean;
   isProcessingPayment?: boolean;
@@ -46,6 +48,7 @@ const StickySummary = ({
   foodVat7 = 0,
   drinksVat19 = 0,
   deliveryVat19 = 0,
+  netSubtotalDisplay,
   isDelivery = true,
   distanceKm,
   isRoundTrip,
@@ -53,24 +56,13 @@ const StickySummary = ({
   className,
   ctaButton,
 }: StickySummaryProps) => {
-  const { items, updateQuantity, removeFromCart, totalPrice, cateringSubtotal } = useCart();
+  const { items, updateQuantity, removeFromCart } = useCart();
   const { language } = useLanguage();
   const { formatPrice, formatPriceMixed, showGross, setShowGross } = usePriceDisplay();
   const hasGifts = giftSubtotal > 0;
-  // Zwischensumme-Zeile zeigt den Catering-Anteil (Körbe stehen in eigener Zeile); ohne Körbe unverändert totalPrice
-  const subtotalBase = hasGifts ? cateringSubtotal : totalPrice;
   const giftText = GIFT_COPY[language === 'de' ? 'de' : 'en'];
 
   const chafingDishGross = chafingDishQuantity * chafingDishPrice;
-
-  // Netto-Ansicht: Zwischensumme = Rest aus dem Netto-Gesamtbetrag (netC) minus die einzeln gerundeten Netto-Zeilen,
-  // damit Zeilen und Summen auf den Cent aufgehen (Anzeige, der Zahlbetrag bleibt unberührt).
-  const { netC } = splitNetCents(grandTotal, foodVat7, drinksVat19, deliveryVat19);
-  const netSubtotalC = subtotalNetCents(netC, [
-    minimumOrderSurcharge > 0 ? lineNetCents(minimumOrderSurcharge, VAT_RATES.FOOD) : 0,
-    chafingDishQuantity > 0 ? lineNetCents(chafingDishGross, VAT_RATES.FOOD) : 0,
-    isDelivery && deliveryCost > 0 ? lineNetCents(deliveryCost, VAT_RATES.DELIVERY) : 0,
-  ]);
 
   return (
     <div className={cn("sticky top-0 mt-[11px]", className)}>
@@ -180,7 +172,7 @@ const StickySummary = ({
             <span className="text-muted-foreground">
               {language === 'de' ? 'Zwischensumme' : 'Subtotal'}
             </span>
-            <span>{showGross ? formatPriceMixed(cateringLineParts(items.filter(item => !isGiftItem(item)))) : formatCents(netSubtotalC)}</span>
+            <span>{showGross || !netSubtotalDisplay ? formatPriceMixed(cateringLineParts(items.filter(item => !isGiftItem(item)))) : netSubtotalDisplay}</span>
           </div>
 
           {hasGifts && (

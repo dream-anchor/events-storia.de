@@ -1,5 +1,9 @@
 import { cn } from "@/lib/utils";
 import { formatEuroTruncated, formatMixedTotal } from "@/lib/gift/mixedCart";
+import { splitNetCents, formatCents } from "@/lib/netDisplay";
+
+// Rechenhelfer liegen in src/lib/netDisplay.ts (ohne React testbar); hier weiterhin exportiert.
+export { toCents, splitNetCents, lineNetCents, subtotalNetCents, formatCents } from "@/lib/netDisplay";
 
 interface VatTotalsProps {
   language: "de" | "en";
@@ -23,34 +27,6 @@ function vat19Scope(drinks: number, delivery: number, language: "de" | "en"): st
   if (drinks > 0) return language === "de" ? "Getränke" : "drinks";
   return language === "de" ? "Lieferung" : "delivery";
 }
-
-/** Euro in ganze Cent runden (Float-Rauschen entfernen). */
-export const toCents = (euro: number): number => Math.round(euro * 100);
-
-/**
- * Cent-Aufteilung des Catering-Betrags (brutto) in Steuerbeträge und Netto-Summe.
- * Die Steuerbeträge werden je auf den Cent gerundet, die Netto-Summe ist der REST (Brutto minus Steuer),
- * damit Netto + MwSt. immer genau den Zahlbetrag ergeben.
- */
-export function splitNetCents(grandTotal: number, vat7Food: number, vat19Drinks: number, vat19Delivery: number) {
-  const vat7C = toCents(vat7Food);
-  const vat19C = toCents(vat19Drinks + vat19Delivery);
-  const netC = toCents(grandTotal) - vat7C - vat19C;
-  return { vat7C, vat19C, netC };
-}
-
-/** Netto-Cents einer einzelnen Zeile (brutto, Steuersatz), auf den Cent gerundet. */
-export const lineNetCents = (gross: number, vatRate: number): number => Math.round((gross / (1 + vatRate)) * 100);
-
-/**
- * Netto-Zwischensumme der Catering-Positionen als REST aus dem Netto-Gesamtbetrag (netC):
- * netC minus die einzeln gerundeten Netto-Zeilen (Aufschlag, Chafing Dish, Lieferung), damit Zeilen und Summe aufgehen.
- */
-export const subtotalNetCents = (netC: number, otherNetCents: number[]): number =>
-  netC - otherNetCents.reduce((sum, c) => sum + c, 0);
-
-/** Cent-Betrag als deutsch formatierter Euro-String (abgeschnitten, wie die übrigen Anzeigen). */
-export const formatCents = (cents: number): string => formatEuroTruncated(cents / 100);
 
 /**
  * MwSt.-Zeilen und Endbetrag des Checkouts.
