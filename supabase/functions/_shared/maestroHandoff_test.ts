@@ -84,7 +84,7 @@ Deno.test("Gutschein: eine Position, kein Code, keine Übergabe", () => {
   const p = buildOrderPayload({ ...base, shop: shopFieldsFromVoucher({ amount_cents: 5000, message: "Alles Gute", code: "GEHEIM" }, "paid") });
   assertEquals(p.orderKind, "voucher");
   assertEquals(p.lines, [{ name: "Gutschein 50,00 EUR", qty: 1, unitCents: 5000 }]);
-  assertEquals(p.giftMessage, "Alles Gute");
+  assertFalse("giftMessage" in p); // Datenschutz
   assertFalse("handover" in p);
   assertFalse(JSON.stringify(p).includes("GEHEIM"));
 });
@@ -130,6 +130,9 @@ Deno.test("Grenzen: max. 50 Positionen, Längen, ungültige Werte entfallen", ()
   const p = buildOrderPayload({ ...base, shop: shopFieldsFromCatering({ ...cateringRow, items: many }, null, "paid") });
   assertEquals(p.lines?.length, SHOP_MAX_LINES);
   assertEquals(p.lines?.[0].name, "P0");
+  // Sammelzeile hält die Summe: 21 verworfene Positionen à 1 EUR
+  assertEquals(p.lines?.at(-1), { name: "weitere Positionen (21)", qty: 1, unitCents: 2100 });
+  assertEquals(p.lines!.reduce((a, l) => a + l.qty * l.unitCents, 0), 7000);
 
   const long = buildOrderPayload({
     ...base,
@@ -230,4 +233,39 @@ Deno.test("loadShopFields: Lesefehler -> ok:false (Aufrufer sendet Altpayload), 
 Deno.test("Zahlstatus kommt aus der Session, nicht aus der DB", async () => {
   const r = await loadShopFields(fake({ vouchers: { data: { amount_cents: 100 } } }), { order_type: "voucher", voucher_id: "v" }, "unpaid");
   assert(r.ok && r.fields?.paymentStatus === "unpaid");
+});
+
+const u16 = (s: string) => s.length; // JS-Länge = UTF-16-Einheiten wie Zod .max()
+
+Deno.test("UTF-16-Grenze: Emoji an der Grenze überschreitet Zod-Limits nie", () => {
+  const emoji = "😀"; // 2 UTF-16-Einheiten
+  const p = buildOrderPayload({
+    ...base,
+    shop: {
+      giftMessage: "a".repeat(499) + emoji + "b", // Emoji beginnt an Einheit 499
+      deliveryAddress: { street: "x".repeat(499) + emoji },
+      lines: [{ name: "n".repeat(119) + emoji + "z", variant: "v".repeat(99) + emoji, qty: 1, unitCents: 1 }],
+      paymentStatus: "p".repeat(39) + emoji,
+    },
+  });
+  assert(u16(p.giftMessage!) <= 500);
+  assertEquals(p.giftMessage, "a".repeat(499)); // halbes Emoji entfällt, kein loses Surrogat
+  assert(u16((p.deliveryAddress as Record<string, string>).street) <= 500);
+  assert(u16(p.lines![0].name) <= 200 && u16(p.lines![0].variant!) <= 200);
+  assert(u16(p.paymentStatus!) <= 40);
+  const big = buildOrderPayload({ ...base, shop: { giftMessage: emoji.repeat(400) } });
+  assertEquals(u16(big.giftMessage!), 500); // 250 ganze Emojis
+  assert(!/[\ud800-\udbff]$/.test(big.giftMessage!));
+});
+
+Deno.test("Jahr vor 2000 -> handoverDate entfällt", () => {
+  assertFalse("handoverDate" in buildOrderPayload({ ...base, shop: { handoverDate: "1999-12-31" } }));
+  assertEquals(buildOrderPayload({ ...base, shop: { handoverDate: "2000-01-01" } }).handoverDate, "2000-01-01");
+});
+
+Deno.test("Budget-Kürzung: Sammelzeile erhält die Summe", () => {
+  const items = Array.from({ length: 50 }, (_, i) => ({ id: String(i), name: `${i}-${"ä".repeat(300)}`, quantity: 1, price: 2 }));
+  const p = buildOrderPayload({ ...base, message: "m".repeat(4000), shop: shopFieldsFromCatering({ ...cateringRow, items }, null, "paid") });
+  assertEquals(p.lines!.reduce((a, l) => a + l.qty * l.unitCents, 0), 10000);
+  assert(p.lines!.at(-1)!.name.startsWith("weitere Positionen"));
 });

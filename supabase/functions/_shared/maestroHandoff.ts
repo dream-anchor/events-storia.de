@@ -185,13 +185,18 @@ function clipText(v: unknown, max: number): string | undefined {
   if (typeof v !== "string") return undefined;
   const t = v.trim();
   if (!t) return undefined;
-  return Array.from(t).slice(0, max).join("");
+  // Zod .max() zählt UTF-16-Einheiten: nach Einheiten kürzen, angeschnittenes High-Surrogate entfernen.
+  if (t.length <= max) return t;
+  let cut = t.slice(0, max);
+  const last = cut.charCodeAt(cut.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1);
+  return cut;
 }
 
 function validIsoDate(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const d = v.slice(0, 10);
-  if (!ISO_DATE_RE.test(d)) return undefined;
+  if (!ISO_DATE_RE.test(d) || Number(d.slice(0, 4)) < 2000) return undefined;
   const dt = new Date(`${d}T00:00:00Z`);
   return !Number.isNaN(dt.getTime()) && dt.toISOString().slice(0, 10) === d ? d : undefined;
 }
@@ -260,16 +265,31 @@ function applyShopFields(out: MaestroOrderPayload, shop: MaestroShopFields): voi
   if (typeof shop.ageConfirmed === "boolean") out.ageConfirmed = shop.ageConfirmed;
 
   if (Array.isArray(shop.lines)) {
-    const lines: MaestroLine[] = [];
+    const kept: MaestroLine[] = [];
+    let invalid = 0;
     for (const l of shop.lines) {
       const c = sanitizeLine(l);
-      if (c) lines.push(c);
-      if (lines.length >= SHOP_MAX_LINES) break;
+      if (c) kept.push(c); else invalid++;
     }
-    if (lines.length) {
-      out.lines = lines;
+    const overflow: MaestroLine[] = [];
+    // Max. 50 Positionen; braucht es eine Sammelzeile, zählt sie mit.
+    while (kept.length > SHOP_MAX_LINES || (kept.length === SHOP_MAX_LINES && (overflow.length || invalid))) {
+      overflow.unshift(kept.pop() as MaestroLine);
+    }
+    const compose = (): MaestroLine[] => {
+      const n = overflow.length + invalid;
+      if (!n) return [...kept];
+      const rest = overflow.reduce((a, l) => a + l.qty * l.unitCents, 0);
+      // Sammelzeile hält die Summe stimmig (Zod: unitCents <= 1e9)
+      return [...kept, { name: `weitere Positionen (${n})`, qty: 1, unitCents: Math.min(rest, 1_000_000_000) }];
+    };
+    if (kept.length) {
       const enc = new TextEncoder();
-      while (out.lines.length > 1 && enc.encode(stableStringify(out)).byteLength > SHOP_BODY_BUDGET_BYTES) out.lines.pop();
+      out.lines = compose();
+      while (kept.length > 1 && enc.encode(stableStringify(out)).byteLength > SHOP_BODY_BUDGET_BYTES) {
+        overflow.unshift(kept.pop() as MaestroLine);
+        out.lines = compose();
+      }
     }
   }
 }
@@ -369,7 +389,7 @@ export function shopFieldsFromVoucher(v: Row, paymentStatus: string): MaestroSho
     orderKind: "voucher",
     lines: [{ name: eur ? `Gutschein ${eur} EUR` : "Gutschein", qty: 1, unitCents: amount }],
     paymentStatus,
-    giftMessage: v.message ?? undefined,
+    // bewusst ohne giftMessage (Datenschutz, MAESTRO braucht den Grußtext des Gutscheins nicht)
   };
 }
 
@@ -419,7 +439,7 @@ export async function loadShopFields(
       return { ok: true, fields: gift ? shopFieldsFromGift(gift.order, gift.items, ps) : null };
     }
     if (md.order_type === "voucher" && md.voucher_id) {
-      const { data: v, error } = await supabase.from("vouchers").select("amount_cents, message").eq("id", md.voucher_id).maybeSingle();
+      const { data: v, error } = await supabase.from("vouchers").select("amount_cents").eq("id", md.voucher_id).maybeSingle();
       if (error) throw new Error(`vouchers: ${error.message}`);
       return { ok: true, fields: v ? shopFieldsFromVoucher(v, ps) : null };
     }

@@ -2652,17 +2652,19 @@ async function maestroEnqueueOrder(
 
     const deliveryEventId = deliveryEventIdOverride || `order_${sourceOrderId}_${session.id}`;
 
+    // Existiert für diese Delivery-ID schon ein Outbox-Eintrag, ist sie bereits eingereiht (Stripe-Redelivery):
+    // NICHT neu bauen. Ein abweichender (z. B. angereicherter) Payload hätte einen anderen Hash, und
+    // enqueueMaestroHandoff würde den noch nicht gesendeten Eintrag auf 'conflict' setzen.
+    const { data: already } = await supabase
+      .from("maestro_handoff_outbox").select("id").eq("delivery_event_id", deliveryEventId).maybeSingle();
+    if (already) return;
+
     // Shop-Felder (Positionen, Übergabe, Termin …) aus der DB. Lesefehler dürfen die Übergabe NIE verhindern:
     // dann Altpayload ohne neue Felder. Der Zahlstatus kommt aus der Session (nicht aus der DB), damit der
     // Payload für eine Delivery-ID bei Stripe-Redelivery bytegleich bleibt (MAESTRO: 409 bei geändertem Inhalt).
     const shop = await loadShopFields(supabase, md, session.payment_status);
     if (!shop.ok) {
       logStep("MAESTRO shop fields unavailable — sending legacy payload", { error: shop.error, deliveryId: deliveryEventId.slice(0, 32) });
-      // Existiert für diese Delivery-ID schon ein (angereicherter) Eintrag, nicht mit Altpayload dagegenlaufen:
-      // enqueueMaestroHandoff würde den noch nicht gesendeten Eintrag wegen Hash-Abweichung auf 'conflict' setzen.
-      const { data: already } = await supabase
-        .from("maestro_handoff_outbox").select("id").eq("delivery_event_id", deliveryEventId).maybeSingle();
-      if (already) return;
     }
 
     const payload = buildOrderPayload({
