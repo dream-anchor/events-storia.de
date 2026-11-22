@@ -882,10 +882,20 @@ const CateringCheckout = () => {
     }
   };
 
+  const deliveryPending = isCalculating || (formData.deliveryType === 'delivery' && !isEventBooking && !deliveryCalc);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (isSubmitting || isProcessingPayment) {
+      return;
+    }
+
+    // Lieferkosten müssen berechnet sein, sonst würde der Server die Bestellung ablehnen
+    if (isCalculating || (formData.deliveryType === 'delivery' && !isEventBooking && !deliveryCalc)) {
+      toast.error(language === 'de'
+        ? 'Die Lieferkosten werden noch berechnet bzw. fehlen. Bitte prüfen Sie die Lieferadresse.'
+        : 'Delivery cost is still being calculated or missing. Please check the delivery address.');
       return;
     }
 
@@ -1273,21 +1283,26 @@ const CateringCheckout = () => {
 
           if (paymentError || !paymentData?.url) {
             console.error('Payment error:', paymentError);
-            toast.error(language === 'de' ? 'Fehler bei der Zahlungsweiterleitung' : 'Payment redirect error');
             setIsProcessingPayment(false);
+            setIsSubmitting(false);
             localStorage.removeItem(cachedOrderKey);
-            if (hasGiftItems) {
-              // Mischbestellung: Warenkorb behalten, nicht zur Erfolgsseite, Kunde bleibt im Checkout
-              toast.error(language === 'de'
-                ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
-                : 'Payment could not be started. Your cart has been kept, please try again.', { duration: 8000 });
-              return;
+            // Servermeldung (create-catering-payment: price_mismatch, delivery_mismatch, ...) lesen und anzeigen.
+            // Bei JEDEM Fehler bleibt der Warenkorb erhalten, kein Weiterleiten zur Erfolgsseite.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const errBody = await (paymentError as any)?.context?.json?.().catch(() => null) ?? null;
+            const code: string | undefined = errBody?.error;
+            const fallbackText = language === 'de'
+              ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
+              : 'Payment could not be started. Your cart has been kept, please try again.';
+            const serverText = typeof errBody?.message === 'string' ? errBody.message : null;
+            toast.error(code === 'delivery_unverifiable'
+              ? (language === 'de' ? 'Die Lieferkosten konnten gerade nicht geprüft werden. Bitte versuchen Sie es in einer Minute erneut. Ihr Warenkorb bleibt erhalten.' : 'Delivery cost could not be verified right now. Please try again in a minute. Your cart has been kept.')
+              : (serverText ?? fallbackText), { duration: 10000 });
+            if (code === 'price_mismatch' || code === 'delivery_mismatch' || code === 'surcharge_mismatch') {
+              if (formData.deliveryType === 'delivery') {
+                calculateDelivery(`${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}`, isPizzaOnly);
+              }
             }
-            clearCart();
-            navigate(getPath('account.orderSuccess'), { 
-              state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
-              replace: true
-            });
             return;
           }
 
@@ -1299,20 +1314,12 @@ const CateringCheckout = () => {
           return;
         } catch (payErr) {
           console.error('Payment error:', payErr);
-          toast.error(language === 'de' ? 'Fehler bei der Zahlung' : 'Payment error');
+          toast.error(language === 'de'
+            ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
+            : 'Payment could not be started. Your cart has been kept, please try again.', { duration: 10000 });
           setIsProcessingPayment(false);
+          setIsSubmitting(false);
           localStorage.removeItem(cachedOrderKey);
-          if (hasGiftItems) {
-            toast.error(language === 'de'
-              ? 'Die Zahlung konnte nicht gestartet werden. Ihr Warenkorb bleibt erhalten, bitte versuchen Sie es erneut.'
-              : 'Payment could not be started. Your cart has been kept, please try again.', { duration: 8000 });
-            return;
-          }
-          clearCart();
-          navigate(getPath('account.orderSuccess'), { 
-            state: { email: formData.email, name: formData.name, orderNumber: newOrderNumber },
-            replace: true
-          });
           return;
         }
       }
@@ -1417,7 +1424,7 @@ const CateringCheckout = () => {
       form="checkout-form"
       variant="checkoutCta"
       className="w-full h-12 text-base"
-      disabled={isSubmitting || isProcessingPayment}
+      disabled={isSubmitting || isProcessingPayment || deliveryPending}
     >
       {isSubmitting || isProcessingPayment ? (
         <>
@@ -2275,7 +2282,7 @@ const CateringCheckout = () => {
                         type="submit"
                         variant="checkoutCta"
                         className="w-full h-12"
-                        disabled={isSubmitting || isProcessingPayment}
+                        disabled={isSubmitting || isProcessingPayment || deliveryPending}
                       >
                         {isSubmitting || isProcessingPayment ? (
                           <>
@@ -2324,7 +2331,7 @@ const CateringCheckout = () => {
                             type="submit"
                             variant="checkoutCta"
                             className="w-full h-12"
-                            disabled={isSubmitting || isProcessingPayment}
+                            disabled={isSubmitting || isProcessingPayment || deliveryPending}
                           >
                             {isSubmitting || isProcessingPayment ? (
                               <>
@@ -2374,7 +2381,7 @@ const CateringCheckout = () => {
                     form="checkout-form"
                     variant="checkoutCta"
                     className="flex-1 max-w-[200px] h-11"
-                    disabled={isSubmitting || isProcessingPayment}
+                    disabled={isSubmitting || isProcessingPayment || deliveryPending}
                   >
                     {isSubmitting || isProcessingPayment ? (
                       <>
