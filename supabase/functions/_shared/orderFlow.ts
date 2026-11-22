@@ -4,6 +4,7 @@
 //    überein (Fingerabdruck) -> weiterverwenden (z. B. nach einem Stripe-Fehler).
 //  * conflict/mismatch: Nummer gibt es, aber mit anderem Inhalt -> die alte UNBEZAHLTE Zeile wird storniert (keine Waise), der
 //    Aufrufer gibt den alten Korb-Hold frei und der Kunde bekommt eine neue Nummer.
+//  * conflict/foreign: Nummer gehört zu einer ANDEREN E-Mail -> nichts anfassen (nie fremde Bestellungen stornieren), nur order_exists.
 //  * conflict/paid: schon bezahlt -> nichts anfassen.
 //  * conflict/race: gleichzeitige Anfrage derselben Nummer hat die Zeile angelegt (UNIQUE 23505) und ist noch in Arbeit -> NICHTS
 //    freigeben oder stornieren (die andere Anfrage hält Korb und Stripe-Session).
@@ -15,7 +16,7 @@ type Supa = any;
 
 export type EnsureResult =
   | { status: "created" | "resumed"; orderId: string }
-  | { status: "conflict"; reason: "mismatch" | "paid" | "race" }
+  | { status: "conflict"; reason: "mismatch" | "paid" | "race" | "foreign" }
   | { status: "failed"; message: string; code?: string };
 
 interface ExistingRow {
@@ -80,9 +81,21 @@ export async function ensureOrder(
   const existing = await lookup();
   if (existing) {
     if (existing.payment_status === "paid") return { status: "conflict", reason: "paid" };
-    if (matchesExisting(existing, a.quote, a.input)) return { status: "resumed", orderId: existing.id };
-    // Andere Eingaben unter alter Nummer: unbezahlte Zeile stornieren statt als Waise stehen zu lassen
-    await supabase.from(view).update({ status: "cancelled" }).eq("id", existing.id);
+    // Fremde Bestellung (andere E-Mail): nichts anfassen, auch nicht stornieren
+    if (norm(existing.customer_email) !== norm(a.input.customer.email)) return { status: "conflict", reason: "foreign" };
+    if (matchesExisting(existing, a.quote, a.input)) {
+      await refreshResumedOrder(supabase, a, existing.id);
+      return { status: "resumed", orderId: existing.id };
+    }
+    // Gleiche E-Mail, anderer Inhalt: unbezahlte Zeile stornieren statt als Waise stehen zu lassen. Nur wenn sie weiterhin unbezahlt
+    // und nicht schon storniert ist; das Update-Ergebnis zählt (0 Zeilen = jemand war schneller -> neu bewerten).
+    const { data: cancelled } = await supabase.from(view).update({ status: "cancelled" })
+      .eq("id", existing.id).neq("payment_status", "paid").neq("status", "cancelled").select("id");
+    if (!cancelled || cancelled.length === 0) {
+      const again = await lookup();
+      if (again?.payment_status === "paid") return { status: "conflict", reason: "paid" };
+      return { status: "conflict", reason: "race" };
+    }
     return { status: "conflict", reason: "mismatch" };
   }
 
@@ -93,13 +106,45 @@ export async function ensureOrder(
   // Gleichzeitige Anfrage mit derselben Nummer: UNIQUE-Verletzung -> neu nachschlagen, nie freigeben/stornieren
   if (error.code === "23505" || String(error.message ?? "").toLowerCase().includes("duplicate key")) {
     const winner = await lookup();
-    if (winner && winner.payment_status !== "paid" && matchesExisting(winner, a.quote, a.input)) return { status: "resumed", orderId: winner.id };
+    if (winner && winner.payment_status !== "paid" && matchesExisting(winner, a.quote, a.input)) {
+      await refreshResumedOrder(supabase, a, winner.id);
+      return { status: "resumed", orderId: winner.id };
+    }
     return { status: "conflict", reason: "race" };
   }
   return { status: "failed", message: String(error.message ?? "rpc_failed"), code: error.code };
 }
 
-/** Stripe-Idempotenzschlüssel: dieselbe Bestellung (Nummer, Betrag, Korb) im selben 25-Minuten-Fenster ergibt dieselbe Session, nie zwei offene. */
-export function stripeIdempotencyKey(orderNumber: string, totalCents: number, giftOrderId: string | null, now = Date.now()): string {
-  return `cat-${orderNumber}-${totalCents}-${giftOrderId ?? "nogift"}-${Math.floor(now / (25 * 60_000))}`;
+/**
+ * Beim Fortsetzen die Felder aktualisieren, die NICHT zum Fingerabdruck gehören (Name, Telefon, Firma, Notizen, Rechnungsadresse,
+ * Stockwerk/Aufzug, Lieferadresstext), damit die Bestellung den letzten Stand des Kunden trägt. Best effort: ein Fehler hier verhindert
+ * das Fortsetzen nicht (Betrag/Positionen/Termin/Adresse/Lieferart sind schon geprüft). Zahlart und Referenznummer stehen nicht in der
+ * Ansicht und werden mit der Stripe-Session (Metadaten) geführt.
+ */
+async function refreshResumedOrder(supabase: Supa, a: { quote: OrderQuote; input: CreateInput; payload: Record<string, unknown> }, rowId: string): Promise<void> {
+  const p = a.payload;
+  try {
+    if (a.quote.kind === "event") {
+      await supabase.from("event_bookings").update({ internal_notes: p.internal_notes ?? null }).eq("id", rowId);
+    } else {
+      await supabase.from("catering_orders").update({
+        delivery_address: p.delivery_address ?? null, notes: p.notes ?? null, delivery_floor: p.delivery_floor ?? null,
+        has_elevator: p.has_elevator ?? false, billing_name: p.billing_name ?? null, billing_street: p.billing_street ?? null,
+        billing_zip: p.billing_zip ?? null, billing_city: p.billing_city ?? null, billing_country: p.billing_country ?? null,
+      }).eq("id", rowId);
+    }
+    // Kunde: passenden Datensatz (E-Mail + Name) suchen/anlegen wie der Insert-Trigger und der Bestellung zuordnen
+    const c = a.input.customer;
+    const { data: found } = await supabase.from("v2_customers").select("id").ilike("email", c.email).ilike("name", c.name).limit(1).maybeSingle();
+    let customerId: string | null = found?.id ?? null;
+    if (!customerId) {
+      const { data: created } = await supabase.from("v2_customers").insert({ name: c.name, email: c.email, phone: c.phone, company: c.company || null }).select("id").maybeSingle();
+      customerId = created?.id ?? null;
+    } else {
+      await supabase.from("v2_customers").update({ phone: c.phone, company: c.company || null }).eq("id", customerId);
+    }
+    if (customerId) await supabase.from("v2_events").update({ customer_id: customerId }).eq("id", rowId);
+  } catch {
+    /* best effort */
+  }
 }
