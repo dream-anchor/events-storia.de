@@ -11,6 +11,8 @@ import auflaufImg from "@/assets/catering/auflauf/lasagna.webp";
 import pizzaImg from "@/assets/catering/pizze/hero-pizza.webp";
 import dessertsImg from "@/assets/catering/fingerfood/tiramisu.webp";
 import eventsImg from "@/assets/events/firmenfeier-eventlocation-storia-muenchen.webp";
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 interface CateringItem {
   id: string;
@@ -106,7 +108,7 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
       {/* Bild mit Zoom-Effekt */}
       <img
         src={item.image}
-        alt={language === 'de' ? item.altDe : item.altEn}
+        alt={`${language === 'de' ? item.altDe : item.altEn} ${kiAltSuffix(language === 'de' ? 'de' : 'en')}`}
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         width="600"
         height="400"
@@ -114,6 +116,7 @@ const CateringCard = ({ item, language, index }: { item: CateringItem; language:
         fetchPriority={isAboveFold ? "high" : undefined}
         decoding="async"
       />
+      <KiBadge />
 
       {/* Minimaler Gradient nur am unteren Textbereich */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />

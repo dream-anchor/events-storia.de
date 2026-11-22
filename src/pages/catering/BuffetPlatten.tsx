@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Plus, Minus, ShoppingCart, Check, Wheat, ArrowRight } from "lucide-react";
 import { HighlightCard, ServicesGrid } from "@/components/catering/ServiceInfoCard";
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 // No static image imports needed - using database URLs
 
@@ -60,15 +62,16 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
         <div className="aspect-square overflow-hidden relative">
           <img
             src={image}
-            alt={`${name} – STORIA Catering München`}
+            alt={`${name} – STORIA Catering München ${kiAltSuffix(language)}`}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             style={{ objectPosition: imagePosition }}
             width="400"
             height="400"
             loading="lazy"
           />
+          <KiBadge corner="br" />
           {isInCart && (
-            <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <div className="absolute top-2 right-2 z-20 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
               <Check className="h-3 w-3" />
               {cartItem.quantity}x
             </div>
@@ -78,7 +81,7 @@ const MenuItemCard = ({ item, language }: MenuItemCardProps) => {
         <div className="aspect-square bg-muted flex items-center justify-center relative">
           <span className="text-4xl">🥗</span>
           {isInCart && (
-            <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <div className="absolute top-2 right-2 z-20 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
               <Check className="h-3 w-3" />
               {cartItem.quantity}x
             </div>

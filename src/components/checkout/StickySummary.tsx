@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { isGiftItem } from "@/lib/gift/cartRules";
 import { GIFT_COPY } from "@/lib/gift/copy";
 import { formatEuroTruncated, formatMixedTotal } from "@/lib/gift/mixedCart";
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 interface StickySummaryProps {
   deliveryCost?: number;
@@ -73,14 +75,17 @@ const StickySummary = ({
             return (
               <div key={item.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
                 {item.image && (
-                  <img
-                    src={item.image}
-                    alt={`${name} – Warenkorb`}
-                    className="w-12 h-12 rounded-lg object-cover"
-                    width="48"
-                    height="48"
-                    loading="lazy"
-                  />
+                  <div className="relative w-12 h-12 shrink-0">
+                    <img
+                      src={item.image}
+                      alt={`${name} – ${language === 'de' ? 'Warenkorb' : 'Cart'} ${kiAltSuffix(language)}`}
+                      className="w-full h-full rounded-lg object-cover"
+                      width="48"
+                      height="48"
+                      loading="lazy"
+                    />
+                    <KiBadge size="mini" />
+                  </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{name}</p>

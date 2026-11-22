@@ -51,6 +51,8 @@ import {
   totalChanged,
   type OrderQuote,
 } from '@/lib/orderQuote';
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 // Zod schema for checkout form validation with length limits (security)
 const checkoutSchema = z
@@ -1544,7 +1546,10 @@ const CateringCheckout = () => {
                             return (
                               <div key={item.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
                                 {item.image && (
-                                  <img src={item.image} alt={name} className="w-14 h-14 rounded-lg object-cover" loading="lazy" />
+                                  <div className="relative w-14 h-14 shrink-0">
+                                    <img src={item.image} alt={`${name} ${kiAltSuffix(language)}`} className="w-full h-full rounded-lg object-cover" loading="lazy" />
+                                    <KiBadge size="mini" />
+                                  </div>
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm truncate">{name}</p>
