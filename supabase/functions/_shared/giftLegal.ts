@@ -6,7 +6,7 @@
  */
 
 /** Wird beim Bestellen gespeichert (gift_orders.agb_version). Beim Livegang auf die freigegebene AGB-Version setzen. */
-export const GIFT_AGB_VERSION = "AGB-2026-11";
+export const GIFT_AGB_VERSION = "AGB-2026-11b";
 
 /**
  * Livegang-Gate (Freigabe der Rechtstexte): EINE Quelle, die Server-Env `GIFT_LEGAL_APPROVED=true`

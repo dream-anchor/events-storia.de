@@ -13,7 +13,7 @@ import LegalDocument, {
 import StoriaGbpSyncHinweise from "@/components/legal/StoriaGbpSyncHinweise";
 
 /**
- * Einheitliche AGB (Version AGB-2026-11, Stand 20. November 2026; Teil G Geschenkkörbe ergänzt).
+ * Einheitliche AGB (Version AGB-2026-11b, Stand 22. November 2026; Teil G Geschenkkörbe ergänzt).
  * Ersetzt die früheren Einzelseiten AGB Catering, AGB Veranstaltungen und AGB Restaurant.
  * Der Text liegt ausschließlich als JSON vor (src/content/agb-2026-10.json) und wird hier
  * unverändert gerendert. Nur die deutsche Fassung ist verbindlich.
