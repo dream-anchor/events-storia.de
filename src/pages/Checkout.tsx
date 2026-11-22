@@ -882,7 +882,7 @@ const CateringCheckout = () => {
     }
   };
 
-  const deliveryPending = isCalculating || (formData.deliveryType === 'delivery' && !isEventBooking && !deliveryCalc);
+  const deliveryPending = isCalculating;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -892,10 +892,10 @@ const CateringCheckout = () => {
     }
 
     // Lieferkosten müssen berechnet sein, sonst würde der Server die Bestellung ablehnen
-    if (isCalculating || (formData.deliveryType === 'delivery' && !isEventBooking && !deliveryCalc)) {
+    if (deliveryPending) {
       toast.error(language === 'de'
-        ? 'Die Lieferkosten werden noch berechnet bzw. fehlen. Bitte prüfen Sie die Lieferadresse.'
-        : 'Delivery cost is still being calculated or missing. Please check the delivery address.');
+        ? 'Die Lieferkosten werden noch berechnet. Bitte einen Moment warten.'
+        : 'Delivery cost is still being calculated. Please wait a moment.');
       return;
     }
 
