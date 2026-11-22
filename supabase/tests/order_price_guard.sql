@@ -1,5 +1,8 @@
 -- SQL-Tests Preisprüfung (Migration 20261122100000_order_price_guard.sql). Lauf gegen eine Wegwerf-/Branch-DB (NIE Produktion):
 --   psql "$TEST_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/order_price_guard.sql
+-- oder komplett (Stub-Schema + beide Migrationen + beide Testdateien) ohne Datenbank: node supabase/tests/run-sql-tests.mjs
+-- Entfernung = EINFACHE Strecke (calculated_distance_km). Die Beträge stammen aus der Server-Rechnung (_shared/cateringPricing.ts):
+-- 12,34 km einfach, 2 Fahrten: netto 129,62 / brutto 154,25; Pizza-only (1 Fahrt): netto 64,81 / brutto 77,12.
 -- Alles in einer Transaktion mit ROLLBACK am Ende. Die Rolle wird per JWT-Einstellung simuliert (auth.role() liest sie),
 -- die Zeilen werden direkt in v2_events geschrieben (der Trigger sitzt dort, jeder Weg läuft hier durch).
 BEGIN;
@@ -37,6 +40,22 @@ BEGIN
   END;
 END $$;
 
+CREATE FUNCTION pg_temp.try_both(p_pkg uuid)
+RETURNS text LANGUAGE plpgsql AS $$
+DECLARE v_cust uuid; v_id uuid := gen_random_uuid(); v_detail text;
+BEGIN
+  SELECT id INTO v_cust FROM v2_customers WHERE email = 'guard-test@example.invalid';
+  BEGIN
+    INSERT INTO v2_events (id, customer_id, source, source_booking_id, source_catering_id, package_id, guest_count, amount_total)
+    VALUES (v_id, v_cust, 'manual', v_id, gen_random_uuid(), p_pkg, 10, 500);
+    RAISE EXCEPTION 'GUARD_OK';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM = 'GUARD_OK' THEN RETURN 'ok'; END IF;
+    GET STACKED DIAGNOSTICS v_detail = PG_EXCEPTION_DETAIL;
+    RETURN COALESCE(replace(v_detail, 'order_price_guard:', ''), SQLERRM);
+  END;
+END $$;
+
 CREATE FUNCTION pg_temp.expect(p_label text, p_got text, p_want text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
   IF p_got IS DISTINCT FROM p_want THEN RAISE EXCEPTION 'FEHLER [%]: erwartet %, erhalten %', p_label, p_want, p_got; END IF;
@@ -46,7 +65,8 @@ DO $$
 DECLARE
   m_buf uuid; m_piz uuid; m_unp uuid; c_buf uuid; c_piz uuid; c_unp uuid;
   i_lasagne uuid; i_pizza uuid; i_unp uuid;
-  p_pp uuid; p_flat uuid; p_loc uuid; p_off uuid;
+  p_pp uuid; p_flat uuid; p_loc uuid; p_off uuid; p_rng uuid;
+  m_oth uuid; c_oth uuid; i_oth uuid;
   L jsonb; ch jsonb := '{"id":"chafing-dish","name":"Chafing Dish (Leihgerät)","name_en":"Chafing Dish (rental)","quantity":2,"price":25}';
 BEGIN
   INSERT INTO v2_customers (name, email) VALUES ('Guard Test', 'guard-test@example.invalid');
@@ -63,6 +83,11 @@ BEGIN
   INSERT INTO packages (name, price, price_per_person) VALUES ('Pauschal', 500, false) RETURNING id INTO p_flat;
   INSERT INTO packages (name, price, price_per_person) VALUES ('Location Test', 8500, false) RETURNING id INTO p_loc;
   INSERT INTO packages (name, price, price_per_person, is_active) VALUES ('Inaktiv', 100, true, false) RETURNING id INTO p_off;
+  INSERT INTO packages (name, price, price_per_person, min_guests, max_guests) VALUES ('Mit Grenzen', 50, true, 10, 50) RETURNING id INTO p_rng;
+  -- fremder Mandant: Katalog darf nicht verkauft werden
+  INSERT INTO menus (menu_type, slug, is_published, tenant_id) VALUES ('catering', 'fremd', true, gen_random_uuid()) RETURNING id INTO m_oth;
+  INSERT INTO menu_categories (menu_id, name) VALUES (m_oth, 'Fremd') RETURNING id INTO c_oth;
+  INSERT INTO menu_items (category_id, name, name_en, price) VALUES (c_oth, 'Fremdgericht', 'Foreign dish', 10) RETURNING id INTO i_oth;
 
   -- Aufrufer = anonymer Kunde
   PERFORM set_config('request.jwt.claims', '{"role":"anon"}', true);
@@ -106,10 +131,17 @@ BEGIN
   -- 12) Mindestbestellwert-Aufschlag: 1 x Lasagne (30) bei 0,9 km => Aufschlag 20, Summe 50
   PERFORM pg_temp.expect('aufschlag ok', pg_temp.try_catering(jsonb_build_array(jsonb_build_object('id', i_lasagne, 'name', 'Lasagne', 'name_en', 'Lasagna', 'quantity', 1, 'price', 30)), false, 0.9, 0, 2000, 50), 'ok');
   PERFORM pg_temp.expect('aufschlag fehlt', pg_temp.try_catering(jsonb_build_array(jsonb_build_object('id', i_lasagne, 'name', 'Lasagne', 'name_en', 'Lasagna', 'quantity', 1, 'price', 30)), false, 0.9, 0, 0, 30), 'surcharge_mismatch');
-  -- 13) > 8 km: 12 km => net round((100 + 12*2*1.2)*100)/100 = 128,80 => brutto 153,27
-  PERFORM pg_temp.expect('12 km ok', pg_temp.try_catering(L, false, 12.0, 15327, 0, 453.27), 'ok');
+  -- 13) > 8 km: gespeichert wird die EINFACHE Strecke. 12,34 km, 2 Fahrten: netto 129,62, brutto 154,25; 300 EUR >= 200 Mindestwert
+  PERFORM pg_temp.expect('12 km einfach ok', pg_temp.try_catering(L, false, 12.0, 15327, 0, 453.27), 'ok');
+  PERFORM pg_temp.expect('12,34 km einfach ok', pg_temp.try_catering(L, false, 12.34, 15425, 0, 454.25), 'ok');
+  -- Regression des Altfehlers: der Checkout speicherte Strecke x Fahrten (12,34 x 2 = 24,68) zur Gebühr für 12,34 km -> abgelehnt
+  PERFORM pg_temp.expect('alter fehler strecke x fahrten', pg_temp.try_catering(L, false, 24.68, 15425, 0, 454.25), 'delivery_mismatch');
+  PERFORM pg_temp.expect('km 8,00 ist noch Pauschale', pg_temp.try_catering(L, false, 8.0, 11900, 0, 419), 'ok');
+  PERFORM pg_temp.expect('km 8,01 ist Kilometertarif', pg_temp.try_catering(L, false, 8.01, 14187, 0, 441.87), 'ok');
   -- 14) Pizza-only: eine Fahrt => 50 netto = 59,50; 10 x 10 = 100 < 150 => Aufschlag 50; Summe 209,50
   PERFORM pg_temp.expect('pizza only ok', pg_temp.try_catering(jsonb_build_array(jsonb_build_object('id', i_pizza, 'name', 'Margherita', 'name_en', 'Margherita', 'quantity', 10, 'price', 10)), false, 5.0, 5950, 5000, 209.5), 'ok');
+  -- Pizza-only 12,34 km einfach: 1 Fahrt, netto 64,81, brutto 77,12; 10 x 10 = 100 < 200 => Aufschlag 100; Summe 277,12
+  PERFORM pg_temp.expect('pizza 12,34 km ok', pg_temp.try_catering(jsonb_build_array(jsonb_build_object('id', i_pizza, 'name', 'Margherita', 'name_en', 'Margherita', 'quantity', 10, 'price', 10)), false, 12.34, 7712, 10000, 277.12), 'ok');
   PERFORM pg_temp.expect('pizza mit 2 fahrten', pg_temp.try_catering(jsonb_build_array(jsonb_build_object('id', i_pizza, 'name', 'Margherita', 'name_en', 'Margherita', 'quantity', 10, 'price', 10)), false, 5.0, 11900, 5000, 269), 'delivery_mismatch');
   -- 15) Lieferung ohne Entfernung ist nicht prüfbar
   PERFORM pg_temp.expect('km fehlt', pg_temp.try_catering(L, false, NULL, 11900, 0, 419), 'delivery_unverifiable');
@@ -124,6 +156,13 @@ BEGIN
   PERFORM pg_temp.expect('event location manipuliert', pg_temp.try_event(p_loc, 80, 8500), 'price_mismatch');
   PERFORM pg_temp.expect('event paket inaktiv', pg_temp.try_event(p_off, 10, 1000), 'unknown_package');
   PERFORM pg_temp.expect('event ohne paket', pg_temp.try_event(NULL, 10, 1000), 'invalid_booking');
+
+  -- 16b) Mandant, Gästegrenzen, beide Quell-IDs
+  PERFORM pg_temp.expect('fremder mandant', pg_temp.try_catering(jsonb_build_array(jsonb_build_object('id', i_oth, 'name', 'Fremdgericht', 'name_en', 'Foreign dish', 'quantity', 1, 'price', 10)), true, NULL, 0, 0, 10), 'item_unavailable');
+  PERFORM pg_temp.expect('gaeste im rahmen', pg_temp.try_event(p_rng, 20, 1000), 'ok');
+  PERFORM pg_temp.expect('gaeste unter minimum', pg_temp.try_event(p_rng, 5, 250), 'guests_out_of_range');
+  PERFORM pg_temp.expect('gaeste ueber maximum', pg_temp.try_event(p_rng, 51, 2550), 'guests_out_of_range');
+  PERFORM pg_temp.expect('quell-ids beide', pg_temp.try_both(p_flat), 'invalid_booking');
 
   -- 17) Ausnahmen: service_role und Verbindung ohne JWT werden NICHT geprüft (manuelle Preise, Edge Functions, Migrationen)
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);

@@ -11,7 +11,6 @@ export const CHAFING_DISH_ID = "chafing-dish";
 export const FIXED_ITEM_PRICES_CENTS: Readonly<Record<string, number>> = { [CHAFING_DISH_ID]: 2500 };
 export const PIZZA_MENU_SLUG = "pizze-napoletane";
 
-const DELIVERY_VAT_RATE = 0.19;
 const NET_BASE_FEE_PER_TRIP = 50;
 const NET_PER_KM = 1.2;
 
@@ -69,17 +68,30 @@ export function minimumOrderCents(oneWayKm: number): number {
   return 20000;
 }
 
-/** Liefergebühr brutto in Cent, 1:1 wie calculate-delivery (19 %, Hin- und Rückfahrt außer Pizza-only). */
-export function deliveryFeeGrossCents(oneWayKm: number, pizzaOnly: boolean): number {
+/** Anzahl Fahrten: 0 bis 1 km (kostenlos), Pizza-only 1 (nur Hinfahrt), sonst 2 (Hin- und Rückfahrt für das Leihgerät). */
+export function tripCount(oneWayKm: number, pizzaOnly: boolean): 0 | 1 | 2 {
   if (oneWayKm <= 1) return 0;
-  const trips = pizzaOnly ? 1 : 2;
-  let net: number;
-  if (oneWayKm <= 8) {
-    net = NET_BASE_FEE_PER_TRIP * trips;
-  } else {
-    net = Math.round((NET_BASE_FEE_PER_TRIP * trips + oneWayKm * trips * NET_PER_KM) * 100) / 100;
-  }
-  return Math.round(net * (1 + DELIVERY_VAT_RATE) * 100);
+  return pizzaOnly ? 1 : 2;
+}
+
+/** Entfernung (einfache Strecke) auf 0,01 km: Gebühr, Anzeige und gespeicherter Wert (calculated_distance_km) stimmen so überein. */
+export const roundKm = (km: number): number => Math.round(km * 100) / 100;
+
+/**
+ * Liefergebühr NETTO in Cent. 1 bis 8 km: 50 EUR je Fahrt; darüber 50 EUR je Fahrt + 1,20 EUR je km und Fahrt.
+ * `oneWayKm` ist IMMER die einfache Strecke; die Fahrtenzahl multipliziert Pauschale und Kilometer (nicht die Strecke selbst speichern!).
+ */
+export function deliveryFeeNetCents(oneWayKm: number, pizzaOnly: boolean): number {
+  const trips = tripCount(oneWayKm, pizzaOnly);
+  if (trips === 0) return 0;
+  if (oneWayKm <= 8) return NET_BASE_FEE_PER_TRIP * trips * 100;
+  return Math.round((NET_BASE_FEE_PER_TRIP * trips + oneWayKm * trips * NET_PER_KM) * 100);
+}
+
+/** Liefergebühr brutto in Cent (19 % USt, ganzzahlig gerundet, Halbcent nach oben wie numeric-round in der DB). */
+export function deliveryFeeGrossCents(oneWayKm: number, pizzaOnly: boolean): number {
+  const net = deliveryFeeNetCents(oneWayKm, pizzaOnly);
+  return Math.floor((net * 119 + 50) / 100);
 }
 
 /** Pizza-only: alle Menü-Positionen stammen aus dem Pizza-Menü (Chafing-Zeilen ignoriert, unbekannte = nein). */

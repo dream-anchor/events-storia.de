@@ -7,6 +7,8 @@ export const LOCATION_PACKAGE_ID = "b147ea52-9907-445f-9f39-b7ddecbb0ddf"; // "G
 export const LOCATION_BASE_PRICE = 8500;
 export const LOCATION_BASE_GUESTS = 70;
 export const EVENT_TOLERANCE_CENTS = 1;
+/** Obergrenze der Gästezahl, wenn das Paket keine max_guests hat (wie EventPackageShopCard: max_guests || 200). */
+export const EVENT_MAX_GUESTS_DEFAULT = 200;
 
 export interface EventPackageRow {
   id: string;
@@ -14,6 +16,13 @@ export interface EventPackageRow {
   price_per_person: boolean | null;
   is_active: boolean | null;
 }
+
+/** Englische Fassung der Meldungen (der Checkout kennt de und en). */
+export const EVENT_REJECT_MESSAGES_EN: Readonly<Record<EventReject, string>> = {
+  invalid_booking: "The booking data is incomplete. Please reload the page and book again.",
+  unknown_package: "This event package is no longer available. Please reload the page.",
+  price_mismatch: "The price of the event package has changed. Please reload the page and book again.",
+};
 
 export type EventReject = "invalid_booking" | "unknown_package" | "price_mismatch";
 

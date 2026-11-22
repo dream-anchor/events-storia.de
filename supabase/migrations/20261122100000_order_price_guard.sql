@@ -13,13 +13,24 @@
 -- NICHT geprüft (Admin-Ausnahmen bleiben möglich): service_role (Edge Functions), admin/staff (Admin-Panel,
 -- manuelle Preise), Verbindungen ohne JWT (Migrationen, SQL-Editor, Cron). UPDATEs sind nicht betroffen.
 --
+-- ROLLE DIESES TRIGGERS (Entscheidung 22.11.2026): zweite Verteidigungslinie. Seit der Abdichtung (Migration 20261122110000)
+-- legt NUR die Edge Function create-catering-payment (service_role) Bestellungen/Buchungen an; sie rechnet Preis, Entfernung
+-- (OpenRouteService), Liefergebühr, Aufschlag und Summe selbst (_shared/orderQuote.ts). service_role bleibt hier BEWUSST
+-- ausgenommen: (1) eine EVT-Buchung darf mehrere Pakete enthalten (Summe), das lässt sich in dieser Einzelzeilen-Prüfung nicht
+-- ausdrücken, (2) eine dritte Kopie der Rechnung würde bei Abweichung Bestellungen blockieren, ohne mehr Sicherheit zu bringen.
+-- Der Trigger greift, falls künftig doch ein Weg für anon/authenticated geöffnet wird.
+--
+-- ENTFERNUNG: `calculated_distance_km` ist die EINFACHE Strecke (km). Die Fahrtenzahl (Pizza-only 1, sonst 2) steht nicht im
+-- Datensatz, sondern ergibt sich aus den Positionen; Liefergebühr = f(einfache Strecke, Fahrtenzahl).
+--
 -- Regeln = 1:1 wie supabase/functions/_shared/cateringPricing.ts (Catering) bzw. src/lib/eventPricing.ts (Event):
 --  Catering: Positionen aus menu_items (nur Catering-Menü + veröffentlicht, Artikel/Kategorie nicht gelöscht/archiviert),
 --   Namensprüfung, Chafing-Dish fix 25,00 EUR, Einzelpreis +-1 Cent, Liefergebühr/Aufschlag passend zur gemeldeten
 --   Entfernung (+-0,05 km, Chafing-Toleranz), Summe = Positionen + Aufschlag + Liefergebühr +-1 Cent.
 --  Event: Betrag = Paketpreis (pro Person / pauschal / "Gesamte Location" gestaffelt) +-1 Cent.
 -- GRENZE: Die Entfernung steht als calculated_distance_km im Datensatz und kann die DB nicht selbst prüfen
--- (kein Routing in SQL). Bei Stripe/Billie prüft create-catering-payment sie zusätzlich per OpenRouteService.
+-- (kein Routing in SQL). Deshalb gibt es für Kunden keinen direkten Schreibweg mehr (siehe Sperr-Migration): die Entfernung
+-- rechnet ausschließlich create-catering-payment per OpenRouteService nach.
 --
 -- EXPAND-ONLY: keine Tabellen-/Spaltenänderung, keine Datenänderung; Rollback = DROP TRIGGER + DROP FUNCTION (unten).
 
@@ -86,6 +97,7 @@ AS $$
 DECLARE
   c_chafing constant text := 'chafing-dish';
   c_pizza_slug constant text := 'pizze-napoletane';
+  c_tenant constant uuid := '00000000-0000-0000-0000-000000000001';   -- Mandant events-storia.de (NULL zählt als Default)
   v_line jsonb;
   v_id text;
   v_qty numeric;
@@ -145,9 +157,11 @@ BEGIN
         FROM public.menu_items mi
         LEFT JOIN public.menu_categories mc
                ON mc.id = mi.category_id AND mc.deleted_at IS NULL AND mc.archived_at IS NULL
+              AND COALESCE(mc.tenant_id, c_tenant) = c_tenant
         LEFT JOIN public.menus m
                ON m.id = mc.menu_id AND m.menu_type = 'catering' AND m.is_published IS TRUE
-       WHERE mi.id = v_id::uuid;
+              AND COALESCE(m.tenant_id, c_tenant) = c_tenant
+       WHERE mi.id = v_id::uuid AND COALESCE(mi.tenant_id, c_tenant) = c_tenant;
       IF NOT FOUND THEN
         PERFORM public.order_guard_reject('unknown_item', 'Eine Position ist nicht mehr im Angebot. Bitte laden Sie die Seite neu und prüfen Sie Ihren Warenkorb.');
       END IF;
@@ -237,15 +251,21 @@ DECLARE
   c_location_id constant uuid := 'b147ea52-9907-445f-9f39-b7ddecbb0ddf';   -- "Gesamte Location"
   c_location_price constant numeric := 8500;
   c_location_guests constant integer := 70;
+  c_tenant constant uuid := '00000000-0000-0000-0000-000000000001';
   v_pkg record;
   v_expected numeric;
 BEGIN
   IF p_package_id IS NULL OR p_guests IS NULL OR p_guests < 1 OR p_total IS NULL THEN
     PERFORM public.order_guard_reject('invalid_booking', 'Die Buchungsdaten sind unvollständig. Bitte laden Sie die Seite neu und buchen Sie erneut.');
   END IF;
-  SELECT id, price, price_per_person, is_active INTO v_pkg FROM public.packages WHERE id = p_package_id;
+  SELECT id, price, price_per_person, is_active, min_guests, max_guests INTO v_pkg
+    FROM public.packages WHERE id = p_package_id AND COALESCE(tenant_id, c_tenant) = c_tenant;
   IF NOT FOUND OR COALESCE(v_pkg.is_active, true) IS NOT TRUE THEN
     PERFORM public.order_guard_reject('unknown_package', 'Dieses Eventpaket ist nicht mehr verfügbar. Bitte laden Sie die Seite neu.');
+  END IF;
+  -- Gästegrenzen wie im Paket-Shop (min_guests || 1, max_guests || 200)
+  IF p_guests < COALESCE(NULLIF(v_pkg.min_guests, 0), 1) OR p_guests > COALESCE(NULLIF(v_pkg.max_guests, 0), 200) THEN
+    PERFORM public.order_guard_reject('guests_out_of_range', 'Die Gästezahl liegt außerhalb der Grenzen dieses Pakets. Bitte laden Sie die Seite neu und buchen Sie erneut.');
   END IF;
 
   IF COALESCE(v_pkg.price_per_person, false) THEN
@@ -281,6 +301,11 @@ BEGIN
   -- Ausnahme: Admin/Staff (manuelle Preise, Admin-Panel)
   IF auth.uid() IS NOT NULL AND (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'staff')) THEN
     RETURN NEW;
+  END IF;
+
+  -- Eine Zeile ist Catering-Bestellung ODER EVT-Buchung, nie beides (sonst würde nur eine der Prüfungen laufen)
+  IF NEW.source_catering_id IS NOT NULL AND NEW.source_booking_id IS NOT NULL THEN
+    PERFORM public.order_guard_reject('invalid_booking', 'Die Bestelldaten sind ungültig. Bitte laden Sie die Seite neu und bestellen Sie erneut.');
   END IF;
 
   IF NEW.source_catering_id IS NOT NULL THEN
