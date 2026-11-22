@@ -5,6 +5,7 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { reportEdgeError } from '../_shared/reportError.ts';
 import { REJECT_MESSAGES_DE, verifyCateringOrder, type ClientLine } from '../_shared/cateringPricing.ts';
 import { loadCatalog, oneWayDistanceKm } from '../_shared/cateringServer.ts';
+import { EVENT_REJECT_MESSAGES_DE, verifyEventBooking } from '../_shared/eventPricing.ts';
 import { MIXED_SESSION_MINUTES, giftLineName, mixedPaymentMethodTypes, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
 
 
@@ -72,14 +73,16 @@ serve(async (req) => {
     // Catering: Zeile für die Preisprüfung (Positionen, Lieferung); bei Event-Buchungen null
     // deno-lint-ignore no-explicit-any
     let cateringRow: any = null;
-    // Serverseitig verifizierter Betrag in Cent (nur Catering); Stripe berechnet NUR diesen Wert
+    // Event-Buchung: Paket + Gästezahl für die Preisprüfung
+    let eventRow: { package_id: string | null; guest_count: number | null } | null = null;
+    // Serverseitig verifizierter Betrag in Cent (Catering und Event); Stripe berechnet NUR diesen Wert
     let verifiedCents: number | null = null;
 
     if (isEventBooking) {
       // Query event_bookings table
       const { data: eventOrder, error: eventError } = await supabase
         .from('event_bookings')
-        .select('id, booking_number, total_amount, customer_email, payment_status')
+        .select('id, booking_number, total_amount, customer_email, payment_status, package_id, guest_count')
         .eq('booking_number', orderNumber)
         .single();
 
@@ -98,6 +101,7 @@ serve(async (req) => {
         payment_status: eventOrder.payment_status,
       };
       orderType = 'event';
+      eventRow = { package_id: eventOrder.package_id ?? null, guest_count: eventOrder.guest_count ?? null };
       logStep("Found event booking", { bookingId: order.id });
     } else {
       // Query catering_orders table
@@ -210,6 +214,42 @@ serve(async (req) => {
       }
       verifiedCents = verdict.expectedTotalCents;
       logStep("Catering prices verified", { orderNumber, expectedCents: verdict.expectedTotalCents });
+    }
+
+    // SECURITY (I3, Teil 2): Event-Buchungen gegen packages nachrechnen (wie DB-Trigger order_guard_event_booking).
+    if (eventRow) {
+      let pkg: { id: string; price: number; price_per_person: boolean | null; is_active: boolean | null } | null = null;
+      if (eventRow.package_id) {
+        const { data: pkgRow, error: pkgErr } = await supabase
+          .from('packages')
+          .select('id, price, price_per_person, is_active')
+          .eq('id', eventRow.package_id)
+          .maybeSingle();
+        if (pkgErr) throw new Error(`package_load_failed: ${pkgErr.message}`);
+        pkg = pkgRow ? { ...pkgRow, price: Number(pkgRow.price) } : null;
+      }
+      const eventVerdict = verifyEventBooking({ pkg, guests: eventRow.guest_count, clientTotalEuro: Number(order.total_amount) });
+      if (!eventVerdict.ok) {
+        logStep("ERROR: Event price verification failed", { orderNumber, code: eventVerdict.code, detail: eventVerdict.detail });
+        reportEdgeError({
+          source: 'edge:create-catering-payment',
+          severity: 'warning',
+          message: `price_verification_failed:${eventVerdict.code} order=${orderNumber} ${JSON.stringify(eventVerdict.detail)}`,
+        });
+        return new Response(
+          JSON.stringify({ error: eventVerdict.code, message: EVENT_REJECT_MESSAGES_DE[eventVerdict.code] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 }
+        );
+      }
+      if (Math.abs(Math.round(Number(amount) * 100) - eventVerdict.expectedTotalCents) > 1) {
+        logStep("ERROR: Request amount differs from server event price", { amount, expectedCents: eventVerdict.expectedTotalCents });
+        return new Response(
+          JSON.stringify({ error: 'total_mismatch', message: 'Der Gesamtbetrag stimmt nicht. Bitte laden Sie die Seite neu und buchen Sie erneut.' }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 }
+        );
+      }
+      verifiedCents = eventVerdict.expectedTotalCents;
+      logStep("Event prices verified", { orderNumber, expectedCents: eventVerdict.expectedTotalCents });
     }
 
     logStep("Order validated successfully", { 
