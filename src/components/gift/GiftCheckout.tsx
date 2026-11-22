@@ -501,7 +501,7 @@ const GiftCheckout = () => {
                             {thumb && (
                               <div className="relative h-14 w-14 shrink-0">
                                 <img src={thumb} alt={`${name} ${kiAltSuffix(lang)}`} className="h-full w-full rounded-lg object-cover" width="56" height="56" loading="lazy" decoding="async" />
-                                <KiBadge size="mini" lang={lang} className="top-0.5 right-0.5" />
+                                <KiBadge size="mini" lang={lang} />
                               </div>
                             )}
                             <div className="min-w-0 flex-1">

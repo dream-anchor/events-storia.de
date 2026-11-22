@@ -66,9 +66,9 @@ const DessertCard = ({ item, language }: DessertCardProps) => {
             height="400"
             loading="lazy"
           />
-          <KiBadge />
+          <KiBadge corner="br" />
           {isInCart && (
-            <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <div className="absolute top-2 right-2 z-20 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
               <Check className="h-3 w-3" />
               {cartItem.quantity}x
             </div>

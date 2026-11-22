@@ -17,7 +17,7 @@ import {
   LOCATION_BASE_GUESTS 
 } from "@/lib/eventPricing";
 
-// Echte STORIA-Fotos (keine KI-/Stock-Bilder)
+// STORIA-Fotos, KI-bearbeitet – mit KiBadge gekennzeichnet (Inhaber 22.11.2026)
 import sommerfest from "@/assets/events/sommerfest-firmenfeier-catering-muenchen.webp";
 import ravioliDinner from "@/assets/events/ravioli-dinner.webp";
 import firmenfeier from "@/assets/events/firmenfeier-catering-muenchen-storia.webp";
@@ -28,13 +28,13 @@ import locationAussen from "@/assets/events/location-aussen.webp";
 import { KiBadge } from "@/components/KiBadge";
 import { kiAltSuffix } from "@/lib/kiAlt";
 
-// Bild je Paket per Namens-Muster — ausschließlich echte STORIA-Fotos.
+// Bild je Paket per Namens-Muster — STORIA-Fotos, KI-bearbeitet – mit KiBadge gekennzeichnet (Inhaber 22.11.2026).
 // Reihenfolge wichtig: zuerst die Paket-STUFE (Classico/Premium/Deluxe), damit die
 // drei Geburtstags-Pakete drei verschiedene Bilder bekommen; danach Anlass, dann Speisen.
 const getPackageImage = (name: string): string => {
   const n = name.toLowerCase();
 
-  // Stufe → 3 verschiedene echte Fotos für Classico / Premium / Deluxe
+  // Stufe → 3 verschiedene Fotos für Classico / Premium / Deluxe
   if (n.includes("deluxe") || n.includes("exklusiv")) return sommerfest;        // gehobener Empfang/Service
   if (n.includes("premium")) return firmenfeier;                                // elegant gedeckte Tische
   if (n.includes("classico") || n.includes("classic") || n.includes("essenz")) return geburtstagsfeier;
@@ -211,7 +211,7 @@ const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
           loading="lazy"
           decoding="async"
         />
-        <KiBadge />
+        <KiBadge corner="br" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
       </div>
 

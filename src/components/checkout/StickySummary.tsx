@@ -78,13 +78,13 @@ const StickySummary = ({
                   <div className="relative w-12 h-12 shrink-0">
                     <img
                       src={item.image}
-                      alt={`${name} – Warenkorb ${kiAltSuffix(language)}`}
+                      alt={`${name} – ${language === 'de' ? 'Warenkorb' : 'Cart'} ${kiAltSuffix(language)}`}
                       className="w-full h-full rounded-lg object-cover"
                       width="48"
                       height="48"
                       loading="lazy"
                     />
-                    <KiBadge size="mini" className="top-0.5 right-0.5" />
+                    <KiBadge size="mini" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">

@@ -154,7 +154,8 @@ const GiftBasketBanner = () => {
                       loading="lazy"
                       decoding="async"
                     />
-                    <KiBadge size="mini" lang={de ? "de" : "en"} className="top-1 right-1" />
+                    {/* Äußeres linkes Polaroid wird rechts vom mittleren überdeckt → Badge dort oben links */}
+                    <KiBadge lang={de ? "de" : "en"} corner={i === 0 ? "tl" : "tr"} />
                   </div>
                   <figcaption
                     className={`flex flex-1 items-center ${CAPTION_ALIGN[i]} whitespace-nowrap font-signature text-[clamp(0.85rem,3.6vw,1.5rem)] leading-none text-[hsl(25_25%_22%)]`}

@@ -1548,7 +1548,7 @@ const CateringCheckout = () => {
                                 {item.image && (
                                   <div className="relative w-14 h-14 shrink-0">
                                     <img src={item.image} alt={`${name} ${kiAltSuffix(language)}`} className="w-full h-full rounded-lg object-cover" loading="lazy" />
-                                    <KiBadge size="mini" className="top-0.5 right-0.5" />
+                                    <KiBadge size="mini" />
                                   </div>
                                 )}
                                 <div className="flex-1 min-w-0">
