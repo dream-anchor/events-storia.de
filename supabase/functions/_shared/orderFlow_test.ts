@@ -1,6 +1,6 @@
 // deno test supabase/functions/_shared/orderFlow_test.ts
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { ensureOrder, matchesExisting } from "./orderFlow.ts";
+import { ensureOrder, exactIlikePattern, matchesExisting } from "./orderFlow.ts";
 import { buildOrderQuote, type OrderQuote } from "./orderQuote.ts";
 import { parseCreateInput, type CreateInput } from "./orderCreate.ts";
 
@@ -27,7 +27,7 @@ const row = (over: Record<string, unknown> = {}) => ({
 
 /** Fake: Tabelle mit steuerbaren Lookups; protokolliert Updates (Tabelle, Werte, Filter) und rpc-Aufrufe. */
 function fake(opts: { lookups: (Record<string, unknown> | null)[]; rpcError?: { code?: string; message: string } | null; updateRows?: unknown[] }) {
-  const log = { updates: [] as { table: string; v: unknown; filters: unknown[] }[], rpcs: [] as string[], inserts: [] as string[] };
+  const log = { ilikes: [] as unknown[][], updates: [] as { table: string; v: unknown; filters: unknown[] }[], rpcs: [] as string[], inserts: [] as string[] };
   let n = 0;
   const client = {
     from(table: string) {
@@ -36,7 +36,7 @@ function fake(opts: { lookups: (Record<string, unknown> | null)[]; rpcError?: { 
         select: () => q,
         eq: (...a: unknown[]) => { filters.push(["eq", ...a]); return q; },
         neq: (...a: unknown[]) => { filters.push(["neq", ...a]); return q; },
-        ilike: () => q,
+        ilike: (...a: unknown[]) => { if (table === "v2_customers") log.ilikes.push(a); return q; },
         limit: () => q,
         maybeSingle: () => Promise.resolve({ data: table === "v2_customers" ? { id: "cust1" } : opts.lookups[Math.min(n++, opts.lookups.length - 1)], error: null }),
         update: (v: unknown) => { log.updates.push({ table, v, filters }); return q; },
@@ -127,3 +127,16 @@ Deno.test("Fingerabdruck: Abholung ignoriert die Adresse, Event vergleicht Paket
   assert(!matchesExisting({ ...evRow, guest_count: 21 }, ev, input));
 });
 
+
+Deno.test("Kundensuche: Wildcards in Name/E-Mail wirken nie als Muster (exakt, escaped); * = keine Suche", async () => {
+  assertEquals(exactIlikePattern("max%@%.%"), "max\\%@\\%.\\%");
+  assertEquals(exactIlikePattern("a_b\\c"), "a\\_b\\\\c");
+  assertEquals(exactIlikePattern("a*b"), null);
+  const f = fake({ lookups: [row({ customer_email: "max_x@example.com" })] });
+  await run(f, quote, { ...input, customer: { ...input.customer, name: "%", email: "max_x@example.com" } });
+  assertEquals(f.log.ilikes, [["email", "max\\_x@example.com"], ["name", "\\%"]]);
+  // Stern im Namen: gar nicht suchen
+  const g = fake({ lookups: [row()] }); // E-Mail unverändert
+  await run(g, quote, { ...input, customer: { ...input.customer, name: "A*" } });
+  assertEquals(g.log.ilikes, []);
+});
