@@ -283,7 +283,7 @@ const PizzeNapoletane = () => {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             {/* KI-Hinweis auch auf dem Produkt-Titelbild (Inhaber-Entscheidung 22.11.2026) */}
-            <KiBadge />
+            <KiBadge corner="br" />
             <div className="absolute inset-0 flex items-end justify-center pb-8">
               <h1 className="text-4xl md:text-5xl font-serif font-medium text-foreground text-center">
                 Pizze Napoletane
