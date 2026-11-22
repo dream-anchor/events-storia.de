@@ -1,3 +1,4 @@
+import { hasSingleWayDistance } from '@/lib/orderQuote';
 import { useState, useEffect } from 'react';
 import { CateringOrder, OrderStatus, useUpdateOrderStatus, useUpdateOrderNotes } from '@/hooks/useCateringOrders';
 import {
@@ -284,7 +285,7 @@ const CateringOrderDetail = ({ order, open, onOpenChange }: CateringOrderDetailP
               {order.calculated_distance_km != null && order.calculated_distance_km > 0 && (
                 <p className="flex items-center gap-2 text-sm">
                   <Ruler className="h-4 w-4" />
-                  Entfernung: {order.calculated_distance_km.toFixed(1).replace('.', ',')} km (einfache Strecke)
+                  Entfernung: {order.calculated_distance_km.toFixed(1).replace('.', ',')} km{hasSingleWayDistance(order.created_at) ? ' (einfache Strecke)' : ''}
                 </p>
               )}
               {order.desired_date && (

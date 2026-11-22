@@ -89,10 +89,72 @@ export async function oneWayDistanceKm(address: string, apiKey: string | undefin
     });
     if (!d.ok) return null;
     const meters = (await d.json()).routes?.[0]?.summary?.distance;
-    return typeof meters === "number" && meters > 0 ? meters / 1000 : null;
+    // 0 m ist eine gültige Entfernung (Lieferadresse = Restaurant); nur fehlende/negative Werte gelten als Fehler
+    return typeof meters === "number" && Number.isFinite(meters) && meters >= 0 ? meters / 1000 : null;
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Entfernungs-Cache und Tagesbudget (OpenRouteService kostet Kontingent; das Angebot ist öffentlich aufrufbar)
+// ---------------------------------------------------------------------------
+const MEM_TTL_MS = 24 * 3600_000;
+const MEM_MAX = 2000;
+const memCache = new Map<string, { km: number; at: number }>();
+const budget = { day: "", count: 0 };
+/** ORS-Aufrufe je Tag und Edge-Instanz (best effort; zählt Geocoding + Routing einzeln). Env ORS_DAILY_BUDGET überschreibt. */
+const dailyBudget = (): number => {
+  try { return Number(Deno.env.get("ORS_DAILY_BUDGET") ?? "") || 3000; } catch { return 3000; }
+};
+
+/** Adresse normalisieren: gleiche Adresse in anderer Schreibweise trifft denselben Cache-Eintrag. */
+export const addressCacheKey = (address: string): string =>
+  address.toLowerCase().replace(/[,.;]/g, " ").replace(/\s+/g, " ").trim();
+
+/** true, wenn noch Budget da ist (zählt `calls` hoch). Bei erschöpftem Budget ::error-Zeile fürs Log (Alarm über Fehlerbenachrichtigung). */
+export function takeOrsBudget(calls: number, now = new Date(), limit = dailyBudget()): boolean {
+  const day = now.toISOString().slice(0, 10);
+  if (budget.day !== day) { budget.day = day; budget.count = 0; }
+  if (budget.count + calls > limit) {
+    console.error(`::error::ORS-Tagesbudget erschöpft (${budget.count}/${limit}); Lieferangebote liefern delivery_unverifiable`);
+    return false;
+  }
+  budget.count += calls;
+  return true;
+}
+
+export function resetDistanceCachesForTest() { memCache.clear(); budget.day = ""; budget.count = 0; }
+
+/**
+ * Einweg-Kilometer mit Cache: Speicher (24 h) -> Tabelle delivery_distance_cache (30 Tage, nur service_role; fehlt sie, wird sie
+ * ignoriert) -> OpenRouteService (zählt gegen das Tagesbudget). null bei jedem Fehler/Budget erschöpft (fail closed).
+ */
+export async function cachedOneWayDistanceKm(supabase: Supa, address: string, apiKey: string | undefined, fetchFn: typeof fetch = fetch): Promise<number | null> {
+  const key = addressCacheKey(address);
+  if (key.length < 5) return null;
+  const now = Date.now();
+  const hit = memCache.get(key);
+  if (hit && now - hit.at < MEM_TTL_MS) return hit.km;
+  const remember = (km: number) => {
+    memCache.delete(key);
+    memCache.set(key, { km, at: Date.now() });
+    while (memCache.size > MEM_MAX) { const o = memCache.keys().next().value; if (o === undefined) break; memCache.delete(o); }
+  };
+  try {
+    const { data } = await supabase
+      .from("delivery_distance_cache").select("km").eq("address_key", key)
+      .gt("created_at", new Date(now - 30 * 24 * 3600_000).toISOString()).maybeSingle();
+    if (data && data.km !== null && Number.isFinite(Number(data.km))) { const km = Number(data.km); remember(km); return km; }
+  } catch { /* Tabelle fehlt/DB-Fehler: ohne Cache weiter */ }
+  if (!apiKey || !takeOrsBudget(2)) return null;
+  const km = await oneWayDistanceKm(address, apiKey, fetchFn);
+  if (km === null) return null;
+  remember(km);
+  try {
+    await supabase.from("delivery_distance_cache").upsert({ address_key: key, km, created_at: new Date().toISOString() }, { onConflict: "address_key" });
+  } catch { /* nur Cache */ }
+  return km;
 }
 
 export interface ServerQuoteInput {
@@ -121,7 +183,7 @@ export async function computeServerQuote(supabase: Supa, input: ServerQuoteInput
     const zip = String(a.zip ?? "").trim();
     const city = String(a.city ?? "").trim();
     if (!street || !zip || !city) return { ok: false, code: "address_missing", detail: {} };
-    oneWayKm = await oneWayDistanceKm(`${street}, ${zip} ${city}`, apiKey, fetchFn);
+    oneWayKm = await cachedOneWayDistanceKm(supabase, `${street}, ${zip} ${city}`, apiKey, fetchFn);
   }
   return buildOrderQuote({ items, chafingQuantity: input.chafingQuantity ?? 0, isPickup }, { catalog, packages, oneWayKm });
 }

@@ -1,3 +1,4 @@
+import { deliveryDistanceLabel } from '../_shared/cateringPricing.ts';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -377,7 +378,7 @@ serve(async (req) => {
     // Add delivery cost if applicable
     if (body.deliveryCost > 0) {
       const deliveryName = body.distanceKm 
-        ? `Lieferung (${body.distanceKm.toFixed(1)} km)`
+        ? `Lieferung (${deliveryDistanceLabel(body.distanceKm, body.deliveryCost, 'de')})`
         : 'Lieferung';
       
       lineItems.push({

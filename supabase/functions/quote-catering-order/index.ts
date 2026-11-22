@@ -44,6 +44,11 @@ serve(async (req) => {
       };
     });
 
+    // Lieferangebote kosten ORS-Aufrufe: deutlich enger begrenzen als Abholung/Event (Cache und Tagesbudget in cateringServer.ts)
+    if (String(body?.deliveryType) === "delivery" && rateLimited(`quote-delivery:${clientIp(req)}`, 18, 60_000)) {
+      return json({ ok: false, error: "rate_limited", message: orderMessage("rate_limited", lang) }, 429);
+    }
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
     const a = (body?.address ?? {}) as Record<string, unknown>;
     const outcome = await computeServerQuote(

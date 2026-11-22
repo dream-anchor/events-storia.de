@@ -1,6 +1,6 @@
 // deno test supabase/functions/_shared/cateringServer_test.ts
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { CATALOG_TENANT_ID, computeServerQuote } from "./cateringServer.ts";
+import { CATALOG_TENANT_ID, computeServerQuote, resetDistanceCachesForTest } from "./cateringServer.ts";
 
 const UUID_A = "11111111-1111-4111-8111-111111111111";
 const UUID_PKG = "22222222-2222-4222-8222-222222222222";
@@ -40,6 +40,7 @@ const orsFetch = (meters: number | null): typeof fetch => (async (url: string | 
 }) as typeof fetch;
 
 Deno.test("Lieferung: Entfernung wird am Server per Routing berechnet, Katalog/Menüs sind mandantengebunden", async () => {
+  resetDistanceCachesForTest();
   const { client, orCalls } = fakeSupabase(catalogTables());
   const r = await computeServerQuote(client, {
     items: [{ id: UUID_A, quantity: 12, price: 1 }], chafingQuantity: 0, deliveryType: "delivery",
@@ -56,6 +57,7 @@ Deno.test("Lieferung: Entfernung wird am Server per Routing berechnet, Katalog/M
 });
 
 Deno.test("Routing-Ausfall: delivery_unverifiable statt geratenem Preis", async () => {
+  resetDistanceCachesForTest();
   const { client } = fakeSupabase(catalogTables());
   const r = await computeServerQuote(client, {
     items: [{ id: UUID_A, quantity: 12 }], chafingQuantity: 0, deliveryType: "delivery", address: { street: "Teststr. 1", zip: "80333", city: "München" },
@@ -65,6 +67,7 @@ Deno.test("Routing-Ausfall: delivery_unverifiable statt geratenem Preis", async 
 });
 
 Deno.test("Lieferung ohne vollständige Adresse: address_missing", async () => {
+  resetDistanceCachesForTest();
   const { client } = fakeSupabase(catalogTables());
   const r = await computeServerQuote(client, { items: [{ id: UUID_A, quantity: 12 }], chafingQuantity: 0, deliveryType: "delivery", address: { street: "", zip: "80333", city: "" } }, "key", orsFetch(1000));
   assert(!r.ok);
@@ -72,6 +75,7 @@ Deno.test("Lieferung ohne vollständige Adresse: address_missing", async () => {
 });
 
 Deno.test("Abholung braucht kein Routing", async () => {
+  resetDistanceCachesForTest();
   const { client } = fakeSupabase(catalogTables());
   const r = await computeServerQuote(client, { items: [{ id: UUID_A, quantity: 12 }], chafingQuantity: 0, deliveryType: "pickup" }, undefined, orsFetch(null));
   assert(r.ok);
@@ -79,6 +83,7 @@ Deno.test("Abholung braucht kein Routing", async () => {
 });
 
 Deno.test("Event-Pakete: mandantengebunden, Gästegrenzen aus dem Paket", async () => {
+  resetDistanceCachesForTest();
   const { client, orCalls } = fakeSupabase(catalogTables());
   const okQ = await computeServerQuote(client, { items: [{ id: `event-${UUID_PKG}`, quantity: 20 }], chafingQuantity: 0, deliveryType: "event" }, undefined);
   assert(okQ.ok);

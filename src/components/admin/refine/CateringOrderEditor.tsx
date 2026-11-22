@@ -382,14 +382,26 @@ export const CateringOrderEditor = () => {
     }
     setIsRecalcDelivery(true);
     try {
-      const { data, error } = await supabase.functions.invoke("calculate-delivery", {
-        body: {
-          address: `${deliveryStreet}, ${deliveryZip} ${deliveryCity}`,
-          isPizzaOnly: false,
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // Server-Angebot: richtige Fahrtenzahl (Pizza-only 1, sonst 2) aus den Positionen statt festem isPizzaOnly=false.
+      // Ohne Positions-IDs (alte Bestellung) Rückfall auf calculate-delivery.
+      const address = { street: deliveryStreet, zip: deliveryZip, city: deliveryCity };
+      const withIds = itemsState.filter((i) => i.id);
+      let data: { deliveryCostGross?: number; minimumOrder?: number; oneWayDistanceKm?: number } | null = null;
+      if (withIds.length > 0 && withIds.length === itemsState.length) {
+        const q = await supabase.functions.invoke("quote-catering-order", {
+          body: { items: withIds.map((i) => ({ id: i.id, quantity: i.quantity })), chafingQuantity: 0, deliveryType: "delivery", address, language: "de" },
+        });
+        const d = q.data?.quote?.delivery;
+        if (q.error || !q.data?.ok || !d) throw new Error(q.data?.message || "Liefergebühr-Berechnung fehlgeschlagen");
+        data = { deliveryCostGross: d.deliveryCostGross, minimumOrder: d.minimumOrder, oneWayDistanceKm: d.oneWayDistanceKm };
+      } else {
+        const r = await supabase.functions.invoke("calculate-delivery", {
+          body: { address: `${deliveryStreet}, ${deliveryZip} ${deliveryCity}`, isPizzaOnly: false },
+        });
+        if (r.error) throw r.error;
+        if (r.data?.error) throw new Error(r.data.error);
+        data = r.data;
+      }
       const gross = Number(data?.deliveryCostGross ?? 0);
       const minimumOrder = Number(data?.minimumOrder ?? 0);
       setDeliveryCost(gross);
@@ -406,7 +418,7 @@ export const CateringOrderEditor = () => {
     } finally {
       setIsRecalcDelivery(false);
     }
-  }, [isPickup, deliveryStreet, deliveryZip, deliveryCity, itemsSubtotal]);
+  }, [isPickup, deliveryStreet, deliveryZip, deliveryCity, itemsSubtotal, itemsState]);
 
   const handleCancelOrder = async (cancelMessage?: string) => {
     if (!id || !order) return;

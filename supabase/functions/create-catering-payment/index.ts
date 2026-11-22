@@ -7,6 +7,8 @@ import { REJECT_MESSAGES_DE, verifyCateringOrder, type ClientLine } from '../_sh
 import { CATALOG_TENANT_ID, computeServerQuote, loadCatalog, oneWayDistanceKm } from '../_shared/cateringServer.ts';
 import { orderMessage, quoteHasChanges, toLang, type Lang, type OrderErrorCode, type OrderQuote, type QuoteRequestItem } from '../_shared/orderQuote.ts';
 import { buildCateringPayload, buildEventPayload, parseCreateInput } from '../_shared/orderCreate.ts';
+import { checkOrderSchedule } from '../_shared/orderSchedule.ts';
+import { ensureOrder, stripeIdempotencyKey } from '../_shared/orderFlow.ts';
 import { rateLimited, clientIp } from '../_shared/giftRateLimit.ts';
 import { EVENT_REJECT_MESSAGES_DE, verifyEventBooking } from '../_shared/eventPricing.ts';
 import { MIXED_SESSION_MINUTES, giftLineName, mixedPaymentMethodTypes, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
@@ -194,6 +196,10 @@ serve(async (req) => {
         return json({ error: parsed.code, message: orderMessage(parsed.code, lang) }, 400);
       }
       const input = parsed.input;
+      // Termin-Regeln (Vorlauf, Pizza-Zeiten, Wochenend-Frist) am Server erzwingen, nicht nur als Browser-Hinweis
+      const scheduleRejected = checkOrderSchedule(
+        { kind: quote.kind, isPickup: quote.isPickup, isPizzaOnly: quote.isPizzaOnly, date: input.date, time: input.time }, new Date());
+      if (scheduleRejected) return json({ error: scheduleRejected, message: orderMessage(scheduleRejected, lang) }, 400);
       orderNumber = input.orderNumber;
       customerEmail = input.customer.email;
       customerName = input.customer.name;
@@ -212,42 +218,49 @@ serve(async (req) => {
       // Geschenkkorb prüfen, bevor etwas angelegt wird (scheitert das hier, entsteht nichts)
       const giftErr = await attachGift();
       if (giftErr) return giftErr;
-
-      // Idempotenz / Wiederaufnahme: gleiche Bestellnummer schon da (z. B. Stripe-Fehler beim ersten Versuch)
-      const view = isEventBooking ? 'event_bookings' : 'catering_orders';
-      const numberColumn = isEventBooking ? 'booking_number' : 'order_number';
-      const { data: existing, error: exErr } = await supabase
-        .from(view).select('id, customer_email, total_amount, payment_status').eq(numberColumn, orderNumber).maybeSingle();
-      if (exErr) throw new Error(`order_lookup_failed: ${exErr.message}`);
-      let orderId: string;
-      if (existing) {
-        const sameOrder = String(existing.customer_email).toLowerCase() === customerEmail
-          && Math.round(Number(existing.total_amount) * 100) === quote.totalCents
-          && existing.payment_status !== 'paid';
-        if (!sameOrder) return json({ error: 'order_exists', message: orderMessage('order_exists', lang) }, 409);
-        orderId = existing.id;
-        logStep("Resuming existing unpaid order", { orderNumber, orderId });
-      } else {
-        // Konto (falls eingeloggt) aus dem JWT lesen, nie aus dem Body
-        let userId: string | null = null;
-        const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-        if (jwt) {
-          const { data: u } = await supabase.auth.getUser(jwt);
-          userId = u?.user?.id ?? null;
+      // Ältere, noch offene Korb-Bestellungen derselben Catering-Nummer (Kunde hat den Korb geändert, früherer Versuch): Hold freigeben
+      if (gift.order) {
+        const { data: older } = await supabase.from('gift_orders').select('id')
+          .eq('catering_order_number', orderNumber).eq('status', 'pending').neq('id', gift.order.id);
+        for (const o of older ?? []) {
+          await supabase.from('gift_orders').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', o.id).eq('status', 'pending');
+          await supabase.rpc('gift_release_stock', { p_order_id: o.id });
+          logStep("Superseded gift order released", { giftOrderId: o.id });
         }
-        orderId = crypto.randomUUID();
-        const payload = isEventBooking
-          ? buildEventPayload(quote, input, orderId)
-          : buildCateringPayload(quote, input, orderId, userId);
-        const { error: rpcErr } = await supabase.rpc(isEventBooking ? 'checkout_create_event_booking' : 'checkout_create_catering_order', { payload });
-        if (rpcErr) {
-          logStep("ERROR: order create failed", { code: rpcErr.code, message: rpcErr.message });
-          reportEdgeError({ source: 'edge:create-catering-payment', severity: 'critical', message: `order_create_failed ${orderNumber}: ${rpcErr.message}` });
-          await releaseGift();
-          return json({ error: 'order_create_failed', message: orderMessage('order_create_failed', lang) }, 500);
-        }
-        logStep("Order created (server prices)", { orderNumber, orderId, totalCents: quote.totalCents });
       }
+
+      // Konto (falls eingeloggt) aus dem JWT lesen, nie aus dem Body
+      let userId: string | null = null;
+      const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+      if (jwt) {
+        const { data: u } = await supabase.auth.getUser(jwt);
+        userId = u?.user?.id ?? null;
+      }
+      const newOrderId = crypto.randomUUID();
+      const payload = isEventBooking
+        ? buildEventPayload(quote, input, newOrderId)
+        : buildCateringPayload(quote, input, newOrderId, userId);
+      // Anlegen oder Fortsetzen (Fingerabdruck-Vergleich, 23505-Race): _shared/orderFlow.ts
+      const ensured = await ensureOrder(supabase, { quote, input, orderId: newOrderId, payload });
+      if (ensured.status === 'failed') {
+        logStep("ERROR: order create failed", { code: ensured.code, message: ensured.message });
+        reportEdgeError({ source: 'edge:create-catering-payment', severity: 'critical', message: `order_create_failed ${orderNumber}: ${ensured.message}` });
+        await releaseGift();
+        return json({ error: 'order_create_failed', message: orderMessage('order_create_failed', lang) }, 500);
+      }
+      if (ensured.status === 'conflict') {
+        logStep("Order conflict", { orderNumber, reason: ensured.reason });
+        if (ensured.reason === 'race') {
+          // eine gleichzeitige Anfrage derselben Nummer arbeitet noch: weder Korb freigeben noch stornieren
+          return json({ error: 'order_in_progress', message: orderMessage('order_in_progress', lang) }, 409);
+        }
+        // anderer Inhalt unter alter Nummer (alte unbezahlte Zeile wurde storniert) bzw. schon bezahlt: neue Nummer nötig.
+        // Alten Korb-Hold freigeben (nur bei 'mismatch'; eine bezahlte Bestellung behält ihren Korb).
+        if (ensured.reason === 'mismatch') await releaseGift();
+        return json({ error: 'order_exists', message: orderMessage('order_exists', lang) }, 409);
+      }
+      const orderId = ensured.orderId;
+      logStep(ensured.status === 'resumed' ? "Resuming existing unpaid order" : "Order created (server prices)", { orderNumber, orderId, totalCents: quote.totalCents });
       order = { id: orderId, total_amount: quote.totalCents / 100, customer_email: customerEmail, payment_status: 'pending' };
       verifiedCents = quote.totalCents;
       createdQuote = quote;
@@ -543,7 +556,10 @@ serve(async (req) => {
     }
     // For regular stripe, don't set payment_method_types to allow all dashboard-enabled methods
 
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    // Idempotenzschlüssel: gleichzeitige/wiederholte Anfragen derselben Bestellung ergeben dieselbe Session (nie zwei offene mit Körben)
+    const session = await stripe.checkout.sessions.create(sessionConfig, {
+      idempotencyKey: stripeIdempotencyKey(orderNumber, verifiedCents ?? Math.round(amount * 100), gift.order?.id ?? null),
+    });
 
     logStep("Checkout session created", { sessionId: session.id, orderNumber, orderType });
 
