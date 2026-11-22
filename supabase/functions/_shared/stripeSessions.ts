@@ -9,7 +9,7 @@ export interface StripeLike {
       expire(id: string): Promise<Any>;
       retrieve(id: string): Promise<Any>;
       // Es gibt KEIN checkout.sessions.search (Stripe-Search kennt nur charges/customers/invoices/payment_intents/prices/products/subscriptions).
-      list(params: { customer_details?: { email: string }; status?: "open" | "complete" | "expired"; created?: number | { gte?: number }; limit?: number; starting_after?: string }): Promise<{ data: Any[]; has_more?: boolean }>;
+      list(params: { status?: "open" | "complete" | "expired"; created?: number | { gte?: number }; limit?: number; starting_after?: string }): Promise<{ data: Any[]; has_more?: boolean }>;
     };
   };
 }
@@ -53,33 +53,80 @@ export async function createSessionIdempotent(stripe: StripeLike, params: Any, k
   }
 }
 
-/** Alter, bis zu dem offene Sessions gesucht werden (Checkout-Sessions laufen spätestens nach 24 h ab). */
-const SESSION_LOOKBACK_S = 2 * 24 * 3600;
-const MAX_PAGES = 5;
+/** Offene Checkout-Sessions leben höchstens 24 h; +1 h Puffer. Ältere offene Sessions gibt es nicht. */
+const SESSION_LOOKBACK_S = 25 * 3600;
+const MAX_PAGES = 10;
 
-/**
- * Offene Sessions einer Bestellnummer. Stripe kann Checkout-Sessions nicht per Metadaten suchen: Liste nach
- * customer_details.email + status=open (+ created), danach lokal nach metadata.order_number filtern.
- * Fehler oder mehr als MAX_PAGES Seiten => null = unbekannt.
- */
-export async function findOpenSessions(stripe: StripeLike, orderNumber: string, email: string, now = Date.now()): Promise<Any[] | null> {
+// deno-lint-ignore no-explicit-any
+type Supa = any;
+
+/** Session-IDs einer Bestellnummer aus der Tabelle catering_checkout_sessions. null = nicht lesbar (Tabelle fehlt/Fehler). */
+export async function loadSessionLedger(supabase: Supa, orderNumber: string): Promise<string[] | null> {
   try {
-    const found: Any[] = [];
-    let after: string | undefined;
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const r = await stripe.checkout.sessions.list({
-        customer_details: { email }, status: "open", created: { gte: Math.floor(now / 1000) - SESSION_LOOKBACK_S }, limit: 100,
-        ...(after ? { starting_after: after } : {}),
-      });
-      const data = r.data ?? [];
-      for (const s of data) if (s?.metadata?.order_number === orderNumber && s.status !== "complete" && s.status !== "expired") found.push(s);
-      if (!r.has_more || data.length === 0) return found;
-      after = data[data.length - 1].id;
-    }
-    return null;
+    const { data, error } = await supabase.from("catering_checkout_sessions").select("session_id").eq("order_number", orderNumber);
+    if (error) return null;
+    return (data ?? []).map((r: { session_id: string }) => r.session_id);
   } catch {
     return null;
   }
+}
+
+/** Session-ID zur Bestellung merken. Fehlertolerant: fehlt die Tabelle (Function vor Migration), passiert nichts. */
+export async function recordSession(supabase: Supa, orderNumber: string, sessionId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from("catering_checkout_sessions").upsert({ session_id: sessionId, order_number: orderNumber }, { onConflict: "session_id", ignoreDuplicates: true });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export interface FoundSessions {
+  /** Noch nicht abgelaufene Sessions der Bestellung (offen oder bereits bezahlt/complete). */
+  sessions: Any[];
+  /** true nur, wenn die Suche nachweislich vollständig war (Ledger lesbar, jede bekannte ID abrufbar, Liste bis has_more=false gelesen). */
+  complete: boolean;
+}
+
+/**
+ * Sessions einer Bestellnummer. Zwei Wege, weil Stripe Checkout-Sessions nicht nach Metadaten suchen lässt und customer_details bei
+ * offenen Sessions leer ist:
+ *  1. Ledger (Tabelle catering_checkout_sessions): jede bekannte ID wird per retrieve geprüft (findet auch bezahlte, deren Webhook
+ *     noch aussteht).
+ *  2. Rückfall für Altbestand/fehlende Einträge: list(status=open, created >= jetzt-25h) komplett durchblättern, lokal nach
+ *     metadata.order_number filtern.
+ * Eine leere Trefferliste ist nur dann "nichts offen", wenn complete=true; Fehler, nicht ausgeschöpftes has_more oder ein
+ * nicht lesbares Ledger setzen complete=false.
+ */
+export async function findOpenSessions(stripe: StripeLike, orderNumber: string, knownIds: string[] | null, now = Date.now()): Promise<FoundSessions> {
+  const byId = new Map<string, Any>();
+  let complete = knownIds !== null;
+  for (const id of knownIds ?? []) {
+    try {
+      const s = await stripe.checkout.sessions.retrieve(id);
+      if (s && s.status !== "expired") byId.set(id, s);
+    } catch {
+      complete = false;
+    }
+  }
+  try {
+    let after: string | undefined;
+    let exhausted = false;
+    for (let page = 0; page < MAX_PAGES && !exhausted; page++) {
+      const r = await stripe.checkout.sessions.list({
+        status: "open", created: { gte: Math.floor(now / 1000) - SESSION_LOOKBACK_S }, limit: 100,
+        ...(after ? { starting_after: after } : {}),
+      });
+      const data = r.data ?? [];
+      for (const s of data) if (s?.metadata?.order_number === orderNumber && s.status !== "expired" && !byId.has(s.id)) byId.set(s.id, s);
+      if (!r.has_more || data.length === 0) exhausted = true;
+      else after = data[data.length - 1].id;
+    }
+    if (!exhausted) complete = false;
+  } catch {
+    complete = false;
+  }
+  return { sessions: [...byId.values()], complete };
 }
 
 export type ExpireOutcome = "expired" | "paid" | "unsafe";
@@ -110,7 +157,13 @@ export async function expireSessions(stripe: StripeLike, sessions: Any[]): Promi
   return outcome;
 }
 
+/** Wie expireSessions, aber eine unvollständige Suche zählt nie als "sicher abgelaufen" (leere Liste ohne Beweis = unsafe). */
+export async function settleSessions(stripe: StripeLike, found: FoundSessions): Promise<ExpireOutcome> {
+  const outcome = await expireSessions(stripe, found.sessions);
+  return outcome === "expired" && !found.complete ? "unsafe" : outcome;
+}
+
 /** Offene Session, die dieselbe Zahlung abbildet (Betrag, noch >= 5 Min offen) und direkt weiterverwendet werden kann. */
 export function reusableSession(sessions: Any[], expectedAmountCents: number, now = Date.now()): Any | null {
-  return sessions.find((s) => s.url && s.amount_total === expectedAmountCents && (!s.expires_at || s.expires_at * 1000 > now + 5 * 60_000)) ?? null;
+  return sessions.find((s) => s.url && s.status !== "complete" && s.status !== "expired" && s.amount_total === expectedAmountCents && (!s.expires_at || s.expires_at * 1000 > now + 5 * 60_000)) ?? null;
 }

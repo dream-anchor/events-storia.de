@@ -124,3 +124,18 @@ Deno.test("Mischsession: nur Karte, Billie bleibt Billie", () => {
   assertEquals(mixedPaymentMethodTypes(undefined), ["card"]);
   assertEquals(mixedPaymentMethodTypes("billie"), null);
 });
+
+Deno.test("Fenstergrenze: Prüfung und Session-Ablauf mit demselben now; ein später gezogenes now (neues Fenster) wäre 3 Min länger als der Hold", () => {
+  const windowEnd = Math.ceil(Date.UTC(2026, 10, 22, 12, 0, 1) / 180_000) * 180_000; // Beginn eines Fensters
+  const checked = new Date(windowEnd - 1); // letzte Millisekunde des alten Fensters
+  const later = new Date(windowEnd + 5_000); // zweites Date.now() wenige Sekunden später: schon im nächsten Fenster
+  const expChecked = deterministicExpiresAt(checked.getTime()) * 1000;
+  const expLater = deterministicExpiresAt(later.getTime()) * 1000;
+  assertEquals(expLater - expChecked, 180_000);
+  const hold = new Date(expChecked + HOLD_BUFFER_MS + 1000).toISOString(); // reicht genau für das geprüfte Fenster
+  assertEquals(holdCoversSession(hold, checked), true);
+  // altes Fehlverhalten: expires_at aus dem späteren now => Hold deckt die Session nicht mehr
+  assertEquals(expLater + HOLD_BUFFER_MS > new Date(hold).getTime(), true);
+  // Idempotenzfenster ist ebenfalls an dasselbe now gebunden
+  assert(Math.floor(checked.getTime() / 180_000) !== Math.floor(later.getTime() / 180_000));
+});
