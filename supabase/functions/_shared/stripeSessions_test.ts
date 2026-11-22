@@ -1,6 +1,6 @@
 // deno test supabase/functions/_shared/stripeSessions_test.ts
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { createSessionIdempotent, deterministicExpiresAt, expireSessions, findOpenSessions, loadSessionLedger, recordSession, reusableSession, sessionIdempotencyKey, settleSessions, type StripeLike } from "./stripeSessions.ts";
+import { createSessionIdempotent, deterministicExpiresAt, expireSessions, findOpenSessions, loadSessionLedger, recordSession, reusableSession, sessionIdempotencyKey, settleSessions, sessionGate, type StripeLike } from "./stripeSessions.ts";
 import { alertIfDoublePayment, checkPaymentMatchesOrder, isDoublePayment } from "./paymentGuard.ts";
 
 const T = Date.UTC(2026, 10, 22, 12, 0, 30);
@@ -270,4 +270,12 @@ Deno.test("Doppelzahlung (Webhook-Pfad bezahlte Bestellung): anderer PaymentInte
   assertEquals(alerts.length, 1);
   assertEquals(alerts[0].subject, "Doppelzahlung: CAT-1");
   assert(alerts[0].html.includes("cs_&lt;2>"));
+});
+
+Deno.test("W-B: sessionGate: unsafe bei fortgesetzter Bestellung => retry_later (503, keine neue Session); paid immer paid; neue Bestellung läuft weiter", () => {
+  assertEquals(sessionGate("unsafe", "resumed"), "retry_later");
+  assertEquals(sessionGate("paid", "resumed"), "paid");
+  assertEquals(sessionGate("paid", "created"), "paid");
+  assertEquals(sessionGate("expired", "resumed"), "proceed");
+  assertEquals(sessionGate("unsafe", "created"), "proceed"); // vor Migration 096000 kein Totalausfall für neue Bestellungen
 });

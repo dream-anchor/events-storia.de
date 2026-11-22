@@ -167,6 +167,20 @@ export async function settleSessions(stripe: StripeLike, found: FoundSessions): 
   return outcome === "expired" && !found.complete ? "unsafe" : outcome;
 }
 
+export type SessionGate = "paid" | "retry_later" | "proceed";
+
+/**
+ * Entscheidung nach settleSessions. "paid": 409, nichts freigeben, keine neue Session. "unsafe" bei einer FORTGESETZTEN Bestellung:
+ * 503 "bitte erneut versuchen", keine neue Session (sonst könnte eine unsichtbare, noch bezahlbare Session doppelt bezahlt werden),
+ * keine Freigabe. Eine frisch angelegte Bestellung hat nie Vorgänger-Sessions: dort bleibt "unsafe" folgenlos (nur keine Freigabe
+ * älterer Körbe), damit der Checkout vor der Migration 096000 nicht komplett ausfällt.
+ */
+export function sessionGate(outcome: ExpireOutcome, orderStatus: "created" | "resumed"): SessionGate {
+  if (outcome === "paid") return "paid";
+  if (outcome === "unsafe" && orderStatus === "resumed") return "retry_later";
+  return "proceed";
+}
+
 /** Offene Session, die dieselbe Zahlung abbildet (Betrag, noch >= 5 Min offen) und direkt weiterverwendet werden kann. */
 export function reusableSession(sessions: Any[], expectedAmountCents: number, now = Date.now()): Any | null {
   return sessions.find((s) => s.url && s.status !== "complete" && s.status !== "expired" && s.amount_total === expectedAmountCents && (!s.expires_at || s.expires_at * 1000 > now + 5 * 60_000)) ?? null;
