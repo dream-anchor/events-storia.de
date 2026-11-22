@@ -1,4 +1,5 @@
-import { assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
+import { deterministicExpiresAt, HOLD_BUFFER_MS } from "./stripeSessions.ts";
+import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import {
   asyncHoldExtensionUntil, mixedPaymentMethodTypes, checkMixedSchedule, computeExpectedMixedAmount, isMixedAmountOk, giftLinkedToCatering, holdCoversSession, isCateringOrderNumber,
   mixedHoldMinutes, shouldHandleGiftInCatering, validateGiftForCateringPayment,
@@ -61,6 +62,20 @@ Deno.test("Hold deckt die Session", () => {
   assertEquals(holdCoversSession(null, now), false);
 });
 
+Deno.test("Hold überdauert expires_at der Session plus Puffer an jeder Stelle des 3-Min-Fensters", () => {
+  const base = Date.UTC(2026, 10, 22, 12, 0, 0);
+  for (let off = 0; off < 180_000; off += 15_000) {
+    const n = new Date(base + off);
+    const exp = deterministicExpiresAt(n.getTime()) * 1000;
+    assert(exp - n.getTime() >= 31 * 60_000, "Session mindestens 31 Min");
+    assertEquals(holdCoversSession(new Date(exp + HOLD_BUFFER_MS).toISOString(), n), false); // genau gleich reicht nicht
+    assertEquals(holdCoversSession(new Date(exp + HOLD_BUFFER_MS + 1000).toISOString(), n), true);
+    assertEquals(holdCoversSession(new Date(exp - 1000).toISOString(), n), false);
+    // der Hold von 36 Min (MIXED_MIN_HOLD_MINUTES) ab jetzt reicht immer
+    assertEquals(holdCoversSession(new Date(n.getTime() + 36 * 60_000).toISOString(), n), true);
+  }
+});
+
 Deno.test("Korb an Catering-Zahlung: Validierung", () => {
   const ok = { status: "pending", customer_email: "Max@Test.de", handover: "with_catering", payment_method: "online", catering_order_number: "CAT-BESTELLUNG-21-11-2026-345" };
   const p = { orderNumber: "CAT-BESTELLUNG-21-11-2026-345", customerEmail: "max@test.de", holdExpiresAt: new Date(now.getTime() + 36 * 60_000), now };
@@ -108,4 +123,19 @@ Deno.test("Mischsession: nur Karte, Billie bleibt Billie", () => {
   assertEquals(mixedPaymentMethodTypes("stripe"), ["card"]);
   assertEquals(mixedPaymentMethodTypes(undefined), ["card"]);
   assertEquals(mixedPaymentMethodTypes("billie"), null);
+});
+
+Deno.test("Fenstergrenze: Prüfung und Session-Ablauf mit demselben now; ein später gezogenes now (neues Fenster) wäre 3 Min länger als der Hold", () => {
+  const windowEnd = Math.ceil(Date.UTC(2026, 10, 22, 12, 0, 1) / 180_000) * 180_000; // Beginn eines Fensters
+  const checked = new Date(windowEnd - 1); // letzte Millisekunde des alten Fensters
+  const later = new Date(windowEnd + 5_000); // zweites Date.now() wenige Sekunden später: schon im nächsten Fenster
+  const expChecked = deterministicExpiresAt(checked.getTime()) * 1000;
+  const expLater = deterministicExpiresAt(later.getTime()) * 1000;
+  assertEquals(expLater - expChecked, 180_000);
+  const hold = new Date(expChecked + HOLD_BUFFER_MS + 1000).toISOString(); // reicht genau für das geprüfte Fenster
+  assertEquals(holdCoversSession(hold, checked), true);
+  // altes Fehlverhalten: expires_at aus dem späteren now => Hold deckt die Session nicht mehr
+  assertEquals(expLater + HOLD_BUFFER_MS > new Date(hold).getTime(), true);
+  // Idempotenzfenster ist ebenfalls an dasselbe now gebunden
+  assert(Math.floor(checked.getTime() / 180_000) !== Math.floor(later.getTime() / 180_000));
 });

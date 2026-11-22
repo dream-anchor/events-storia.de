@@ -1,10 +1,10 @@
 // Mischbestellung (Catering + Geschenkkörbe, Konzept § 11): reine, testbare Entscheidungslogik.
 // Eine Zahlung (Catering-Stripe-Session), zwei Datensätze (catering_orders + gift_orders, verknüpft über
 // gift_orders.catering_order_number). Korb-Beträge kommen IMMER vom Server (create-gift-order), nie vom Client.
+import { deterministicExpiresAt, HOLD_BUFFER_MS } from "./stripeSessions.ts";
 import { berlinToUtc, businessDate, isBlackout, isIsoDate, type BlackoutDate, type ScheduleCheck, type ScheduleSettings } from "./giftPricing.ts";
 
-/** Stripe-Session der Catering-Zahlung: 31 Min (Minimum 30). Der Korb-Hold muss sie überdauern (Hold >= 36 Min). */
-export const MIXED_SESSION_MINUTES = 31;
+/** Stripe-Session der Catering-Zahlung: Restlaufzeit 31..34 Min (Minimum 30, siehe stripeSessions.ts). Der Korb-Hold muss sie plus Puffer überdauern. */
 export const MIXED_MIN_HOLD_MINUTES = 36;
 
 /** Format der Catering-Bestellnummer aus dem Checkout (generateOrderNumber): CAT-BESTELLUNG-TT-MM-JJJJ-NNN(NNNNN) (seit 22.11.2026 6 zufällige Ziffern, vorher 3–4). */
@@ -83,11 +83,11 @@ export interface MixedGiftOrder {
 
 export type MixedGiftError = "gift_not_pending" | "gift_email_mismatch" | "gift_not_linked" | "gift_hold_expired";
 
-/** Der Hold muss die Stripe-Session (31 Min ab jetzt) überdauern; sonst könnte bezahlt werden, ohne dass Bestand gehalten wird. */
+/** Der Hold muss die tatsächliche Session-Ablaufzeit (expires_at) plus Puffer überdauern; sonst könnte bezahlt werden, ohne dass Bestand gehalten wird. */
 export const holdCoversSession = (holdExpiresAt: string | Date | null | undefined, now: Date): boolean => {
   if (!holdExpiresAt) return false;
   const t = new Date(holdExpiresAt).getTime();
-  return Number.isFinite(t) && t > now.getTime() + MIXED_SESSION_MINUTES * 60_000;
+  return Number.isFinite(t) && t > deterministicExpiresAt(now.getTime()) * 1000 + HOLD_BUFFER_MS;
 };
 
 /** create-catering-payment: darf diese Korb-Bestellung an die Catering-Zahlung angehängt werden? */
