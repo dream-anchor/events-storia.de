@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ServicesGrid, AllergenInfo } from "@/components/catering/ServiceInfoCard";
 import heroImage from "@/assets/catering/pizze/hero-pizza.webp";
+import { KiBadge } from "@/components/KiBadge";
+import { kiAltSuffix } from "@/lib/kiAlt";
 
 const allergenKey = {
   a: { de: "Gluten", en: "Gluten" },
@@ -272,7 +274,7 @@ const PizzeNapoletane = () => {
           <section className="relative h-[40vh] min-h-[300px] overflow-hidden">
             <img
               src={heroImage}
-              alt={language === 'de' ? 'Neapolitanische Pizza aus dem Steinofen – STORIA München' : 'Neapolitan pizza from wood-fired oven – STORIA Munich'}
+              alt={`${language === 'de' ? 'Neapolitanische Pizza aus dem Steinofen – STORIA München' : 'Neapolitan pizza from wood-fired oven – STORIA Munich'} ${kiAltSuffix(language)}`}
               className="absolute inset-0 w-full h-full object-cover"
               width="1920"
               height="768"
@@ -280,6 +282,8 @@ const PizzeNapoletane = () => {
               decoding="async"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+            {/* KI-Hinweis auch auf dem Produkt-Titelbild (Inhaber-Entscheidung 22.11.2026) */}
+            <KiBadge />
             <div className="absolute inset-0 flex items-end justify-center pb-8">
               <h1 className="text-4xl md:text-5xl font-serif font-medium text-foreground text-center">
                 Pizze Napoletane
