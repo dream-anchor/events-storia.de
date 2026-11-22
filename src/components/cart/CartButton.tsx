@@ -16,9 +16,11 @@ const CartButton = () => {
   const { getPath } = useLocalizedPath();
 
   // Hide on checkout page, admin pages, or when cart is empty
-  if (location.pathname === '/checkout' || location.pathname === '/en/checkout') return null;
-  if (location.pathname.startsWith('/admin')) return null;
-  if (location.pathname === '/anfrage' || location.pathname === '/en/anfrage') return null;
+  // Live-URLs enden auf "/" (z. B. /checkout/), daher Schrägstrich am Ende ignorieren
+  const path = location.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/checkout' || path === '/en/checkout') return null;
+  if (path.startsWith('/admin')) return null;
+  if (path === '/anfrage' || path === '/en/anfrage') return null;
   if (totalItems === 0) return null;
 
   return (

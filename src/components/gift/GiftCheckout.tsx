@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
-import { Gift, Minus, Plus, Trash2 } from "lucide-react";
+import { Gift, Minus, Plus, Trash2, UtensilsCrossed } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
 import CheckoutHeader from "@/components/checkout/CheckoutHeader";
@@ -39,6 +39,8 @@ import {
 } from "@/lib/gift/pricing";
 import type { GiftBasket, GiftPublicSettings } from "@/lib/gift/types";
 import { qtyLeft } from "@/lib/gift/stock";
+import { formatPickupHours } from "@/lib/gift/hours";
+import { giftImageProps } from "@/lib/gift/image";
 
 const FORM_KEY = "storia-gift-form";
 
@@ -311,7 +313,7 @@ const GiftCheckout = () => {
       <div className="min-h-screen bg-background flex flex-col">
         <CheckoutHeader />
         <main className="flex-1">
-          <div className="container mx-auto max-w-5xl px-4 py-12 md:py-16">
+          <div className="container mx-auto max-w-6xl px-4 py-12 md:py-16">
             <header className="mb-8 text-center">
               <Gift className="mx-auto mb-3 h-10 w-10 text-primary" aria-hidden="true" />
               <h1 className="font-serif text-3xl font-bold md:text-4xl">{t.h1}</h1>
@@ -328,54 +330,23 @@ const GiftCheckout = () => {
             {!loadFailed && catalog === null && <p className="text-center text-muted-foreground">{t.loading}</p>}
 
             {catalog && settings && sched && (
-              <form onSubmit={handleSubmit} noValidate className="space-y-10">
+              <form onSubmit={handleSubmit} noValidate className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
                 {/* Honeypot: für Menschen unsichtbar und nicht erreichbar; Bots füllen es aus */}
                 <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
                   <label htmlFor="gift-website">Website</label>
                   <input id="gift-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
                 </div>
-                <section aria-labelledby="gift-step-basket">
-                  <h2 id="gift-step-basket" className="mb-4 font-serif text-2xl font-bold">{t.cartTitle}</h2>
-                  <div className="rounded-2xl border border-border p-5" aria-live="polite">
-                    {cartLines.length === 0 && <p className="text-sm text-muted-foreground">{t.cartEmpty}</p>}
-                    <ul className="space-y-3">
-                      {cartLines.map((l) => (
-                        <li key={l.variantId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                          <span>
-                            {lang === "de" ? l.basket.name_de : l.basket.name_en} – {lang === "de" ? l.variant.label_de : l.variant.label_en}
-                            {qtyLeft(l.variant) < l.qty && <strong className="ml-2 text-destructive">({l.variant.available === 0 ? t.soldOut : t.onlyFew(l.variant.available ?? 0)})</strong>}
-                          </span>
-                          <span className="flex items-center gap-2">
-                            <Button type="button" variant="outline" size="icon" aria-label="−" onClick={() => updateQuantity(l.id, l.qty - 1)}>
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <span className="w-6 text-center tabular-nums" aria-label={t.quantity}>{l.qty}</span>
-                            <Button type="button" variant="outline" size="icon" aria-label="+" disabled={l.qty >= giftMaxForLine(items, l.id) || l.qty >= qtyLeft(l.variant)} onClick={() => updateQuantity(l.id, l.qty + 1)}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                            <span className="w-20 text-right tabular-nums">{formatEuro(l.basket.price_cents * l.qty, lang)}</span>
-                            <Button type="button" variant="ghost" size="icon" aria-label={t.remove} onClick={() => removeFromCart(l.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <Button asChild variant="link" className="mt-3 h-auto p-0">
-                      <Link to={getLocalizedPath("catering.giftBaskets", lang)}>{t.backToShop}</Link>
-                    </Button>
-                  </div>
-                </section>
 
+                <div className="min-w-0 space-y-10">
                 <section aria-labelledby="gift-step-handover">
                   <h2 id="gift-step-handover" className="mb-4 font-serif text-2xl font-bold">{t.stepHandover}</h2>
                   <RadioGroup value={form.handover} onValueChange={(v) => setForm((f) => ({ ...f, handover: v as Handover, date: "", time: "" }))} className="grid gap-3 md:grid-cols-2">
                     <Label htmlFor="ho-pickup" className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4">
-                      <RadioGroupItem value="pickup" id="ho-pickup" className="mt-1" />
-                      <span><span className="block font-semibold">{t.pickup}</span><span className="text-sm font-normal text-muted-foreground">{t.pickupHint}</span></span>
+                      <RadioGroupItem value="pickup" id="ho-pickup" className="mt-1 shrink-0" />
+                      <span><span className="block font-semibold">{t.pickup}</span><span className="text-sm font-normal text-muted-foreground">{t.pickupHint}</span><span className="mt-1 block text-sm font-normal text-muted-foreground">{t.pickupHoursLabel}:{" "}{formatPickupHours(settings.pickup_hours, lang).map((g, i, all) => <span key={g} className="whitespace-nowrap">{g}{i < all.length - 1 ? ", " : ""}</span>)}</span></span>
                     </Label>
                     <Label htmlFor="ho-delivery" className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4">
-                      <RadioGroupItem value="delivery" id="ho-delivery" className="mt-1" />
+                      <RadioGroupItem value="delivery" id="ho-delivery" className="mt-1 shrink-0" />
                       <span><span className="block font-semibold">{t.delivery}</span><span className="text-sm font-normal text-muted-foreground">{t.deliveryHint}</span></span>
                     </Label>
                   </RadioGroup>
@@ -482,21 +453,11 @@ const GiftCheckout = () => {
                     )}
                   </RadioGroup>
 
-                  <div className="rounded-2xl border border-border p-5">
-                    <dl className="space-y-1 text-sm">
-                      <div className="flex justify-between"><dt>{t.items}</dt><dd className="tabular-nums">{formatEuro(itemsTotal, lang)}</dd></div>
-                      {form.handover === "delivery" && (
-                        <div className="flex justify-between">
-                          <dt>{t.deliveryFee}</dt>
-                          <dd className="tabular-nums">{quote.status === "ok" ? formatEuro(deliveryFee, lang) : "–"}</dd>
-                        </div>
-                      )}
-                      <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
-                        <dt>{form.handover === "delivery" ? t.totalForecast : t.total}</dt>
-                        <dd className="tabular-nums">{formatEuro(total, lang)}</dd>
-                      </div>
-                    </dl>
-                  </div>
+                  {/* Auf dem Handy steht die Seitenleiste oben; Gesamtsumme hier nochmals direkt über dem Knopf */}
+                  <p className="flex justify-between rounded-xl border border-border p-4 text-base font-semibold lg:hidden">
+                    <span>{form.handover === "delivery" ? t.totalForecast : t.total}</span>
+                    <span className="tabular-nums">{formatEuro(total, lang)}</span>
+                  </p>
 
                   <div className="mt-5 space-y-3 text-sm">
                     <p className="text-muted-foreground">{t.ageNotice}</p>
@@ -518,6 +479,73 @@ const GiftCheckout = () => {
                     {submitting ? t.loading : form.paymentMethod === "on_site" ? t.ctaOnSite : t.ctaOnline}
                   </Button>
                 </section>
+                </div>
+
+                {/* Seitenleiste wie im Catering-Checkout: Bild, Menge, Summen, weitere Artikel */}
+                <aside aria-labelledby="gift-step-basket" className="order-first lg:order-none lg:sticky lg:top-6">
+                  <div className="rounded-2xl border border-border bg-card p-5 shadow-sm" aria-live="polite">
+                    <h2 id="gift-step-basket" className="mb-4 font-serif text-xl">
+                      {t.cartTitle}{" "}
+                      <span className="text-sm font-normal text-muted-foreground">({t.cartCount(cartLines.reduce((n, l) => n + l.qty, 0))})</span>
+                    </h2>
+                    {cartLines.length === 0 && <p className="text-sm text-muted-foreground">{t.cartEmpty}</p>}
+                    <ul className="divide-y divide-border">
+                      {cartLines.map((l) => {
+                        const name = lang === "de" ? l.basket.name_de : l.basket.name_en;
+                        const img = giftImageProps(l.variant.image_url ?? l.basket.image_url);
+                        const thumb = img.src?.replace(/\.webp$/, "-600.webp");
+                        return (
+                          <li key={l.variantId} className="flex items-center gap-3 py-3">
+                            {thumb && <img src={thumb} alt={name} className="h-14 w-14 shrink-0 rounded-lg object-cover" width="56" height="56" loading="lazy" decoding="async" />}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium leading-snug">{name}</p>
+                              <p className="text-xs text-muted-foreground">{lang === "de" ? l.variant.label_de : l.variant.label_en}</p>
+                              <p className="text-xs text-muted-foreground tabular-nums">{l.qty}× {formatEuro(l.basket.price_cents, lang)}</p>
+                              {qtyLeft(l.variant) < l.qty && <p className="text-xs font-semibold text-destructive">{l.variant.available === 0 ? t.soldOut : t.onlyFew(l.variant.available ?? 0)}</p>}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button type="button" aria-label="−" onClick={() => (l.qty <= 1 ? removeFromCart(l.id) : updateQuantity(l.id, l.qty - 1))} className="flex h-6 min-h-0 w-6 items-center justify-center rounded-full border border-border hover:bg-muted">
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="w-6 text-center text-xs tabular-nums" aria-label={t.quantity}>{l.qty}</span>
+                              <button type="button" aria-label="+" disabled={l.qty >= giftMaxForLine(items, l.id) || l.qty >= qtyLeft(l.variant)} onClick={() => updateQuantity(l.id, l.qty + 1)} className="flex h-6 min-h-0 w-6 items-center justify-center rounded-full border border-border hover:bg-muted disabled:opacity-40">
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <button type="button" aria-label={t.remove} onClick={() => removeFromCart(l.id)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+
+                    <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3 text-sm">
+                      <Link to={getLocalizedPath("catering.giftBaskets", lang)} className="inline-flex items-center gap-2 text-primary hover:underline">
+                        <Gift className="h-4 w-4" aria-hidden="true" /> {t.addMoreGifts}
+                      </Link>
+                      <Link to={lang === "en" ? "/en/" : "/"} className="inline-flex items-center gap-2 text-primary hover:underline">
+                        <UtensilsCrossed className="h-4 w-4" aria-hidden="true" /> {t.addMoreCatering}
+                      </Link>
+                    </div>
+
+                    <div className="mt-4 border-t border-border pt-4">
+                      <dl className="space-y-1 text-sm">
+                        <div className="flex justify-between"><dt>{t.items}</dt><dd className="tabular-nums">{formatEuro(itemsTotal, lang)}</dd></div>
+                        {form.handover === "delivery" && (
+                          <div className="flex justify-between">
+                            <dt>{t.deliveryFee}</dt>
+                            <dd className="tabular-nums">{quote.status === "ok" ? formatEuro(deliveryFee, lang) : "–"}</dd>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
+                          <dt>{form.handover === "delivery" ? t.totalForecast : t.total}</dt>
+                          <dd className="tabular-nums">{formatEuro(total, lang)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+                </aside>
               </form>
             )}
           </div>
