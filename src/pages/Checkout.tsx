@@ -2347,7 +2347,9 @@ const CateringCheckout = () => {
                         ? (language === 'de' ? '⚠️ Bitte Kontaktdaten ausfüllen' : '⚠️ Please fill contact details')
                         : !formData.acceptTerms
                           ? (language === 'de' ? '⚠️ Bitte AGB akzeptieren' : '⚠️ Please accept terms')
-                          : ''
+                          : hasGiftItems && !giftAgeOk
+                            ? `⚠️ ${giftText.valAge}`
+                            : ''
                     }
                   </p>
                 )}
