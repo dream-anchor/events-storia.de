@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { GiftBasketBadge, GiftBasketPanel, activeGiftCents, useGiftOrdersByCateringNumber } from "@/components/admin/gift/MixedOrderLinks";
+import { GiftBasketBadge, GiftBasketPanel, fetchActiveGiftCents, useGiftOrdersByCateringNumber } from "@/components/admin/gift/MixedOrderLinks";
 import { 
   ArrowLeft, Loader2, Save, Phone, Mail, Building2, MapPin, 
   Calendar, Clock, CreditCard, Receipt, User, BadgeCheck, 
@@ -406,8 +406,8 @@ export const CateringOrderEditor = () => {
       const minimumOrder = Number(data?.minimumOrder ?? 0);
       setDeliveryCost(gross);
       // Mindestbestellwert-Aufschlag: nur falls Speisensumme PLUS verknüpfte Geschenkkörbe unter minimumOrder liegt
-      // (Mischbestellung: Körbe zählen mit, Entscheidung 22.11.2026; Korbwert aus gift_orders, nicht stornierte)
-      const giftEuro = activeGiftCents(giftOrders) / 100;
+      // (Mischbestellung: Körbe zählen mit, Entscheidung 22.11.2026; Korbwert frisch aus gift_orders, nicht stornierte)
+      const giftEuro = order?.order_number ? (await fetchActiveGiftCents(order.order_number)) / 100 : 0;
       const surcharge = Math.max(0, minimumOrder - itemsSubtotal - giftEuro);
       setMinimumOrderSurcharge(surcharge);
       const dist = data?.oneWayDistanceKm ? ` · ${Number(data.oneWayDistanceKm).toFixed(1)} km (einfache Strecke)` : "";
@@ -420,7 +420,7 @@ export const CateringOrderEditor = () => {
     } finally {
       setIsRecalcDelivery(false);
     }
-  }, [isPickup, deliveryStreet, deliveryZip, deliveryCity, itemsSubtotal, itemsState, giftOrders]);
+  }, [isPickup, deliveryStreet, deliveryZip, deliveryCity, itemsSubtotal, itemsState, order?.order_number]);
 
   const handleCancelOrder = async (cancelMessage?: string) => {
     if (!id || !order) return;

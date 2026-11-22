@@ -21,6 +21,22 @@ const INACTIVE = ["cancelled", "expired", "refunded"];
 export const activeGiftCents = (orders: LinkedGiftOrder[] | undefined): number =>
   (orders ?? []).filter((o) => !INACTIVE.includes(o.status)).reduce((sum, o) => sum + (o.total_cents ?? 0), 0);
 
+/**
+ * Korbwert (Cent) der nicht stornierten Körbe GENAU einer Catering-Bestellung, frisch aus der DB.
+ * Für Geldrechnungen (Mindestbestellwert-Aufschlag im Editor) statt der gecachten Liste, die auf 500 Einträge begrenzt ist
+ * und beim Klick noch laden kann. Fehler werden geworfen (kein stilles 0 → sonst zu hoher Aufschlag).
+ */
+export async function fetchActiveGiftCents(cateringOrderNumber: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("gift_orders")
+    .select("status, total_cents")
+    .eq("handover", "with_catering")
+    .eq("catering_order_number", cateringOrderNumber)
+    .is("deleted_at", null);
+  if (error) throw error;
+  return activeGiftCents((data ?? []) as LinkedGiftOrder[]);
+}
+
 /** Deep-Link in die Korb-Verwaltung: öffnet die Bestellung direkt. */
 const giftOrderHref = (orderNumber: string) => `/admin/geschenkkoerbe?order=${encodeURIComponent(orderNumber)}`;
 
@@ -40,11 +56,12 @@ export function useGiftOrdersByCateringNumber() {
         .eq("handover", "with_catering")
         .not("catering_order_number", "is", null)
         .is("deleted_at", null)
-        .order("created_at", { ascending: true })
+        // neueste 500 laden (nicht die ältesten), innerhalb einer Catering-Nummer danach wieder chronologisch gruppieren
+        .order("created_at", { ascending: false })
         .limit(500);
       if (error) throw error;
       const map = new Map<string, LinkedGiftOrder[]>();
-      for (const row of data ?? []) {
+      for (const row of [...(data ?? [])].reverse()) {
         if (!row.catering_order_number) continue;
         const entry: LinkedGiftOrder = {
           id: row.id,

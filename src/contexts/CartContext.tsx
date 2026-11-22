@@ -54,7 +54,7 @@ interface CartContextType {
   syncFromServer: (sync: CartSync) => void;
   totalItems: number;
   totalPrice: number;
-  /** Summe ohne Geschenkkörbe (Mindestbestellwert/Aufschlag gelten nur für den Catering-Anteil). */
+  /** Summe ohne Geschenkkörbe (Catering-Anteil; Zwischensumme-Anzeige). Mindestbestellwert: Körbe zählen mit (Server-Quote). */
   cateringSubtotal: number;
   giftItemCount: number;
   isOpen: boolean;
