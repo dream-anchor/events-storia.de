@@ -112,11 +112,13 @@ BEGIN
 
   -- 5b) event_inquiries: Kunde/anon darf nur eine Anfrage anlegen (Status fest new, Preis-/Positionsfelder verworfen), Personal behält alles
   PERFORM pg_temp.expect('anon anfrage mit status confirmed',
-    pg_temp.try_as('anon', NULL, $s$INSERT INTO event_inquiries (email, contact_name, status, quote_items, selected_packages, internal_notes, payment_method)
-      VALUES ('inq@example.invalid', 'Inq', 'confirmed', '[{"price":1}]', '[{"id":"x"}]', 'intern', 'on_site')$s$), 'ok');
-  SELECT status::text AS st, quote_items, selected_packages, internal_notes, payment_method INTO ev
+    pg_temp.try_as('anon', NULL, $s$INSERT INTO event_inquiries (email, contact_name, status, quote_items, selected_packages, internal_notes, payment_method,
+      is_test, notification_sent, priority, created_at)
+      VALUES ('inq@example.invalid', 'Inq', 'confirmed', '[{"price":1}]', '[{"id":"x"}]', 'intern', 'on_site', true, true, 'high', '2020-01-01')$s$), 'ok');
+  SELECT status::text AS st, is_test, notification_sent, priority::text AS prio, (created_at > now() - interval '1 hour') AS fresh, quote_items, selected_packages, internal_notes, payment_method INTO ev
     FROM v2_events WHERE customer_id = (SELECT id FROM v2_customers WHERE email = 'inq@example.invalid');
   PERFORM pg_temp.expect('anfrage status new statt paid', ev.st, 'inquiry');
+  PERFORM pg_temp.expect('anfrage Standardwerte statt Kunden-Werte', (NOT ev.is_test AND NOT ev.notification_sent AND ev.prio = 'normal' AND ev.fresh)::text, 'true');
   PERFORM pg_temp.expect('anfrage ohne preisfelder', (COALESCE(ev.quote_items::text, '[]') = '[]' AND COALESCE(ev.selected_packages::text, '[]') = '[]')::text, 'true');
   PERFORM pg_temp.expect('anfrage ohne interne notiz und mit Standard-Zahlart', COALESCE(ev.internal_notes, '') || '|' || COALESCE(ev.payment_method, ''), '|deposit_online');
   PERFORM pg_temp.expect('staff anfrage bleibt unveraendert',

@@ -310,6 +310,10 @@ BEGIN
     NEW.internal_notes := NULL;
     NEW.payment_method := NULL;
     NEW.invoice_due_days := NULL;
+    NEW.is_test := false;               -- Standardwerte der Tabelle (priority 'normal', notification_sent false)
+    NEW.notification_sent := false;
+    NEW.priority := 'normal';
+    NEW.created_at := now();            -- kein rückdatiertes created_at
   END IF;
 
   SELECT id INTO new_customer_id FROM v2_customers
