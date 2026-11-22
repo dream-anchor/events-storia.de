@@ -416,8 +416,8 @@ body.admin-active [data-state] {
     font-size: 16px !important; /* Prevents iOS zoom on focus */
   }
   
-  /* Ensure buttons are touch-friendly */
-  button,
+  /* Ensure buttons are touch-friendly (Radio-Kreise und Häkchen-Felder ausgenommen, sonst werden sie zu Ovalen gestreckt) */
+  button:where(:not([role="radio"], [role="checkbox"])),
   [role="button"] {
     min-height: 44px;
   }
