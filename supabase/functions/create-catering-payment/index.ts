@@ -9,7 +9,7 @@ import { orderMessage, quoteHasChanges, toLang, type Lang, type OrderErrorCode, 
 import { buildCateringPayload, buildEventPayload, parseCreateInput } from '../_shared/orderCreate.ts';
 import { checkOrderSchedule } from '../_shared/orderSchedule.ts';
 import { ensureOrder } from '../_shared/orderFlow.ts';
-import { createSessionIdempotent, deterministicExpiresAt, findOpenSessions, loadSessionLedger, recordSession, reusableSession, sessionIdempotencyKey, settleSessions, type StripeLike } from '../_shared/stripeSessions.ts';
+import { createSessionIdempotent, deterministicExpiresAt, findOpenSessions, loadSessionLedger, recordSession, reusableSession, sessionGate, sessionIdempotencyKey, settleSessions, type StripeLike } from '../_shared/stripeSessions.ts';
 import { rateLimited, clientIp } from '../_shared/giftRateLimit.ts';
 import { EVENT_REJECT_MESSAGES_DE, verifyEventBooking } from '../_shared/eventPricing.ts';
 import { giftLineName, mixedPaymentMethodTypes, validateGiftForCateringPayment } from '../_shared/giftMixed.ts';
@@ -279,10 +279,17 @@ serve(async (req) => {
         return json({ url: reuse.url, sessionId: reuse.id, orderNumber, quote }, 200);
       }
       const expireOutcome = await settleSessions(stripe as unknown as StripeLike, found);
-      if (expireOutcome === 'paid') {
+      const gate = sessionGate(expireOutcome, ensured.status);
+      if (gate === 'paid') {
         // eine Session wurde inzwischen bezahlt: keine neue Session, nichts freigeben (der Webhook bestätigt die Bestellung)
         logStep("Session already paid, no new session", { orderNumber });
         return json({ error: 'order_exists', message: orderMessage('order_exists', lang) }, 409);
+      }
+      if (gate === 'retry_later') {
+        // Sessions nicht sicher geklärt (Suche unvollständig oder Abgleich fehlgeschlagen): keine neue Session, keine Freigabe
+        logStep("Sessions unsafe, no new session", { orderNumber });
+        reportEdgeError({ source: 'edge:create-catering-payment', severity: 'critical', message: `session_check_unsafe ${orderNumber}` });
+        return json({ error: 'session_check_unavailable', message: orderMessage('session_check_unavailable', lang) }, 503);
       }
       // nur "expired" (vollständige Suche, alle sicher abgelaufen) erlaubt, ältere Körbe freizugeben; unsafe = Hold bleibt
       const sessionsSettled = expireOutcome === 'expired';
@@ -595,7 +602,11 @@ serve(async (req) => {
     logStep("Checkout session created", { sessionId: session.id, orderNumber, orderType });
     // Session-ID an der Bestellung merken (Tabelle catering_checkout_sessions), damit spätere Anfragen sie gezielt finden.
     // Fehlertolerant: fehlt die Tabelle noch, bleibt nur der Rückfall über die Listensuche.
-    if (!await recordSession(supabase, orderNumber, session.id)) logStep("WARN: session id not recorded", { orderNumber, sessionId: session.id });
+    if (!await recordSession(supabase, orderNumber, session.id)) {
+      logStep("WARN: session id not recorded", { orderNumber, sessionId: session.id });
+      // nicht nur loggen: eine Session ohne Ledger-Eintrag ist nur über die Listensuche auffindbar (Betreiber informieren)
+      reportEdgeError({ source: 'edge:create-catering-payment', severity: 'critical', message: `session_ledger_write_failed ${orderNumber} ${session.id}` });
+    }
 
     return new Response(JSON.stringify({ url: session.url, sessionId: session.id, orderNumber, ...(createdQuote ? { quote: createdQuote } : {}) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

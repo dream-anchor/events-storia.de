@@ -301,6 +301,7 @@ export type OrderErrorCode =
   | "order_number_invalid"
   | "order_exists"
   | "order_in_progress"
+  | "session_check_unavailable"
   | "schedule_lead_time" | "schedule_pizza_window" | "schedule_pizza_lead_time" | "schedule_weekend_cutoff"
   | "customer_invalid"
   | "payment_method_invalid"
@@ -361,6 +362,10 @@ export const ORDER_MESSAGES: Readonly<Record<OrderErrorCode, { de: string; en: s
   order_in_progress: {
     de: "Ihre Bestellung wird gerade verarbeitet. Bitte warten Sie einen Moment und bestätigen Sie dann erneut.",
     en: "Your order is currently being processed. Please wait a moment and confirm again.",
+  },
+  session_check_unavailable: {
+    de: "Ihre Bestellung konnte gerade nicht sicher fortgesetzt werden. Bitte versuchen Sie es in einer Minute erneut. Ihr Warenkorb bleibt erhalten.",
+    en: "Your order could not be safely resumed right now. Please try again in a minute. Your cart has been kept.",
   },
   customer_invalid: {
     de: "Bitte prüfen Sie Ihre Kontaktdaten (Name, E-Mail, Telefon).",
