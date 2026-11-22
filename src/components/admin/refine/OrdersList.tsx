@@ -15,6 +15,7 @@ import { MobileCardItem } from "@/components/admin/shared/responsive/MobileCardL
 import { OrdersKanbanView, OrdersBucket } from "./OrdersKanbanView";
 import { InviteCustomerIconButton } from "@/components/admin/shared/InviteCustomerIconButton";
 import { cleanDisplayText } from "@/types/inquiryRecord";
+import { GiftBasketBadge, useGiftOrdersByCateringNumber } from "@/components/admin/gift/MixedOrderLinks";
 
 /**
  * Filter-Konzept (Senior CX Review 16.04.2026):
@@ -84,6 +85,8 @@ export const OrdersList = () => {
     sorters: [{ field: "desired_date", order: "asc" }],
     queryOptions: { enabled: viewMode === "kanban" },
   });
+
+  const giftOrders = useGiftOrdersByCateringNumber().data;
 
   const orders = ordersQuery.result?.data || [];
   const isLoading = ordersQuery.query.isLoading;
@@ -168,6 +171,7 @@ export const OrdersList = () => {
       cell: ({ row }) => (
         <div>
           <p className="font-mono font-medium text-sm">{row.original.order_number}</p>
+          <GiftBasketBadge orders={giftOrders?.get(row.original.order_number)} className="mt-1 inline-block" />
           <p className="text-xs text-muted-foreground">
             {row.original.created_at && format(parseISO(row.original.created_at), "dd.MM.yy HH:mm", { locale: de })}
           </p>
@@ -472,6 +476,7 @@ export const OrdersList = () => {
                 title={
                   <span className="flex items-center gap-2">
                     <span className="font-mono">{o.order_number}</span>
+                    <GiftBasketBadge orders={giftOrders?.get(o.order_number)} />
                   </span>
                 }
                 subtitle={(() => {

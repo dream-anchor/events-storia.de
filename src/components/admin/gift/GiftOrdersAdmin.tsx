@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Loader2, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +23,13 @@ const NEXT: Record<string, { to: string; label: string }[]> = {
   awaiting_confirmation: [{ to: "cancelled", label: "Stornieren" }],
 };
 
+/** „Mit Catering #…“ als Link zur Catering-Bestellung (Fallback: reiner Text, falls Bestellung nicht auffindbar). */
+function CateringLink({ number, id, label }: { number: string | null; id?: string; label?: string }) {
+  const text = label ?? `Mit Catering #${number ?? "?"}`;
+  if (!id) return <>{text}</>;
+  return <Link to={`/admin/orders/${id}/edit`} onClick={(e) => e.stopPropagation()} className="font-medium underline underline-offset-2">{text}</Link>;
+}
+
 type Filter = "open" | "today" | "tomorrow" | "pickup" | "delivery" | "all";
 
 export function GiftOrdersAdmin() {
@@ -29,6 +37,10 @@ export function GiftOrdersAdmin() {
   const [windows, setWindows] = useState<DeliveryWindow[]>([]);
   const [filter, setFilter] = useState<Filter>("open");
   const [selected, setSelected] = useState<Order | null>(null);
+  // Mischbestellung: Catering-Bestellnummer -> id, damit „mit Catering #…“ direkt zur Catering-Bestellung führt
+  const [cateringIds, setCateringIds] = useState<Record<string, string>>({});
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkOrder = searchParams.get("order");
 
   const load = useCallback(async () => {
     const [o, s] = await Promise.all([
@@ -37,9 +49,24 @@ export function GiftOrdersAdmin() {
     ]);
     if (o.error) { toast.error("Laden fehlgeschlagen", { description: o.error.message }); return; }
     setOrders(o.data ?? []);
+    const numbers = [...new Set((o.data ?? []).map((x) => x.catering_order_number).filter((n): n is string => !!n))];
+    if (numbers.length > 0) {
+      const c = await supabase.from("catering_orders").select("id, order_number").in("order_number", numbers);
+      if (!c.error) setCateringIds(Object.fromEntries((c.data ?? []).map((x) => [x.order_number, x.id])));
+    }
     setWindows((Array.isArray(s.data?.delivery_windows) ? s.data?.delivery_windows : []) as unknown as DeliveryWindow[]);
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  // Deep-Link ?order=<Bestellnummer> (aus der Catering-Bestellung): Filter „Alle“, Bestellung direkt öffnen
+  useEffect(() => {
+    if (!deepLinkOrder || !orders) return;
+    const hit = orders.find((x) => x.order_number === deepLinkOrder);
+    setFilter("all");
+    if (hit) setSelected(hit);
+    else toast.info(`Korb-Bestellung ${deepLinkOrder} nicht gefunden`);
+    setSearchParams({}, { replace: true });
+  }, [deepLinkOrder, orders, setSearchParams]);
 
   const today = berlinParts(new Date()).date;
   const tomorrow = addDays(today, 1);
@@ -71,27 +98,27 @@ export function GiftOrdersAdmin() {
       <ul className="space-y-2">
         {visible.map((o) => (
           <li key={o.id}>
-            <button type="button" onClick={() => setSelected(o)} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3 text-left hover:bg-secondary/40">
+            <div role="button" tabIndex={0} onClick={() => setSelected(o)} onKeyDown={(e) => { if (e.target !== e.currentTarget) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(o); } }} className="flex w-full cursor-pointer flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3 text-left hover:bg-secondary/40">
               <span>
                 <strong>{o.order_number}</strong> · {o.customer_name}{o.is_test && <Badge variant="outline" className="ml-2">Test</Badge>}
                 <span className="block text-sm text-muted-foreground">
-                  {handoverLabel(o)} {o.handover_date.split("-").reverse().join(".")}, {windowLabel(o)}
+                  {o.handover === "with_catering" ? <CateringLink number={o.catering_order_number} id={o.catering_order_number ? cateringIds[o.catering_order_number] : undefined} /> : handoverLabel(o)} {o.handover_date.split("-").reverse().join(".")}, {windowLabel(o)}
                 </span>
               </span>
               <span className="flex items-center gap-2">
                 <span className="tabular-nums">{formatEuro(o.total_cents)}</span>
                 <Badge variant={["cancelled", "expired", "refunded"].includes(o.status) ? "outline" : "default"}>{STATUS_LABEL[o.status] ?? o.status}</Badge>
               </span>
-            </button>
+            </div>
           </li>
         ))}
       </ul>
-      <OrderDialog order={selected} windowLabel={selected ? windowLabel(selected) : ""} onClose={() => setSelected(null)} onChanged={() => { void load(); setSelected(null); }} />
+      <OrderDialog order={selected} windowLabel={selected ? windowLabel(selected) : ""} cateringId={selected?.catering_order_number ? cateringIds[selected.catering_order_number] : undefined} onClose={() => setSelected(null)} onChanged={() => { void load(); setSelected(null); }} />
     </div>
   );
 }
 
-function OrderDialog({ order, windowLabel, onClose, onChanged }: { order: Order | null; windowLabel: string; onClose: () => void; onChanged: () => void }) {
+function OrderDialog({ order, windowLabel, cateringId, onClose, onChanged }: { order: Order | null; windowLabel: string; cateringId?: string; onClose: () => void; onChanged: () => void }) {
   const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -141,7 +168,7 @@ function OrderDialog({ order, windowLabel, onClose, onChanged }: { order: Order 
 
         {/* Lieferzettel: nur dieser Block wird gedruckt */}
         <div id="gift-slip" className="space-y-2 text-sm">
-          <p><strong>{order.handover === "with_catering" ? `MIT CATERING #${order.catering_order_number ?? "?"}` : order.handover === "pickup" ? "ABHOLUNG" : "LIEFERUNG"}</strong> {order.handover_date.split("-").reverse().join(".")}, {windowLabel}</p>
+          <p><strong>{order.handover === "with_catering" ? <CateringLink number={order.catering_order_number} id={cateringId} label={`MIT CATERING #${order.catering_order_number ?? "?"}`} /> : order.handover === "pickup" ? "ABHOLUNG" : "LIEFERUNG"}</strong> {order.handover_date.split("-").reverse().join(".")}, {windowLabel}</p>
           <ul className="list-disc pl-5">{items.map((i) => <li key={i.id}>{i.qty} × {i.basket_name} – {i.variant_label}</li>)}</ul>
           <p><strong>{order.customer_name}</strong><br />{order.customer_email}{order.customer_phone ? <><br />{order.customer_phone}</> : null}</p>
           {order.handover === "delivery" && (

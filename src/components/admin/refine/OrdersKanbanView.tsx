@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { GiftBasketBadge, useGiftOrdersByCateringNumber } from "@/components/admin/gift/MixedOrderLinks";
 import { CateringOrder, OrderStatus } from "@/types/refine";
 import { supabase } from "@/integrations/supabase/typed-client";
 import { toast } from "sonner";
@@ -223,6 +224,7 @@ function OrderKanbanCard({
   moving,
 }: CardProps) {
   const action = getOrderActionState(order);
+  const giftOrders = useGiftOrdersByCateringNumber().data?.get(order.order_number);
   const daysInfo = getDaysLabel(order.desired_date);
   const lastCustomer = order.last_customer_message_at
     ? new Date(order.last_customer_message_at).getTime()
@@ -318,6 +320,8 @@ function OrderKanbanCard({
           </p>
         );
       })()}
+
+      <GiftBasketBadge orders={giftOrders} className="mt-1.5 inline-block" />
 
       {/* Footer: Lieferung/Abholung + Datum-Detail + Summe */}
       <div className="mt-1.5 flex items-center gap-2 text-[11px] text-slate-500">
