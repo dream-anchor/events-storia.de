@@ -318,15 +318,15 @@ serve(async (req) => {
       createdQuote = quote;
     } else {
       // ━━━ ALTER WEG (abwärtskompatibel): vom Browser angelegte Bestellung prüfen ━━━
-      // Validate input
-      if (!amount || amount <= 0) {
-        throw new Error("Invalid amount");
+      // Eingaben prüfen: fehlende/falsche Felder sind ein Client-Fehler (400), kein Serverfehler mit kritischem Alarm
+      if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+        return json({ error: 'Invalid amount' }, 400);
       }
-      if (!customerEmail) {
-        throw new Error("Email required");
+      if (typeof customerEmail !== 'string' || !customerEmail.trim()) {
+        return json({ error: 'Email required' }, 400);
       }
-      if (!orderNumber) {
-        throw new Error("Order number required");
+      if (typeof orderNumber !== 'string' || !orderNumber.trim()) {
+        return json({ error: 'Order number required' }, 400);
       }
 
       logStep("Input validated", { amount, customerEmail, orderNumber, itemCount: items?.length, paymentMethod });
