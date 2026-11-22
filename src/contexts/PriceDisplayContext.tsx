@@ -25,11 +25,35 @@ export interface VatBreakdown {
   totalVat: number;
 }
 
+/** Ein Anteil eines Betrags mit eigenem Steuersatz (brutto). */
+export interface PricePart {
+  gross: number;
+  vatRate: number;
+}
+
+/** Teile eines Event-Pakets nach der 70/30-Regel (70 % Speisen zu 7 %, 30 % Getränke zu 19 %). */
+export const packageParts = (gross: number): PricePart[] => [
+  { gross: gross * PACKAGE_SPLIT.FOOD_PORTION, vatRate: VAT_RATES.FOOD },
+  { gross: gross * PACKAGE_SPLIT.DRINKS_PORTION, vatRate: VAT_RATES.DRINKS },
+];
+
+/** Steuerteile EINER Warenkorb-Zeile (Stückpreis): Event-Pakete (ID `event-…`) 70/30, alles andere 7 %. */
+export const itemParts = (item: { id: string; price: number }, quantity = 1): PricePart[] =>
+  item.id.startsWith('event-')
+    ? packageParts(item.price * quantity)
+    : [{ gross: item.price * quantity, vatRate: VAT_RATES.FOOD }];
+
+/** Steuerteile aller Catering-Zeilen (Menge berücksichtigt), für die Zwischensumme in der Netto-Ansicht. */
+export const cateringLineParts = (items: { id: string; price: number; quantity: number }[]): PricePart[] =>
+  items.flatMap(item => itemParts(item, item.quantity));
+
 interface PriceDisplayContextType {
   showGross: boolean;
   setShowGross: (value: boolean) => void;
   formatPrice: (grossPrice: number, vatRate?: number) => string;
   formatPriceValue: (grossPrice: number, vatRate?: number) => number;
+  /** Gemischte Beträge (z. B. Event-Pakete 70 % / 30 %, Warenkorb aus 7-%- und Paket-Zeilen): Netto-Summe je Teil, einmal gerundet */
+  formatPriceMixed: (parts: PricePart[]) => string;
   calculatePackageVat: (grossPrice: number) => VatBreakdown;
   calculateSimpleVat: (grossPrice: number, vatRate?: number) => { gross: number; net: number; vat: number };
 }
@@ -84,10 +108,19 @@ export const PriceDisplayProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
-  // Format price for display based on preference (truncate, not round)
+  // Anzeigepreis je nach Vorgabe: Brutto abgeschnitten (wie bisher), Netto auf den Cent GERUNDET (wie <VatTotals>),
+  // damit Einzelzeilen und „Gesamt netto“ zusammenpassen.
   const formatPriceValue = (grossPrice: number, vatRate: number = VAT_RATES.FOOD): number => {
-    const displayPrice = showGross ? grossPrice : grossPrice / (1 + vatRate);
-    return Math.trunc(displayPrice * 100) / 100;
+    if (showGross) return Math.trunc(grossPrice * 100) / 100;
+    return Math.round((grossPrice / (1 + vatRate)) * 100) / 100;
+  };
+
+  const formatPriceMixed = (parts: PricePart[]): string => {
+    const value = showGross
+      // kleiner Zuschlag gegen Gleitkomma-Rest (70 % + 30 % ergibt sonst x,99999…)
+      ? Math.floor(parts.reduce((sum, p) => sum + p.gross, 0) * 100 + 1e-6) / 100
+      : Math.round(parts.reduce((sum, p) => sum + p.gross / (1 + p.vatRate), 0) * 100) / 100;
+    return value.toFixed(2).replace('.', ',') + ' €';
   };
 
   // Format price as string with currency
@@ -102,6 +135,7 @@ export const PriceDisplayProvider = ({ children }: { children: ReactNode }) => {
       setShowGross, 
       formatPrice, 
       formatPriceValue,
+      formatPriceMixed,
       calculatePackageVat,
       calculateSimpleVat
     }}>

@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Minus, Plus, Trash2, Info, Flame, ShieldCheck, Lock } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
+import { usePriceDisplay, VAT_RATES, cateringLineParts, itemParts } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import TrustBadges from "./TrustBadges";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,7 @@ const StickySummary = ({
 }: StickySummaryProps) => {
   const { items, updateQuantity, removeFromCart, totalPrice, cateringSubtotal } = useCart();
   const { language } = useLanguage();
-  const { formatPrice, showGross, setShowGross } = usePriceDisplay();
+  const { formatPrice, formatPriceMixed, showGross, setShowGross } = usePriceDisplay();
   const hasGifts = giftSubtotal > 0;
   // Zwischensumme-Zeile zeigt den Catering-Anteil (Körbe stehen in eigener Zeile); ohne Körbe unverändert totalPrice
   const subtotalBase = hasGifts ? cateringSubtotal : totalPrice;
@@ -95,7 +95,7 @@ const StickySummary = ({
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    {item.quantity}× {isGiftItem(item) ? formatEuroTruncated(item.price) : formatPrice(item.price)}
+                    {item.quantity}× {isGiftItem(item) ? formatEuroTruncated(item.price) : formatPriceMixed(itemParts(item))}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -166,7 +166,7 @@ const StickySummary = ({
             <span className="text-muted-foreground">
               {language === 'de' ? 'Zwischensumme' : 'Subtotal'}
             </span>
-            <span>{formatPrice(subtotalBase)}</span>
+            <span>{formatPriceMixed(cateringLineParts(items.filter(item => !isGiftItem(item))))}</span>
           </div>
 
           {hasGifts && (
@@ -209,7 +209,7 @@ const StickySummary = ({
                   </span>
                 )}
               </span>
-              <span>+{formatPrice(deliveryCost)}</span>
+              <span>+{formatPrice(deliveryCost, VAT_RATES.DELIVERY)}</span>
             </div>
           )}
 

@@ -13,6 +13,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { MAX_ADVANCE_DAYS } from "../_shared/orderSchedule.ts";
 import {
   addDays,
   berlinParts,
@@ -69,8 +70,9 @@ interface OrderInput {
   form_started_at: unknown;
 }
 
-/** Zahlung "vor Ort" (Reservierung ohne Anzahlung): Missbrauchsgrenzen (Mail-Spam-Relais, Bestandsblockade). */
-const ON_SITE_MAX_DAYS_AHEAD = 14;
+/** Zahlung "vor Ort" (Reservierung ohne Anzahlung): Mengengrenze gegen Missbrauch (Mail-Spam-Relais, Bestandsblockade).
+ *  Der Termin ist zeitlich NICHT begrenzt (Entscheidung Inhaber 22.11.2026); es gilt nur das technische Sicherheitslimit
+ *  MAX_ADVANCE_DAYS (730 Tage, wie Catering) für alle Zahlwege. */
 const ON_SITE_MAX_QTY = 5;
 /** Offene (noch gültig gehaltene) Bestellungen je E-Mail bzw. je IP, getrennt für "vor Ort" und Online-Checkout (max. 2). */
 const MAX_OPEN_PER_EMAIL = 2;
@@ -214,13 +216,13 @@ serve(async (req) => {
       ? checkMixedSchedule(input.date, now, settings.schedule, blackout, input.catering_is_pickup)
       : checkSchedule(input.handover, input.date, input.time, now, settings.schedule, blackout);
     if (!sched.ok) throw new HttpError(400, "invalid_schedule", { reason: sched.error });
+    // Technisches Sicherheitslimit gegen Tippfehler/Unsinn (keine fachliche Grenze), gleich für Online und vor Ort
+    if (input.date > addDays(berlinParts(now).date, MAX_ADVANCE_DAYS)) throw new HttpError(400, "invalid_schedule", { reason: "too_far" });
 
     // ── 2b) Missbrauchsgrenzen (vor jeder Schreiboperation) ───────────────────
     // IP nur gehasht speichern; gilt für beide Zahlwege (Online-Holds blockieren ebenfalls Bestand, 40 Min)
     const ipHash = await hashIp(clientIp(req), Deno.env.get("GIFT_IP_PEPPER") ?? "");
     if (input.payment_method === "on_site") {
-      const today = berlinParts(now).date;
-      if (input.date > addDays(today, ON_SITE_MAX_DAYS_AHEAD)) throw new HttpError(400, "on_site_too_far_ahead", { max_days: ON_SITE_MAX_DAYS_AHEAD });
       if (input.items.reduce((s, i) => s + i.qty, 0) > ON_SITE_MAX_QTY) throw new HttpError(400, "on_site_quantity_limit", { max_qty: ON_SITE_MAX_QTY });
     }
 
