@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
 import CateringGrid from "@/components/CateringGrid";
+import GiftBasketBanner from "@/components/GiftBasketBanner";
 import lieferungMuenchen from "@/assets/catering-lieferservice-muenchen-storia.webp";
 import CateringCTA from "@/components/CateringCTA";
 import Footer from "@/components/Footer";
@@ -85,6 +86,7 @@ const Index = () => {
         <main className="flex-1">
           <Hero />
           <CateringGrid />
+          <GiftBasketBanner />
 
           {/* SEO Content Section — Glassmorphism Welcome Card */}
           <section className="py-12 md:py-20">
