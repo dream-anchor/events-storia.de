@@ -98,7 +98,7 @@ export function GiftOrdersAdmin() {
       <ul className="space-y-2">
         {visible.map((o) => (
           <li key={o.id}>
-            <div role="button" tabIndex={0} onClick={() => setSelected(o)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(o); } }} className="flex w-full cursor-pointer flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3 text-left hover:bg-secondary/40">
+            <div role="button" tabIndex={0} onClick={() => setSelected(o)} onKeyDown={(e) => { if (e.target !== e.currentTarget) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(o); } }} className="flex w-full cursor-pointer flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3 text-left hover:bg-secondary/40">
               <span>
                 <strong>{o.order_number}</strong> · {o.customer_name}{o.is_test && <Badge variant="outline" className="ml-2">Test</Badge>}
                 <span className="block text-sm text-muted-foreground">
