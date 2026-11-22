@@ -116,6 +116,16 @@ export async function ensureOrder(
 }
 
 /**
+ * ilike-Muster für einen EXAKTEN, von der Groß-/Kleinschreibung unabhängigen Vergleich: %, _ und \ werden escaped, damit Nutzereingaben
+ * nie als Wildcard wirken (sonst träfe `max%@%.%` fremde Kunden). `*` ersetzt PostgREST vor dem Escape durch %, daher
+ * nicht darstellbar: null = nicht suchen, neuen Datensatz anlegen.
+ */
+export function exactIlikePattern(v: string): string | null {
+  if (v.includes("*")) return null;
+  return v.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+/**
  * Beim Fortsetzen die Felder aktualisieren, die NICHT zum Fingerabdruck gehören (Name, Telefon, Firma, Notizen, Rechnungsadresse,
  * Stockwerk/Aufzug, Lieferadresstext), damit die Bestellung den letzten Stand des Kunden trägt. Best effort: ein Fehler hier verhindert
  * das Fortsetzen nicht (Betrag/Positionen/Termin/Adresse/Lieferart sind schon geprüft). Zahlart und Referenznummer stehen nicht in der
@@ -135,7 +145,11 @@ async function refreshResumedOrder(supabase: Supa, a: { quote: OrderQuote; input
     }
     // Kunde: passenden Datensatz (E-Mail + Name) suchen/anlegen wie der Insert-Trigger und der Bestellung zuordnen
     const c = a.input.customer;
-    const { data: found } = await supabase.from("v2_customers").select("id").ilike("email", c.email).ilike("name", c.name).limit(1).maybeSingle();
+    const emailPat = exactIlikePattern(c.email);
+    const namePat = exactIlikePattern(c.name);
+    const { data: found } = emailPat && namePat
+      ? await supabase.from("v2_customers").select("id").ilike("email", emailPat).ilike("name", namePat).limit(1).maybeSingle()
+      : { data: null };
     let customerId: string | null = found?.id ?? null;
     if (!customerId) {
       const { data: created } = await supabase.from("v2_customers").insert({ name: c.name, email: c.email, phone: c.phone, company: c.company || null }).select("id").maybeSingle();

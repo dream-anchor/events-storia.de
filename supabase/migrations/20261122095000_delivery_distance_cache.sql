@@ -21,7 +21,7 @@ ALTER TABLE public.ors_usage ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ors_usage FROM anon, authenticated;
 GRANT ALL ON public.ors_usage TO service_role;
 
--- Atomar: zählt p_calls zum heutigen Tag, solange das Limit nicht überschritten wird. true = erlaubt.
+-- Atomar: zählt p_calls zum heutigen Tag (Berliner Datum, nicht UTC), solange das Limit nicht überschritten wird. true = erlaubt.
 CREATE OR REPLACE FUNCTION public.ors_take_budget(p_calls integer, p_limit integer)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -30,7 +30,7 @@ SET search_path = public
 AS $$
 DECLARE v_calls integer;
 BEGIN
-  INSERT INTO public.ors_usage (day, calls) VALUES (current_date, p_calls)
+  INSERT INTO public.ors_usage (day, calls) VALUES ((now() AT TIME ZONE 'Europe/Berlin')::date, p_calls)
   ON CONFLICT (day) DO UPDATE SET calls = public.ors_usage.calls + EXCLUDED.calls
     WHERE public.ors_usage.calls + EXCLUDED.calls <= p_limit
   RETURNING calls INTO v_calls;

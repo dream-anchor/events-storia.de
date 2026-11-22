@@ -1,17 +1,17 @@
 // deno test supabase/functions/_shared/stripeSessions_test.ts
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import { createSessionIdempotent, deterministicExpiresAt, expireSessions, findOpenSessions, reusableSession, sessionIdempotencyKey, type StripeLike } from "./stripeSessions.ts";
-import { checkPaymentMatchesOrder } from "./paymentGuard.ts";
+import { checkPaymentMatchesOrder, isDoublePayment } from "./paymentGuard.ts";
 
 const T = Date.UTC(2026, 10, 22, 12, 0, 30);
 
-Deno.test("Mischsession: Ablauf ist je 3-Min-Fenster deterministisch und liegt >= 30 Min nach der Erstellung", () => {
+Deno.test("Mischsession: Ablauf ist je 3-Min-Fenster deterministisch und liegt >= 31 Min (Stripe-Minimum 30 + Puffer) nach der Erstellung", () => {
   const a = deterministicExpiresAt(T);
   assertEquals(a, deterministicExpiresAt(T + 100_000)); // gleiches Fenster
   for (const offset of [0, 60_000, 179_000]) {
     const created = Math.floor(T / 180_000) * 180_000 + offset;
     const remainingMin = (a * 1000 - created) / 60_000;
-    assert(remainingMin >= 30 && remainingMin <= 33, `Restlaufzeit ${remainingMin}`);
+    assert(remainingMin >= 31 && remainingMin <= 34, `Restlaufzeit ${remainingMin}`);
   }
   assert(deterministicExpiresAt(T + 200_000) !== a);
 });
@@ -26,7 +26,7 @@ Deno.test("Idempotenzschlüssel: gleiche Parameter+Fenster gleich; geänderte Pa
 });
 
 const stripe = (impl: Partial<StripeLike["checkout"]["sessions"]>): StripeLike => ({
-  checkout: { sessions: { create: () => Promise.reject(new Error("unused")), expire: () => Promise.resolve({}), search: () => Promise.resolve({ data: [] }), ...impl } },
+  checkout: { sessions: { create: () => Promise.reject(new Error("unused")), expire: () => Promise.resolve({ status: "expired" }), retrieve: () => Promise.reject(new Error("unused")), list: () => Promise.resolve({ data: [] }), ...impl } },
 });
 
 Deno.test("Idempotenz-Konflikt (409 key_in_use): einmal mit neuem Schlüssel wiederholen statt 25 Min zu hängen", async () => {
@@ -58,25 +58,78 @@ Deno.test("Retry im selben Fenster liefert dieselbe Session (Korb + Wiederholung
   assertEquals(a.id, b.id);
 });
 
-Deno.test("offene Sessions: finden, passende weiterverwenden, übrige ablaufen lassen; Suchfehler = unbekannt", async () => {
-  const expired: string[] = [];
-  const open = [
-    { id: "s1", url: "u1", amount_total: 51425, expires_at: Math.floor(T / 1000) + 20 * 60 },
-    { id: "s2", url: "u2", amount_total: 99999, expires_at: Math.floor(T / 1000) + 20 * 60 },
-    { id: "s3", url: "u3", amount_total: 51425, expires_at: Math.floor(T / 1000) + 60 },
-  ];
-  const s = stripe({ search: () => Promise.resolve({ data: open }), expire: (id) => { expired.push(id); return Promise.resolve({}); } });
-  const found = await findOpenSessions(s, "CAT-1");
-  assertEquals(found?.length, 3);
-  assertEquals(reusableSession(found!, 51425, T)?.id, "s1"); // s3 läuft in 1 Min ab, s2 falscher Betrag
-  assertEquals(await expireSessions(s, found!.filter((x) => x.id !== "s1")), true);
-  assertEquals(expired, ["s2", "s3"]);
-  assertEquals(await findOpenSessions(stripe({ search: () => Promise.reject(new Error("down")) }), "CAT-1"), null);
+const meta = (n: string) => ({ order_number: n });
+
+Deno.test("Fake kennt nur die echte API: checkout.sessions.search existiert nicht und schlägt fehl", async () => {
+  const s = stripe({}) as unknown as { checkout: { sessions: { search?: () => Promise<unknown> } } };
+  assertEquals(typeof s.checkout.sessions.search, "undefined");
+  let threw = false;
+  try { await s.checkout.sessions.search!(); } catch { threw = true; }
+  assert(threw);
 });
 
-Deno.test("expire: schon abgelaufen ist ok, anderer Fehler = unsicher (Korb dann nicht freigeben)", async () => {
-  assertEquals(await expireSessions(stripe({ expire: () => Promise.reject(new Error("This Checkout Session has already expired")) }), [{ id: "a" }]), true);
-  assertEquals(await expireSessions(stripe({ expire: () => Promise.reject(new Error("network down")) }), [{ id: "a" }]), false);
+Deno.test("offene Sessions: per list(customer_details.email, status=open, created) holen, nach metadata.order_number filtern, passende weiterverwenden, übrige ablaufen lassen", async () => {
+  const expired: string[] = [];
+  const calls: unknown[] = [];
+  const open = [
+    { id: "s1", url: "u1", amount_total: 51425, metadata: meta("CAT-1"), expires_at: Math.floor(T / 1000) + 20 * 60 },
+    { id: "s2", url: "u2", amount_total: 99999, metadata: meta("CAT-1"), expires_at: Math.floor(T / 1000) + 20 * 60 },
+    { id: "s3", url: "u3", amount_total: 51425, metadata: meta("CAT-1"), expires_at: Math.floor(T / 1000) + 60 },
+    { id: "other", url: "u4", amount_total: 51425, metadata: meta("CAT-2"), expires_at: Math.floor(T / 1000) + 20 * 60 },
+  ];
+  const s = stripe({
+    list: (p) => { calls.push(p); return Promise.resolve({ data: open }); },
+    expire: (id) => { expired.push(id); return Promise.resolve({ status: "expired" }); },
+  });
+  const found = await findOpenSessions(s, "CAT-1", "a@b.de", T);
+  assertEquals(found?.map((x) => x.id), ["s1", "s2", "s3"]);
+  assertEquals(calls, [{ customer_details: { email: "a@b.de" }, status: "open", created: { gte: Math.floor(T / 1000) - 2 * 24 * 3600 }, limit: 100 }]);
+  assertEquals(reusableSession(found!, 51425, T)?.id, "s1"); // s3 läuft in 1 Min ab, s2 falscher Betrag
+  assertEquals(await expireSessions(s, found!.filter((x) => x.id !== "s1")), "expired");
+  assertEquals(expired, ["s2", "s3"]);
+  assertEquals(await findOpenSessions(stripe({ list: () => Promise.reject(new Error("down")) }), "CAT-1", "a@b.de"), null);
+});
+
+Deno.test("offene Sessions: Seitenwechsel (has_more) wird gelesen; zu viele Seiten = unbekannt", async () => {
+  const afters: (string | undefined)[] = [];
+  const s = stripe({
+    list: (p) => { afters.push(p.starting_after); return Promise.resolve(p.starting_after ? { data: [{ id: "b", metadata: meta("CAT-1") }], has_more: false } : { data: [{ id: "a", metadata: meta("CAT-1") }], has_more: true }); },
+  });
+  assertEquals((await findOpenSessions(s, "CAT-1", "a@b.de"))?.map((x) => x.id), ["a", "b"]);
+  assertEquals(afters, [undefined, "a"]);
+  let n = 0;
+  assertEquals(await findOpenSessions(stripe({ list: () => Promise.resolve({ data: [{ id: `x${n++}` }], has_more: true }) }), "CAT-1", "a@b.de"), null);
+});
+
+Deno.test("expire: Erfolg mit status expired ok; schon abgelaufen (Fehler, retrieve=expired) ok", async () => {
+  assertEquals(await expireSessions(stripe({}), [{ id: "a" }]), "expired");
+  const s = stripe({ expire: () => Promise.reject(new Error("This Checkout Session has already expired")), retrieve: () => Promise.resolve({ status: "expired" }) });
+  assertEquals(await expireSessions(s, [{ id: "a" }]), "expired");
+});
+
+Deno.test("expire: BEZAHLTE Session (complete) => paid, nichts freigeben; auch wenn die Fehlermeldung nach 'expired' klingt", async () => {
+  const s = stripe({ expire: () => Promise.reject(new Error("Only open sessions can be expired; this session is complete")), retrieve: () => Promise.resolve({ status: "complete" }) });
+  assertEquals(await expireSessions(s, [{ id: "a" }]), "paid");
+  // Meldung enthält 'expired', Status ist trotzdem complete
+  const s2 = stripe({ expire: () => Promise.reject(new Error("session cannot be expired")), retrieve: () => Promise.resolve({ status: "complete" }) });
+  assertEquals(await expireSessions(s2, [{ id: "a" }]), "paid");
+  // paid hat Vorrang vor unsicheren Vorgängern nicht: erste unsichere, zweite bezahlt => paid
+  const s3 = stripe({ expire: () => Promise.reject(new Error("x")), retrieve: (id) => id === "b" ? Promise.resolve({ status: "complete" }) : Promise.reject(new Error("net")) });
+  assertEquals(await expireSessions(s3, [{ id: "a" }, { id: "b" }]), "paid");
+});
+
+Deno.test("expire: anderer Fehler oder Status nicht ermittelbar/open = unsafe (Hold bleibt)", async () => {
+  assertEquals(await expireSessions(stripe({ expire: () => Promise.reject(new Error("network down")), retrieve: () => Promise.reject(new Error("network down")) }), [{ id: "a" }]), "unsafe");
+  assertEquals(await expireSessions(stripe({ expire: () => Promise.reject(new Error("rate")), retrieve: () => Promise.resolve({ status: "open" }) }), [{ id: "a" }]), "unsafe");
+  // expire meldet Erfolg, aber Status nicht expired und retrieve scheitert
+  assertEquals(await expireSessions(stripe({ expire: () => Promise.resolve({ status: "open" }), retrieve: () => Promise.reject(new Error("x")) }), [{ id: "a" }]), "unsafe");
+});
+
+Deno.test("Doppelzahlung: anderer PaymentIntent auf bezahlter Bestellung erkannt, Wiederholung desselben nicht", () => {
+  assertEquals(isDoublePayment({ stripe_payment_intent_id: "pi_1" }, { payment_intent: "pi_2" }), true);
+  assertEquals(isDoublePayment({ stripe_payment_intent_id: "pi_1" }, { payment_intent: "pi_1" }), false);
+  assertEquals(isDoublePayment({ stripe_payment_intent_id: null }, { payment_intent: "pi_2" }), false);
+  assertEquals(isDoublePayment({ stripe_payment_intent_id: "pi_1" }, { payment_intent: null }), false);
 });
 
 Deno.test("Webhook A1b: stornierte Bestellung oder abweichender Betrag wird nicht bestätigt", () => {

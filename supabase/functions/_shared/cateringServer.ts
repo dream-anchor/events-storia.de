@@ -108,9 +108,19 @@ const memCache = new Map<string, { km: number; at: number }>();
 const budget = { day: "", count: 0 };
 const env = (k: string): string | undefined => { try { return Deno.env.get(k) ?? undefined; } catch { return undefined; } };
 /** ORS-Aufrufe je Tag (Geocoding + Routing einzeln). Standard bewusst unter dem Tarif; Env ORS_DAILY_BUDGET überschreibt. */
-const dailyBudget = (): number => Number(env("ORS_DAILY_BUDGET") ?? "") || 800;
+const dailyBudget = (): number => Number(env("ORS_DAILY_BUDGET") ?? "") || 1800;
 /** Cache-Fehltreffer (= ORS-Aufrufe) je Client und Stunde */
-export const ORS_MISSES_PER_CLIENT_HOUR = 30;
+export const ORS_MISSES_PER_CLIENT_HOUR = 10;
+/** Tageswechsel des Budgets um Mitternacht Europe/Berlin (ORS-Kontingent und DB-Zähler zählen nach Berliner Datum, nicht UTC). */
+export const berlinDay = (now: Date): string => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+/** Erschöpfungs-Alarm höchstens einmal je Stunde und Instanz (sonst eine ::error-Zeile je Anfrage). */
+const ALARM_INTERVAL_MS = 3600_000;
+let lastBudgetAlarm = 0;
+function alarmBudgetExhausted(msg: string, nowMs = Date.now()): void {
+  if (nowMs - lastBudgetAlarm < ALARM_INTERVAL_MS) return;
+  lastBudgetAlarm = nowMs;
+  console.error(msg);
+}
 
 /** Adresse normalisieren: gleiche Adresse in anderer Schreibweise trifft denselben Cache-Eintrag. */
 export const addressCacheKey = (address: string): string =>
@@ -125,10 +135,10 @@ export async function hashedCacheKey(normalized: string, pepper: string | undefi
 
 /** Budget je Instanz (Rückfall, wenn der globale DB-Zähler nicht erreichbar ist). ::error-Zeile bei Erschöpfung. */
 export function takeOrsBudget(calls: number, now = new Date(), limit = dailyBudget()): boolean {
-  const day = now.toISOString().slice(0, 10);
+  const day = berlinDay(now);
   if (budget.day !== day) { budget.day = day; budget.count = 0; }
   if (budget.count + calls > limit) {
-    console.error(`::error::ORS-Tagesbudget erschöpft (${budget.count}/${limit}); Lieferangebote liefern delivery_unverifiable`);
+    alarmBudgetExhausted(`::error::ORS-Tagesbudget erschöpft (${budget.count}/${limit}); Lieferangebote liefern delivery_unverifiable`, now.getTime());
     return false;
   }
   budget.count += calls;
@@ -141,20 +151,20 @@ async function takeGlobalBudget(supabase: Supa, calls: number): Promise<boolean>
   try {
     const { data, error } = await supabase.rpc("ors_take_budget", { p_calls: calls, p_limit: limit });
     if (!error && typeof data === "boolean") {
-      if (!data) console.error(`::error::ORS-Tagesbudget (global) erschöpft, Limit ${limit}; Lieferangebote liefern delivery_unverifiable`);
+      if (!data) alarmBudgetExhausted(`::error::ORS-Tagesbudget (global) erschöpft, Limit ${limit}; Lieferangebote liefern delivery_unverifiable`);
       return data;
     }
   } catch { /* RPC fehlt: Rückfall */ }
   return takeOrsBudget(calls);
 }
 
-export function resetDistanceCachesForTest() { memCache.clear(); budget.day = ""; budget.count = 0; }
+export function resetDistanceCachesForTest() { memCache.clear(); budget.day = ""; budget.count = 0; lastBudgetAlarm = 0; }
 
 export interface DistanceOpts { clientKey?: string; pepper?: string }
 
 /**
  * Einweg-Kilometer mit Cache: Speicher (24 h) -> Tabelle delivery_distance_cache (30 Tage, gehashter Schlüssel, nur mit Pepper)
- * -> OpenRouteService (je Client 30 Fehltreffer/Stunde, globales Tagesbudget). null bei jedem Fehler/Limit (fail closed).
+ * -> OpenRouteService (je Client 10 Fehltreffer/Stunde, globales Tagesbudget). null bei jedem Fehler/Limit (fail closed).
  */
 export async function cachedOneWayDistanceKm(supabase: Supa, address: string, apiKey: string | undefined, fetchFn: typeof fetch = fetch, opts: DistanceOpts = {}): Promise<number | null> {
   const key = addressCacheKey(address);

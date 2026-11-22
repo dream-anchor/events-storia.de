@@ -85,12 +85,12 @@ Deno.test("Cache mit Pepper: Schlüssel ist ein sha256-Hash (keine Klartext-Adre
   assertEquals(await hashedCacheKey("x", undefined), null);
 });
 
-Deno.test("A5: je Client höchstens 30 Cache-Fehltreffer pro Stunde; globales Budget über DB-Zähler", async () => {
+Deno.test("A5: je Client höchstens 10 Cache-Fehltreffer pro Stunde; globales Budget über DB-Zähler", async () => {
   resetDistanceCachesForTest();
   const c = { n: 0 }; const d = db();
   let ok = 0;
-  for (let i = 0; i < 35; i++) if (await cachedOneWayDistanceKm(d.client, `Strasse ${i}, 80333 München`, "k", orsFetch(c), { clientKey: "ip-A" }) !== null) ok++;
-  assertEquals(ok, 30);
+  for (let i = 0; i < 15; i++) if (await cachedOneWayDistanceKm(d.client, `Strasse ${i}, 80333 München`, "k", orsFetch(c), { clientKey: "ip-A" }) !== null) ok++;
+  assertEquals(ok, 10);
   // anderer Client wird dadurch nicht blockiert
   assertEquals(await cachedOneWayDistanceKm(d.client, "Andere Str. 9, 80333 München", "k", orsFetch(c), { clientKey: "ip-B" }), 0);
   // globales Budget: Limit 4 Aufrufe = 2 Lookups

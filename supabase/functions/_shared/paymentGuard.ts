@@ -18,3 +18,9 @@ export function checkPaymentMatchesOrder(
   }
   return { ok: true };
 }
+
+/** Bestellung ist schon mit einem ANDEREN PaymentIntent bezahlt als die eingehende Session: Doppelzahlung (Webhook-Wiederholung hat denselben PaymentIntent). */
+export function isDoublePayment(order: { stripe_payment_intent_id?: string | null }, session: { payment_intent?: unknown }): boolean {
+  const incoming = typeof session.payment_intent === "string" ? session.payment_intent : null;
+  return !!order.stripe_payment_intent_id && !!incoming && order.stripe_payment_intent_id !== incoming;
+}

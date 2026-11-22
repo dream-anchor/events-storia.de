@@ -865,6 +865,18 @@ async function handleCateringPayment(
   // 2. Check if already processed (idempotency)
   if (order.payment_status === "paid") {
     logStep("Order already marked as paid, skipping", { orderNumber });
+    // Zweite, abweichende Zahlung für dieselbe Bestellung = Doppelzahlung: nicht still überspringen, Betreiber alarmieren
+    const newPi = (session.payment_intent as string) || null;
+    if (isDoublePayment(order, session) && newPi) {
+      reportEdgeError({
+        source: "edge:handle-stripe-webhook", severity: "critical",
+        message: `double_payment order=${orderNumber} session=${session.id} pi=${newPi} bereits bezahlt mit pi=${order.stripe_payment_intent_id}`,
+      });
+      await sendOperatorAlert(
+        `Doppelzahlung: ${orderNumber}`,
+        `<p>Für Bestellung ${esc(orderNumber)} ist eine zweite Stripe-Zahlung eingegangen (Session ${esc(session.id)}, PaymentIntent ${esc(newPi)}). Die Bestellung war bereits mit PaymentIntent ${esc(String(order.stripe_payment_intent_id))} bezahlt. Bitte die zweite Zahlung prüfen und zurückerstatten.</p>`,
+      );
+    }
     return;
   }
 
