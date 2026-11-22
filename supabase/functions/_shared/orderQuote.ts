@@ -300,6 +300,8 @@ export type OrderErrorCode =
   | "invalid_request"
   | "order_number_invalid"
   | "order_exists"
+  | "order_in_progress"
+  | "schedule_lead_time" | "schedule_pizza_window" | "schedule_pizza_lead_time" | "schedule_weekend_cutoff"
   | "customer_invalid"
   | "payment_method_invalid"
   | "gift_not_pending" | "gift_email_mismatch" | "gift_not_linked" | "gift_hold_expired" | "gift_order_not_found"
@@ -339,6 +341,26 @@ export const ORDER_MESSAGES: Readonly<Record<OrderErrorCode, { de: string; en: s
   order_exists: {
     de: "Diese Bestellung wurde bereits angelegt. Bitte laden Sie die Seite neu und bestellen Sie erneut.",
     en: "This order has already been created. Please reload the page and order again.",
+  },
+  schedule_lead_time: {
+    de: "Catering-Bestellungen benötigen mindestens 24 Stunden Vorlauf. In dringenden Fällen rufen Sie uns an: 0163 6033912.",
+    en: "Catering orders require at least 24 hours advance notice. For urgent cases please call us: 0163 6033912.",
+  },
+  schedule_pizza_window: {
+    de: "Pizza-Lieferung ist nur zwischen 12:00-14:30 Uhr und 18:00-22:30 Uhr möglich.",
+    en: "Pizza delivery is only available between 12:00-14:30 and 18:00-22:30.",
+  },
+  schedule_pizza_lead_time: {
+    de: "Die gewählte Zeit ist zu kurzfristig. Bitte mindestens 1 Stunde im Voraus bestellen. Bei Fragen: 0163 6033912.",
+    en: "The selected time is too soon. Please order at least 1 hour in advance. Questions? 0163 6033912.",
+  },
+  schedule_weekend_cutoff: {
+    de: "Lieferungen für Samstag und Sonntag müssen bis Donnerstag 23:59 Uhr bestellt werden. Für kurzfristige Anfragen: 0163 6033912.",
+    en: "Deliveries for Saturday and Sunday must be ordered by Thursday 11:59 PM. For short-notice requests: 0163 6033912.",
+  },
+  order_in_progress: {
+    de: "Ihre Bestellung wird gerade verarbeitet. Bitte warten Sie einen Moment und bestätigen Sie dann erneut.",
+    en: "Your order is currently being processed. Please wait a moment and confirm again.",
   },
   customer_invalid: {
     de: "Bitte prüfen Sie Ihre Kontaktdaten (Name, E-Mail, Telefon).",

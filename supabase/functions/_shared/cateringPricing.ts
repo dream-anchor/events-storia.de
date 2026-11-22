@@ -202,3 +202,23 @@ export function verifyCateringOrder(input: VerifyInput): VerifyResult {
   }
   return { ok: true, expectedTotalCents, itemsCents, surchargeCents, deliveryCents };
 }
+
+/**
+ * Anzeigetext der Lieferstrecke für Mails/Rechnung: "12,3 km × 2 Fahrten" bzw. "12,3 km × 1 Fahrt" (Fahrtenzahl aus der gezahlten
+ * Liefergebühr abgeleitet, weil sie nicht im Datensatz steht) oder nur "12,3 km", wenn sich keine Fahrtenzahl bestimmen lässt
+ * (z. B. Altbestellungen > 8 km, bei denen Strecke x Fahrten gespeichert wurde).
+ */
+export function deliveryDistanceLabel(oneWayKm: number, grossFeeEuro: number | null | undefined, lang: "de" | "en" = "de"): string {
+  const km = Math.round(oneWayKm * 10) / 10;
+  const kmText = lang === "de" ? String(km).replace(".", ",") : String(km);
+  const fee = Math.round(Number(grossFeeEuro ?? 0) * 100);
+  let trips = 0;
+  if (fee > 0 && oneWayKm > 1) {
+    const k = roundKm(oneWayKm);
+    if (Math.abs(fee - deliveryFeeGrossCents(k, false)) <= 1) trips = 2;
+    else if (Math.abs(fee - deliveryFeeGrossCents(k, true)) <= 1) trips = 1;
+  }
+  if (trips === 0) return `${kmText} km`;
+  const unit = lang === "de" ? (trips === 1 ? "Fahrt" : "Fahrten") : (trips === 1 ? "trip" : "trips");
+  return `${kmText} km × ${trips} ${unit}`;
+}

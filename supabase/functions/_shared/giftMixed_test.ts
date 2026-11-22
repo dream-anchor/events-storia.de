@@ -12,6 +12,8 @@ const now = new Date("2026-11-23T10:00:00Z"); // Montag 11:00 Berlin
 Deno.test("Catering-Bestellnummer: Format", () => {
   assertEquals(isCateringOrderNumber("CAT-BESTELLUNG-21-11-2026-345"), true);
   assertEquals(isCateringOrderNumber("CAT-BESTELLUNG-21-11-2026-1099"), true);
+  assertEquals(isCateringOrderNumber("CAT-BESTELLUNG-22-11-2026-482915"), true);
+  assertEquals(isCateringOrderNumber("CAT-BESTELLUNG-22-11-2026-12"), false);
   assertEquals(isCateringOrderNumber("EVT-BUCHUNG-21-11-2026-345"), false);
   assertEquals(isCateringOrderNumber("GK-26-00001"), false);
   assertEquals(isCateringOrderNumber("CAT-BESTELLUNG-21-11-2026-345; DROP"), false);

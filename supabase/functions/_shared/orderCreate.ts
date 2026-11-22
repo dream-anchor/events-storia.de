@@ -5,8 +5,8 @@
 import type { OrderQuote } from "./orderQuote.ts";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const CATERING_ORDER_NUMBER_RE = /^CAT-BESTELLUNG-\d{2}-\d{2}-\d{4}-\d{3,4}$/;
-export const EVENT_BOOKING_NUMBER_RE = /^EVT-BUCHUNG-\d{2}-\d{2}-\d{4}-\d{3,4}$/;
+export const CATERING_ORDER_NUMBER_RE = /^CAT-BESTELLUNG-\d{2}-\d{2}-\d{4}-\d{3,8}$/;
+export const EVENT_BOOKING_NUMBER_RE = /^EVT-BUCHUNG-\d{2}-\d{2}-\d{4}-\d{3,8}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
 

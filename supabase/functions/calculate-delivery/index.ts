@@ -1,5 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { cachedOneWayDistanceKm } from '../_shared/cateringServer.ts';
+import { clientIp, rateLimited } from '../_shared/giftRateLimit.ts';
 import { deliveryFeeGrossCents, deliveryFeeNetCents, minimumOrderCents, roundKm, tripCount } from '../_shared/cateringPricing.ts';
 
 
@@ -55,66 +58,19 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Geocode the delivery address
-    console.log('Geocoding address:', address);
-    console.log('isPizzaOnly:', isPizzaOnly);
-    const geocodeUrl = `https://api.openrouteservice.org/geocode/search?api_key=${OPENROUTE_API_KEY}&text=${encodeURIComponent(address)}&boundary.country=DE`;
-    
-    const geocodeResponse = await fetch(geocodeUrl);
-    if (!geocodeResponse.ok) {
-      console.error('Geocode error:', await geocodeResponse.text());
-      return new Response(
-        JSON.stringify({ error: 'Could not find address' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Entfernung (Cache -> OpenRouteService, Tagesbudget): gemeinsam mit quote-catering-order, siehe _shared/cateringServer.ts
+    if (rateLimited(`calc-delivery:${clientIp(req)}`, 18, 60_000)) {
+      return new Response(JSON.stringify({ error: 'Too many requests' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-
-    const geocodeData = await geocodeResponse.json();
-    console.log('Geocode result:', JSON.stringify(geocodeData.features?.[0]));
-    
-    if (!geocodeData.features || geocodeData.features.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'Address not found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const [destLng, destLat] = geocodeData.features[0].geometry.coordinates;
-    console.log('Destination coords:', destLat, destLng);
-
-    // Step 2: Calculate driving distance using Directions API
-    const directionsUrl = 'https://api.openrouteservice.org/v2/directions/driving-car';
-    const directionsResponse = await fetch(directionsUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': OPENROUTE_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        coordinates: [
-          [RESTAURANT_COORDS.lng, RESTAURANT_COORDS.lat],
-          [destLng, destLat]
-        ]
-      })
-    });
-
-    if (!directionsResponse.ok) {
-      console.error('Directions error:', await directionsResponse.text());
-      return new Response(
-        JSON.stringify({ error: 'Could not calculate route' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const directionsData = await directionsResponse.json();
-    const distanceMeters = directionsData.routes?.[0]?.summary?.distance;
-    
-    if (!distanceMeters) {
+    const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    const km = await cachedOneWayDistanceKm(supabase, address, OPENROUTE_API_KEY);
+    if (km === null) {
       return new Response(
         JSON.stringify({ error: 'Could not calculate distance' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const distanceMeters = km * 1000;
 
     // Entfernung = EINFACHE Strecke, auf 0,01 km gerundet. Gebühr, Mindestbestellwert und Fahrtenzahl kommen aus
     // _shared/cateringPricing.ts (dieselbe Rechnung wie quote-catering-order/create-catering-payment).

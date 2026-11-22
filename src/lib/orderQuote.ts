@@ -227,3 +227,12 @@ export function quoteRequestKey(p: {
   const addr = p.deliveryType === 'delivery' ? [p.address.street, p.address.zip, p.address.city].map((s) => s.trim().toLowerCase()) : [];
   return JSON.stringify([items, p.chafingQuantity, p.deliveryType, addr]);
 }
+
+/**
+ * Ab diesem Zeitpunkt (Deploy der Abdichtung) speichern Bestellungen die EINFACHE Strecke in calculated_distance_km.
+ * Ältere Bestellungen über 8 km tragen Strecke x Fahrten (doppelter Wert) und werden ohne den Zusatz "(einfache Strecke)" angezeigt.
+ * Kein Backfill. Beim Einspielen auf das tatsächliche Deploy-Datum setzen.
+ */
+export const SINGLE_WAY_DISTANCE_SINCE = '2026-11-23T00:00:00Z';
+export const hasSingleWayDistance = (createdAt: string | null | undefined): boolean =>
+  !!createdAt && new Date(createdAt).getTime() >= new Date(SINGLE_WAY_DISTANCE_SINCE).getTime();

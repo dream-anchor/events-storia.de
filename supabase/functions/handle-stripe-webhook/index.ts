@@ -9,10 +9,12 @@ import { isGiftSessionMetadata } from '../_shared/giftWebhook.ts';
 import { sendGiftMails } from '../_shared/giftMail.ts';
 import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
 import { asyncHoldExtensionUntil, computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
+import { markEventBookingPaid } from '../_shared/eventPayment.ts';
 import {
   buildOrderPayload,
   enqueueMaestroHandoff,
   handoffEnabled,
+  loadShopFields,
   type MaestroPaymentType,
   type MaestroTransaction,
 } from '../_shared/maestroHandoff.ts';
@@ -1272,32 +1274,11 @@ async function handleEventBookingPayment(
     return;
   }
 
-  // Seit der Abdichtung (22.11.2026) legt der Server EVT-Buchungen als "offen" an (v2-Status offer_chosen); vorher setzte die
-  // Anlage sofort 'paid', auch ohne Zahlung. Erst die bestätigte Stripe-Zahlung macht daraus 'paid' und trägt die Zahlung ein
-  // (die Ansicht event_bookings leitet payment_status aus v2_payments ab). Reihenfolge: Status zuerst, Zahlung zuletzt;
-  // scheitert die Zahlung, wiederholt Stripe den Webhook (payment_status ist dann noch nicht 'paid').
-  const { error: statusError } = await supabase
-    .from("v2_events")
-    .update({ status: "paid", updated_at: new Date().toISOString() })
-    .eq("id", booking.id)
-    .in("status", ["offer_chosen", "inquiry"]);
-  if (statusError) {
-    logStep("ERROR: Failed to set event status paid", { error: statusError.message });
-    return;
-  }
-  const { error: payError } = await supabase.from("v2_payments").upsert({
-    event_id: booking.id,
-    amount_cents: typeof session.amount_total === "number" ? session.amount_total : Math.round(Number(booking.total_amount) * 100),
-    payment_type: "full",
-    status: "paid",
-    stripe_checkout_session_id: session.id,
-    stripe_payment_intent_id: (session.payment_intent as string) || null,
-    paid_at: new Date().toISOString(),
-    paid_via: "stripe_checkout",
-    notes: "Automatisch aus EVT-Buchungs-Zahlung angelegt",
-  }, { onConflict: "stripe_checkout_session_id" });
-  if (payError) {
-    logStep("ERROR: Failed to record event booking payment", { error: payError.message });
+  // Seit der Abdichtung (22.11.2026) legt der Server EVT-Buchungen "offen" an; erst die bestätigte Zahlung setzt 'paid'
+  // und trägt v2_payments ein (_shared/eventPayment.ts, getestet).
+  const marked = await markEventBookingPaid(supabase, booking, session);
+  if (!marked.ok) {
+    logStep("ERROR: Failed to record event booking payment", { step: marked.step, error: marked.message });
     return;
   }
 
@@ -2678,8 +2659,25 @@ async function maestroEnqueueOrder(
       md.order_number || md.inquiry_id || md.payment_id || session.id;
     const orderNumber = md.order_number || `session-${session.id}`;
 
+    const deliveryEventId = deliveryEventIdOverride || `order_${sourceOrderId}_${session.id}`;
+
+    // Existiert für diese Delivery-ID schon ein Outbox-Eintrag, ist sie bereits eingereiht (Stripe-Redelivery):
+    // NICHT neu bauen. Ein abweichender (z. B. angereicherter) Payload hätte einen anderen Hash, und
+    // enqueueMaestroHandoff würde den noch nicht gesendeten Eintrag auf 'conflict' setzen.
+    const { data: already } = await supabase
+      .from("maestro_handoff_outbox").select("id").eq("delivery_event_id", deliveryEventId).maybeSingle();
+    if (already) return;
+
+    // Shop-Felder (Positionen, Übergabe, Termin …) aus der DB. Lesefehler dürfen die Übergabe NIE verhindern:
+    // dann Altpayload ohne neue Felder. Der Zahlstatus kommt aus der Session (nicht aus der DB), damit der
+    // Payload für eine Delivery-ID bei Stripe-Redelivery bytegleich bleibt (MAESTRO: 409 bei geändertem Inhalt).
+    const shop = await loadShopFields(supabase, md, session.payment_status);
+    if (!shop.ok) {
+      logStep("MAESTRO shop fields unavailable — sending legacy payload", { error: shop.error, deliveryId: deliveryEventId.slice(0, 32) });
+    }
+
     const payload = buildOrderPayload({
-      deliveryEventId: deliveryEventIdOverride || `order_${sourceOrderId}_${session.id}`,
+      deliveryEventId,
       sourceOrderId,
       orderNumber,
       customerName: details?.name || md.customer_name || "",
@@ -2688,6 +2686,7 @@ async function maestroEnqueueOrder(
       phone: details?.phone || null,
       amountTotalCents: stripeAmountCents(session.amount_total),
       transaction,
+      shop: shop.ok ? shop.fields : null,
     });
 
     const result = await enqueueMaestroHandoff(supabase, payload);
