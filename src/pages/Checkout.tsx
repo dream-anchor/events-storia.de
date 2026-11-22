@@ -1186,7 +1186,7 @@ const CateringCheckout = () => {
           attemptRef.current = null;
         }
         toast.error(result.message, { duration: 10000 });
-        if (['delivery_unverifiable', 'address_missing', 'invalid_items', 'mixed_cart'].includes(result.code) === false && result.code !== 'rate_limited') {
+        if (['delivery_unverifiable', 'session_check_unavailable', 'address_missing', 'invalid_items', 'mixed_cart'].includes(result.code) === false && result.code !== 'rate_limited') {
           // Alert: Non-blocking Benachrichtigung bei Checkout-Fehler
           supabase.functions.invoke('notify-checkout-error', {
             body: {
