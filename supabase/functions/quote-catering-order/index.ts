@@ -7,6 +7,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { computeServerQuote } from "../_shared/cateringServer.ts";
 import { orderMessage, toLang, type QuoteRequestItem } from "../_shared/orderQuote.ts";
 import { reportEdgeError } from "../_shared/reportError.ts";
+import { readJsonObject } from "../_shared/requestBody.ts";
 import { clientIp, rateLimited } from "../_shared/giftRateLimit.ts";
 
 const MAX_ITEMS = 60;
@@ -27,7 +28,8 @@ serve(async (req) => {
 
   let lang = toLang(undefined);
   try {
-    const body = await req.json();
+    const body = await readJsonObject(req);
+    if (!body) return json({ ok: false, error: "invalid_request", message: orderMessage("invalid_request", lang) }, 400);
     lang = toLang(body?.language);
     const rawItems: unknown[] = Array.isArray(body?.items) ? body.items : [];
     if (rawItems.length === 0 || rawItems.length > MAX_ITEMS) {
