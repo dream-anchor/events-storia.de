@@ -60,7 +60,7 @@ interface LocationState {
 
 const OrderSuccess = () => {
   const { t, language } = useLanguage();
-  const { showGross } = usePriceDisplay();
+  const { formatPrice, showGross } = usePriceDisplay();
   const navigate = useNavigate();
   const location = useLocation();
   const { getPath } = useLocalizedPath();
@@ -208,7 +208,9 @@ const OrderSuccess = () => {
                       ? subtotalNetCents(net.netC, [surchargeNetC, deliveryNetC])
                       : Math.max(0, toCents(cateringTotal) - toCents(surcharge) - toCents(delivery));
                     // Zeilen auf die Zwischensumme aufgehen lassen (Event-Pakete 70/30 über die Zeilen-ID)
-                    const alloc = net ? allocateNetCents(cateringItems.map(item => lineParts(item.id ?? '', item.total)), subtotalC) : null;
+                    // Altbestellungen (vor dem Deploy gespeichert, ohne cateringTotal): Zeilen und Zwischensumme wie früher, keine Verteilung
+                    const legacy = orderDetails.cateringTotal === undefined;
+                    const alloc = net && !legacy ? allocateNetCents(cateringItems.map(item => lineParts(item.id ?? '', item.total)), subtotalC) : null;
                     return (
                       <>
                         {/* Items List */}
@@ -219,7 +221,7 @@ const OrderSuccess = () => {
                                 <span className="font-medium">{item.quantity}×</span>{' '}
                                 {language === 'en' && item.name_en ? item.name_en : item.name}
                               </div>
-                              <span>{alloc ? formatCents(alloc.lines[index]) : formatCents(toCents(item.total))}</span>
+                              <span>{legacy ? formatPrice(item.total) : alloc ? formatCents(alloc.lines[index]) : formatCents(toCents(item.total))}</span>
                             </div>
                           ))}
                           {giftItems.map((item, index) => (
@@ -237,7 +239,7 @@ const OrderSuccess = () => {
                         <div className="pt-3 border-t border-border space-y-1 text-sm">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">{de ? 'Zwischensumme' : 'Subtotal'}</span>
-                            <span>{formatCents(subtotalC)}</span>
+                            <span>{legacy ? formatPrice(orderDetails.subtotal) : formatCents(subtotalC)}</span>
                           </div>
                           {surcharge > 0 && (
                             <div className="flex justify-between">

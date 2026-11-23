@@ -805,6 +805,8 @@ const CateringCheckout = () => {
   
   const deliveryNet = deliveryCalc?.deliveryCostNet || 0;
   const deliveryGross = deliveryCalc?.deliveryCostGross || 0;
+  // Anzeige: Lieferbetrag aus dem Server-Angebot, solange eines da ist (wie Chafing und Aufschlag), sonst aus der Lieferberechnung
+  const deliveryGrossShown = quote ? quote.deliveryCents / 100 : deliveryGross;
   const deliveryVat = deliveryCalc?.deliveryVat || 0;
   
   const foodGross = regularFoodGross + minimumOrderSurcharge + chafingDishGross + pkgFoodGross;
@@ -834,7 +836,7 @@ const CateringCheckout = () => {
         : subtotalNetCents(cateringNetC, [
             chafingQtyShown > 0 ? lineNetCents(chafingGrossShown, VAT_RATES.FOOD) : 0,
             formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery
-              ? lineNetCents(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)
+              ? lineNetCents(deliveryGrossShown, VAT_RATES.DELIVERY)
               : 0,
           ]));
   const hasEventPackageItems = cateringItems.some(item => item.id.startsWith('event-'));
@@ -1503,7 +1505,7 @@ const CateringCheckout = () => {
                               <span className="text-xs ml-1">({deliveryCalc.oneWayDistanceKm} km{deliveryCalc.isRoundTrip ? ' ×2' : ''})</span>
                             )}
                           </span>
-                          <span>+{formatPrice(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)}</span>
+                          <span>+{formatPrice(deliveryGrossShown, VAT_RATES.DELIVERY)}</span>
                         </div>
                       )}
                       {formData.deliveryType === 'delivery' && deliveryCalc?.isFreeDelivery && (
@@ -1623,7 +1625,7 @@ const CateringCheckout = () => {
                                 <span>
                                   {deliveryCalc.isFreeDelivery
                                     ? (language === 'de' ? 'Kostenlos' : 'Free')
-                                    : `+${formatPrice(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)}`
+                                    : `+${formatPrice(deliveryGrossShown, VAT_RATES.DELIVERY)}`
                                   }
                                 </span>
                               </div>
@@ -2269,7 +2271,7 @@ const CateringCheckout = () => {
                 {/* Right Column: Sticky Summary (Desktop only) */}
                 <div className="hidden lg:block">
                   <StickySummary
-                    deliveryCost={deliveryCalc?.deliveryCostGross || 0}
+                    deliveryCost={deliveryGrossShown}
                     minimumOrderSurcharge={minimumOrderSurcharge}
                     chafingDishQuantity={chafingQtyShown}
                     chafingDishPrice={chafingQtyShown > 0 ? chafingGrossShown / chafingQtyShown : CHAFING_DISH.price}
