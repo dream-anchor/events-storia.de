@@ -74,12 +74,12 @@ export function VatTotals({ language, showGross, grandTotal, giftSubtotal = 0, v
       {sticky ? (
         <div className="flex justify-between items-center pt-3 border-t border-border">
           <span className="font-serif text-lg font-semibold">{totalLabel}</span>
-          <span className="font-serif text-xl font-bold text-amber-950 dark:text-amber-50">{totalValue}</span>
+          <span className="font-serif text-xl font-bold text-amber-950 dark:text-amber-50 whitespace-nowrap shrink-0">{totalValue}</span>
         </div>
       ) : (
         <div className={cn("flex justify-between pt-2 border-t border-border font-medium")}>
           <span>{totalLabel}</span>
-          <span className="text-primary font-bold">{totalValue}</span>
+          <span className="text-primary font-bold whitespace-nowrap shrink-0 pl-3">{totalValue}</span>
         </div>
       )}
     </>

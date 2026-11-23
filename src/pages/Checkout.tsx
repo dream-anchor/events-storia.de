@@ -2344,7 +2344,7 @@ const CateringCheckout = () => {
                 <div className="flex items-center justify-between gap-4">
                   <div className="text-sm">
                     <span className="text-muted-foreground">{language === 'de' ? 'Gesamt:' : 'Total:'}{totalVatSuffix}</span>
-                    <span className="font-bold text-lg ml-1">{displayTotal}</span>
+                    <span className="font-bold text-lg ml-1 whitespace-nowrap">{displayTotal}</span>
                   </div>
                   <Button
                     type="submit"
