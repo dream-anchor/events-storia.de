@@ -778,6 +778,11 @@ const CateringCheckout = () => {
   const minimumOrderSurcharge = quote ? quote.surchargeCents / 100 : 0;
   
   const chafingDishGross = chafingDishQuantity * CHAFING_DISH.price;
+  // Anzeige: Chafing-Zeile (wie Aufschlag und Lieferung) aus dem Server-Angebot, solange eines da ist, damit Zeilen und
+  // Zwischensumme aus EINER Quelle kommen (auch während das Angebot nach einer Änderung neu lädt).
+  const quoteChafingLine = quote?.lines.find(l => l.kind === 'chafing_checkout') ?? null;
+  const chafingQtyShown = quote ? (quoteChafingLine?.quantity ?? 0) : chafingDishQuantity;
+  const chafingGrossShown = quote ? (quoteChafingLine ? quoteChafingLine.lineCents / 100 : 0) : chafingDishGross;
   const chafingDishNet = chafingDishGross / 1.07;
   
   const eventPackagesGross = cateringItems
@@ -827,7 +832,7 @@ const CateringCheckout = () => {
     : formatCents(quoteNet
         ? quoteNet.subtotalNetC
         : subtotalNetCents(cateringNetC, [
-            chafingDishQuantity > 0 ? lineNetCents(chafingDishQuantity * CHAFING_DISH.price, VAT_RATES.FOOD) : 0,
+            chafingQtyShown > 0 ? lineNetCents(chafingGrossShown, VAT_RATES.FOOD) : 0,
             formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery
               ? lineNetCents(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)
               : 0,
@@ -1481,13 +1486,13 @@ const CateringCheckout = () => {
                           <span>+{formatPrice(minimumOrderSurcharge)}</span>
                         </div>
                       )}
-                      {chafingDishQuantity > 0 && (
+                      {chafingQtyShown > 0 && (
                         <div className="flex justify-between text-amber-600 dark:text-amber-400">
                           <span className="flex items-center gap-1">
                             <Flame className="h-3 w-3" />
-                            {chafingDishQuantity}× Chafing Dish
+                            {chafingQtyShown}× Chafing Dish
                           </span>
-                          <span>+{formatPrice(chafingDishQuantity * CHAFING_DISH.price)}</span>
+                          <span>+{formatPrice(chafingGrossShown)}</span>
                         </div>
                       )}
                       {formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery && (
@@ -1596,13 +1601,13 @@ const CateringCheckout = () => {
                                 <span>+{formatPrice(minimumOrderSurcharge)}</span>
                               </div>
                             )}
-                            {chafingDishQuantity > 0 && (
+                            {chafingQtyShown > 0 && (
                               <div className="flex justify-between text-amber-600 dark:text-amber-400">
                                 <span className="flex items-center gap-1">
                                   <Flame className="h-3 w-3" />
-                                  {chafingDishQuantity}× Chafing Dish
+                                  {chafingQtyShown}× Chafing Dish
                                 </span>
-                                <span>+{formatPrice(chafingDishQuantity * CHAFING_DISH.price)}</span>
+                                <span>+{formatPrice(chafingGrossShown)}</span>
                               </div>
                             )}
                             {formData.deliveryType === 'delivery' && deliveryCalc && (
@@ -1623,17 +1628,6 @@ const CateringCheckout = () => {
                                 </span>
                               </div>
                             )}
-                            {/* MwSt.-Zeilen und Endbetrag (Netto-Modus: zzgl. MwSt., Endbetrag = Brutto-Zahlbetrag) */}
-                            <VatTotals
-                              variant="inline"
-                              language={language === 'de' ? 'de' : 'en'}
-                              showGross={showGross}
-                              grandTotal={grandTotal}
-                              giftSubtotal={giftSubtotal}
-                              vat7Food={vat7ForDisplay}
-                              vat19Drinks={vat19DrinksForDisplay}
-                              vat19Delivery={vat19DeliveryForDisplay}
-                            />
                           </div>
                         </div>
                       </CollapsibleContent>
@@ -2277,8 +2271,8 @@ const CateringCheckout = () => {
                   <StickySummary
                     deliveryCost={deliveryCalc?.deliveryCostGross || 0}
                     minimumOrderSurcharge={minimumOrderSurcharge}
-                    chafingDishQuantity={chafingDishQuantity}
-                    chafingDishPrice={CHAFING_DISH.price}
+                    chafingDishQuantity={chafingQtyShown}
+                    chafingDishPrice={chafingQtyShown > 0 ? chafingGrossShown / chafingQtyShown : CHAFING_DISH.price}
                     grandTotal={grandTotal}
                     giftSubtotal={giftSubtotal}
                     foodVat7={vat7ForDisplay}
