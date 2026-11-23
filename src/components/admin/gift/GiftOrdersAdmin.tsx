@@ -138,8 +138,10 @@ function OrderDialog({ order, windowLabel, cateringId, onClose, onChanged }: { o
     const { data, error } = await supabase.rpc("gift_admin_set_status", { p_order_id: order.id, p_status: to });
     setBusy(false);
     if (error) { toast.error("Statuswechsel fehlgeschlagen", { description: error.message }); return; }
-    const res = (data ?? {}) as { oversold?: boolean };
-    if (res.oversold) {
+    const res = (data ?? {}) as { oversold?: boolean; conflict?: boolean };
+    if (res.conflict) {
+      toast.warning("Bestand reicht nicht", { description: "Der Bestand reicht nicht für diese Bestellung. Der Hinweis verschwindet von selbst, sobald der Bestand (z. B. nach Nachpacken) wieder reicht.", duration: 12000 });
+    } else if (res.oversold) {
       // Bei Zahlung vor Ort war nicht mehr die volle Menge im Bestand: Bestand prüfen, ggf. nachbuchen
       toast.warning("Achtung: Überverkauf", { description: "Beim Abbuchen reichte der Bestand nicht für die volle Menge (es wurde nur der freie Anteil abgebucht). Bitte Bestand prüfen und ggf. korrigieren.", duration: 12000 });
     } else {

@@ -25,8 +25,10 @@ Deno.test("Fenster: Sommerzeit-Wechsel verschiebt die Grenze nicht", () => {
   assertEquals(isBeyondHoldWindow("2027-03-30", dst), true);
 });
 
-Deno.test("Konflikt-Alarm: nennt Bestellung und Termin, maskiert HTML", () => {
-  const a = stockConflictAlert({ order_number: "G-1", handover_date: "2027-01-18", customer_name: "<b>X</b>" });
-  assert(a.subject.includes("G-1") && a.subject.includes("2027-01-18"));
-  assert(a.html.includes("&lt;b&gt;X&lt;/b&gt;") && !a.html.includes("<b>X</b>"));
+Deno.test("Konflikt-Alarm: Sammelmail nennt Bestellnummern und Termine, keinen Kundennamen, maskiert HTML", () => {
+  const one = stockConflictAlert([{ order_number: "G-1", handover_date: "2027-01-18" }]);
+  assert(one.subject.includes("G-1") && one.subject.includes("2027-01-18"));
+  const many = stockConflictAlert([{ order_number: "G-<1>", handover_date: "2027-01-18" }, { order_number: "G-2", handover_date: "2027-01-19" }]);
+  assert(many.subject.includes("2 Reservierungen"));
+  assert(many.html.includes("G-&lt;1&gt;") && !many.html.includes("G-<1>") && many.html.includes("G-2"));
 });

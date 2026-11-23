@@ -55,6 +55,13 @@ serve(async (req) => {
   const alert = async (subject: string, html: string) => { stats.alerts++; await sendGiftOperatorAlert(supabase, subject, html); };
   const cutoff = new Date(Date.now() - RETRY_AFTER_MS).toISOString();
 
+  // 0) Zurückgestellte Vor-Ort-Holds ins 2-Tage-Fenster aktivieren (Z10). Eigener Schritt, damit Fehler über reportEdgeError
+  //    laufen (der Sweep selbst verschluckt sie nur als WARNING). Überbuchungen setzen stock_conflict_at (Schritt 1b alarmiert).
+  await step("activate", async () => {
+    const { error } = await supabase.rpc("gift_activate_deferred_holds");
+    if (error) throw new Error(error.message);
+  });
+
   // 1) Sweep
   await step("sweep", async () => {
     const { data, error } = await supabase.rpc("gift_sweep_expired_holds");
@@ -62,17 +69,22 @@ serve(async (req) => {
     stats.expired = (data ?? []).length;
   });
 
-  // 1b) Überbuchung beim Eintritt ins 2-Tage-Fenster (gift_activate_deferred_holds, im Sweep): NICHT still lösen, Betreiber alarmieren.
-  //     Der Hold steht trotzdem; die Bestellung trägt stock_conflict_at (Admin-Badge). Alarm je Bestellung genau einmal.
+  // 1b) Überbuchung beim Eintritt ins 2-Tage-Fenster bzw. bei "Bereit" (gift_activate_*): NICHT still lösen, Betreiber alarmieren.
+  //     Der Hold steht trotzdem; die Bestellung trägt stock_conflict_at (Admin-Badge). Je Bestellung genau einmal, EINE Sammelmail
+  //     je Lauf. Der Marker wird atomar gesetzt (nur bei genau einer geänderten Zeile zählt die Bestellung). Verschwindet der
+  //     Konflikt (Nachpacken), setzt die DB beide Marker zurück und ein neuer Konflikt alarmiert wieder.
   await step("stock-conflict", async () => {
-    const { data, error } = await supabase.from("gift_orders").select("id, order_number, handover_date, customer_name")
+    const { data, error } = await supabase.from("gift_orders").select("id, order_number, handover_date")
       .not("stock_conflict_at", "is", null).is("stock_conflict_notified_at", null).in("status", ["reserved", "ready"]).limit(25);
     if (error) throw new Error(error.message);
+    const claimed: { order_number: string; handover_date: string }[] = [];
     for (const o of data ?? []) {
-      const { error: markErr } = await supabase.from("gift_orders").update({ stock_conflict_notified_at: new Date().toISOString() })
-        .eq("id", o.id).is("stock_conflict_notified_at", null);
-      if (markErr) continue;
-      const a = stockConflictAlert(o);
+      const { data: upd, error: markErr } = await supabase.from("gift_orders").update({ stock_conflict_notified_at: new Date().toISOString() })
+        .eq("id", o.id).is("stock_conflict_notified_at", null).select("id");
+      if (!markErr && upd?.length === 1) claimed.push(o);
+    }
+    if (claimed.length > 0) {
+      const a = stockConflictAlert(claimed);
       await alert(a.subject, a.html);
     }
   });

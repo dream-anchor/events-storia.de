@@ -8057,6 +8057,12 @@ export type Database = {
         Returns: Json
       }
       gift_public_catalog: { Args: never; Returns: Json }
+      gift_activate_deferred_holds: {
+        Args: never
+        Returns: { conflict: boolean; order_id: string; order_number: string }[]
+      }
+      gift_activate_order_holds: { Args: { p_order_id: string }; Returns: boolean }
+      gift_hold_window_days: { Args: never; Returns: number }
       gift_public_settings: { Args: never; Returns: Json }
       gift_release_stock: { Args: { p_order_id: string }; Returns: number }
       gift_reserve_stock: {

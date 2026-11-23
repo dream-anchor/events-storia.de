@@ -76,9 +76,10 @@ interface OrderInput {
  *  Der Termin ist zeitlich NICHT begrenzt (Entscheidung Inhaber 22.11.2026); es gilt nur das technische Sicherheitslimit
  *  MAX_ADVANCE_DAYS (730 Tage, wie Catering) für alle Zahlwege. */
 const ON_SITE_MAX_QTY = 5;
-/** Offene (noch gültig gehaltene) Bestellungen je E-Mail bzw. je IP, getrennt für "vor Ort" und Online-Checkout (max. 2). */
-const MAX_OPEN_PER_EMAIL = 2;
-const MAX_OPEN_PER_IP = 2;
+/** Offene Bestellungen je E-Mail bzw. je IP, getrennt für "vor Ort" (max. 5, Inhaber 23.11.2026; zählt auch zurückgestellte
+ *  Reservierungen) und Online-Checkout (max. 2, noch gültig gehaltene Holds). */
+const MAX_OPEN_ON_SITE = 5;
+const MAX_OPEN_ONLINE = 2;
 /** Stripe-Session = Erstellung + 31 Min (Minimum 30); der Hold muss sie überdauern. */
 const STRIPE_SESSION_MINUTES = 31;
 const MIN_HOLD_MINUTES = 36;
@@ -338,7 +339,8 @@ serve(async (req) => {
         p_payment_method: input.payment_method, p_email: input.customer.email, p_ip_hash: ipHash,
       });
       if (cErr) throw new Error(`open_count_failed: ${cErr.message}`);
-      if (Number(counts?.by_email ?? 0) > MAX_OPEN_PER_EMAIL || Number(counts?.by_ip ?? 0) > MAX_OPEN_PER_IP) {
+      const maxOpen = input.payment_method === "on_site" ? MAX_OPEN_ON_SITE : MAX_OPEN_ONLINE;
+      if (Number(counts?.by_email ?? 0) > maxOpen || Number(counts?.by_ip ?? 0) > maxOpen) {
         throw new HttpError(429, "too_many_open_reservations");  // catch räumt Hold + Bestellung auf, bevor eine Mail rausgeht
       }
     }
