@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Minus, Plus, Trash2, Info, Flame, ShieldCheck, Lock } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { PriceDisplayToggle } from "@/components/checkout/PriceDisplayToggle";
 import { usePriceDisplay, VAT_RATES, cateringLineParts, itemParts } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import TrustBadges from "./TrustBadges";
@@ -138,32 +139,7 @@ const StickySummary = ({
           <span className="text-sm text-muted-foreground">
             {language === 'de' ? 'Preisanzeige' : 'Price display'}
           </span>
-          <div className="flex gap-1 text-xs">
-            <button
-              type="button"
-              onClick={() => setShowGross(true)}
-              className={cn(
-                "px-2.5 py-1.5 rounded-md transition-colors border",
-                showGross
-                  ? "bg-foreground text-background border-foreground font-medium"
-                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-              )}
-            >
-              Brutto
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowGross(false)}
-              className={cn(
-                "px-2.5 py-1.5 rounded-md transition-colors border",
-                !showGross
-                  ? "bg-foreground text-background border-foreground font-medium"
-                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-              )}
-            >
-              Netto
-            </button>
-          </div>
+          <PriceDisplayToggle showGross={showGross} onChange={setShowGross} language={language === 'de' ? 'de' : 'en'} />
         </div>
 
         {/* Pricing breakdown */}
