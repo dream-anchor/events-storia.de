@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { isEventPackageItem, splitEventGrossCents, splitEventPackageLine } from "./eventVatSplit.ts";
+import { isEventPackageItem, shouldSplitOfferAsEventPackage, splitEventGrossCents, splitEventPackageLine } from "./eventVatSplit.ts";
 
 const cents = (v: number) => Math.round(v * 100);
 const sum = (lines: { quantity: number; grossAmount: number }[]) =>
@@ -47,4 +47,37 @@ Deno.test("Erkennung: ID-Präfix event- oder Markierung", () => {
   assertEquals(isEventPackageItem({ id: "uuid-1", isEventPackage: true }), true);
   assertEquals(isEventPackageItem({ id: "pizza-1" }), false);
   assertEquals(isEventPackageItem({}), false);
+});
+
+Deno.test("Nicht ganze Cent: Zeilenbetrag als Menge 1 geteilt, Summe = Zahlbetrag (1000/3)", () => {
+  const lines = splitEventPackageLine({ name: "Event-Paket: X", quantity: 3, price: 1000 / 3 });
+  assertEquals(lines.map((l) => l.quantity), [1, 1]);
+  assertEquals(sum(lines), 100000);
+  assertEquals(lines[0].name, "Event-Paket: X (3 Gäste) – Speisen");
+  assertEquals(lines[1].name, "Event-Paket: X (3 Gäste) – Getränke");
+});
+
+Deno.test("Gesamte Location bei 75 Gästen: 9.107,14 statt 9.107,25", () => {
+  const lines = splitEventPackageLine({ name: "Gesamte Location", quantity: 75, price: 9107.14 / 75 });
+  assertEquals(sum(lines), 910714);
+  assertEquals(lines.map((l) => l.taxRatePercentage), [7, 19]);
+  assertEquals(lines[0].name, "Gesamte Location (75 Gäste) – Speisen");
+});
+
+Deno.test("Angebots-Zahlweg: Split nur bei Paket vom Typ event ohne Zusatzposten", () => {
+  const ok = { offerMode: "package", packageType: "event", menuSelection: {} };
+  assertEquals(shouldSplitOfferAsEventPackage(ok), true);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, menuSelection: null }), true);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, menuSelection: { drinksMode: "none", equipment: [] } }), true);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, offerMode: "full_menu" }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, offerMode: "freeform" }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, packageType: "getraenke" }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, packageType: null }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, offerMode: null }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, menuSelection: { equipment: [{ name: "x" }] } }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, menuSelection: { staff: [{ name: "x" }] } }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, menuSelection: { drinks: [{}] } }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, menuSelection: { drinksMode: "pauschale" } }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, menuSelection: { drinksPauschalePrice: 12 } }), false);
+  assertEquals(shouldSplitOfferAsEventPackage({ ...ok, menuSelection: { winePairingPrice: 30 } }), false);
 });

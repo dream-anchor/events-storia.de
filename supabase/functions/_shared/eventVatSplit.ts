@@ -34,29 +34,46 @@ export interface SplitLine {
 
 /**
  * Teilt eine Paketzeile (Stückpreis × Menge) in zwei Rechnungszeilen.
- * Die Aufteilung erfolgt je Stück, die Menge bleibt wie bisher; Stück-Summe = Stückpreis,
- * damit die Zeilensumme (Menge × Stückpreis) unverändert bleibt.
- * Ein Anteil von 0 € entfällt (bei Stückpreis 0 gibt es keine Zeilen).
+ * Ergibt Stückpreis × Menge ganze Cent (Normalfall), wird je Stück geteilt und die Menge bleibt.
+ * Sonst (z. B. 1000 / 3 oder „Gesamte Location“ bei 75 Gästen) wird der Zeilenbetrag
+ * round(price × quantity × 100) als Menge 1 geteilt, damit die Summe dem Zahlbetrag entspricht;
+ * die Gästezahl steht dann im Namen („<Name> (75 Gäste) – Speisen“).
+ * Ein Anteil von 0 € entfällt.
  */
 export function splitEventPackageLine(item: { name: string; quantity: number; price: number }): SplitLine[] {
   const unitCents = Math.round(item.price * 100);
-  const { foodCents, drinksCents } = splitEventGrossCents(unitCents);
+  const lineCents = Math.round(item.price * item.quantity * 100);
+  const perUnit = unitCents * item.quantity === lineCents;
+  const baseName = perUnit || item.quantity === 1 ? item.name : `${item.name} (${item.quantity} Gäste)`;
+  const { foodCents, drinksCents } = splitEventGrossCents(perUnit ? unitCents : lineCents);
+  const quantity = perUnit ? item.quantity : 1;
   const lines: SplitLine[] = [];
   if (foodCents !== 0) {
-    lines.push({
-      name: `${item.name} – Speisen`,
-      quantity: item.quantity,
-      grossAmount: foodCents / 100,
-      taxRatePercentage: EVENT_FOOD_VAT,
-    });
+    lines.push({ name: `${baseName} – Speisen`, quantity, grossAmount: foodCents / 100, taxRatePercentage: EVENT_FOOD_VAT });
   }
   if (drinksCents !== 0) {
-    lines.push({
-      name: `${item.name} – Getränke`,
-      quantity: item.quantity,
-      grossAmount: drinksCents / 100,
-      taxRatePercentage: EVENT_DRINKS_VAT,
-    });
+    lines.push({ name: `${baseName} – Getränke`, quantity, grossAmount: drinksCents / 100, taxRatePercentage: EVENT_DRINKS_VAT });
   }
   return lines;
+}
+
+/**
+ * Angebots-Zahlweg: nur ein reines Event-Paket (offer_mode 'package', packages.package_type 'event')
+ * ohne einzeln ausgewiesene Zusatzposten (Getränke, Weinbegleitung, Personal, Equipment) wird 70/30 geteilt.
+ * Menüs, Getränkepakete und Angebote mit Zusatzposten bleiben wie bisher bei 7 %.
+ */
+export function shouldSplitOfferAsEventPackage(input: {
+  offerMode: string | null | undefined;
+  packageType: string | null | undefined;
+  menuSelection: Record<string, unknown> | null | undefined;
+}): boolean {
+  if (input.offerMode !== "package" || input.packageType !== "event") return false;
+  const ms = input.menuSelection ?? {};
+  const nonEmpty = (v: unknown) => Array.isArray(v) && v.length > 0;
+  if (nonEmpty(ms.equipment) || nonEmpty(ms.staff) || nonEmpty(ms.drinks) || nonEmpty(ms.drinksEinzeln)) return false;
+  const mode = ms.drinksMode;
+  if (mode === "pauschale" || mode === "weinbegleitung" || mode === "einzeln") return false;
+  if (typeof ms.winePairingPrice === "number" && ms.winePairingPrice > 0) return false;
+  if (typeof ms.drinksPauschalePrice === "number" && ms.drinksPauschalePrice > 0) return false;
+  return true;
 }
