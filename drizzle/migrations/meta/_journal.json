@@ -50,6 +50,13 @@
       "when": 1795364590434,
       "tag": "0006_order_price_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795392718609,
+      "tag": "0007_order_checkout_seal",
+      "breakpoints": true
     }
   ]
 }

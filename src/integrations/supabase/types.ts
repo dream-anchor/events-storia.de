@@ -8109,6 +8109,7 @@ export type Database = {
         Args: { p_code: string; p_message: string }
         Returns: undefined
       }
+      order_insert_allowed: { Args: never; Returns: boolean }
       ors_take_budget: {
         Args: { p_calls: number; p_limit: number }
         Returns: boolean
