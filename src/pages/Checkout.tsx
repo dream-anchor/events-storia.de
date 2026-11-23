@@ -29,6 +29,7 @@ import CheckoutHeader from '@/components/checkout/CheckoutHeader';
 import AccordionSection from '@/components/checkout/AccordionSection';
 import StickySummary from '@/components/checkout/StickySummary';
 import { VatTotals } from '@/components/checkout/VatTotals';
+import { splitNetCents, lineNetCents, subtotalNetCents, formatCents, quoteNetBreakdown } from '@/lib/netDisplay';
 import PaymentMethodCard from '@/components/checkout/PaymentMethodCard';
 import TimeSlotGrid from '@/components/checkout/TimeSlotGrid';
 import SaveForLaterCheckbox from '@/components/checkout/SaveForLaterCheckbox';
@@ -777,6 +778,11 @@ const CateringCheckout = () => {
   const minimumOrderSurcharge = quote ? quote.surchargeCents / 100 : 0;
   
   const chafingDishGross = chafingDishQuantity * CHAFING_DISH.price;
+  // Anzeige: Chafing-Zeile (wie Aufschlag und Lieferung) aus dem Server-Angebot, solange eines da ist, damit Zeilen und
+  // Zwischensumme aus EINER Quelle kommen (auch während das Angebot nach einer Änderung neu lädt).
+  const quoteChafingLine = quote?.lines.find(l => l.kind === 'chafing_checkout') ?? null;
+  const chafingQtyShown = quote ? (quoteChafingLine?.quantity ?? 0) : chafingDishQuantity;
+  const chafingGrossShown = quote ? (quoteChafingLine ? quoteChafingLine.lineCents / 100 : 0) : chafingDishGross;
   const chafingDishNet = chafingDishGross / 1.07;
   
   const eventPackagesGross = cateringItems
@@ -799,6 +805,8 @@ const CateringCheckout = () => {
   
   const deliveryNet = deliveryCalc?.deliveryCostNet || 0;
   const deliveryGross = deliveryCalc?.deliveryCostGross || 0;
+  // Anzeige: Lieferbetrag aus dem Server-Angebot, solange eines da ist (wie Chafing und Aufschlag), sonst aus der Lieferberechnung
+  const deliveryGrossShown = quote ? quote.deliveryCents / 100 : deliveryGross;
   const deliveryVat = deliveryCalc?.deliveryVat || 0;
   
   const foodGross = regularFoodGross + minimumOrderSurcharge + chafingDishGross + pkgFoodGross;
@@ -813,6 +821,25 @@ const CateringCheckout = () => {
   const totalVat7 = foodVat;
   const totalVat19 = drinksVat + deliveryVat;
   const grandTotal = quote ? quote.totalCents / 100 : foodGross + drinksGross + deliveryGross;
+  // Netto-Ansicht: alle Steuergrundlagen aus DERSELBEN Quelle wie `grandTotal` (Server-Angebot: Positionen, Aufschlag, Lieferung).
+  // So kann die Zwischensumme nicht negativ werden, wenn Warenkorb/Chafing sich geändert haben, das neue Angebot aber noch fehlt.
+  // Ohne Angebot (Vorschau) rechnet der Browser selbst; die Zwischensumme ist der REST aus netC, nie negativ. Nur Anzeige.
+  const quoteNet = quote ? quoteNetBreakdown(quote) : null;
+  const vat7ForDisplay = quoteNet ? quoteNet.vat7Food : totalVat7;
+  const vat19DrinksForDisplay = quoteNet ? quoteNet.vat19Drinks : drinksVat;
+  const vat19DeliveryForDisplay = quoteNet ? quoteNet.vat19Delivery : deliveryVat;
+  const { netC: cateringNetC } = splitNetCents(grandTotal, vat7ForDisplay, vat19DrinksForDisplay, vat19DeliveryForDisplay);
+  const cateringSubtotalDisplay = showGross
+    ? formatPriceMixed(cateringLineParts(cateringItems))
+    : formatCents(quoteNet
+        ? quoteNet.subtotalNetC
+        : subtotalNetCents(cateringNetC, [
+            chafingQtyShown > 0 ? lineNetCents(chafingGrossShown, VAT_RATES.FOOD) : 0,
+            formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery
+              ? lineNetCents(deliveryGrossShown, VAT_RATES.DELIVERY)
+              : 0,
+          ]));
+  const hasEventPackageItems = cateringItems.some(item => item.id.startsWith('event-'));
   // Anzeige: Catering-Gesamt (+ Körbe brutto). `grandTotal` selbst bleibt der CATERING-Betrag (RPC + create-catering-payment).
   // Der Endbetrag ist IMMER der Brutto-Zahlbetrag, auch im Netto-Modus (der Umschalter ändert nur die Einzelpreise, nie den Stripe-Betrag);
   // im Netto-Modus steht dann "brutto" dabei, mit Körben "inkl. MwSt.". Die Netto-Summe samt "zzgl. MwSt." zeigt <VatTotals>.
@@ -1031,6 +1058,8 @@ const CateringCheckout = () => {
       name_en: l.name_en ?? l.name,
       quantity: l.quantity,
       price: l.unitCents / 100,
+      // maßgeblich ist der Zeilenbetrag (Event-Pakete: Stückpreis nur Durchschnitt)
+      total: l.lineCents / 100,
     }));
 
     let fullNotes = formData.notes || '';
@@ -1179,6 +1208,7 @@ const CateringCheckout = () => {
       const deliveryCostEuro = paid.deliveryCents / 100;
       const surchargeEuro = paid.surchargeCents / 100;
       const grandTotalEuro = paid.totalCents / 100;
+      const paidNet = quoteNetBreakdown(paid);
       const isEventBookingOrder = paid.kind === 'event';
       const eventLine = isEventBookingOrder ? paid.lines[0] : null;
 
@@ -1222,8 +1252,9 @@ const CateringCheckout = () => {
             name_en: item.name_en,
             quantity: item.quantity,
             price: item.price,
-            total: item.price * item.quantity
-          })), ...giftSuccessItems],
+            total: item.total,
+            id: item.id,
+          })), ...giftSuccessItems.map(gi => ({ ...gi, kind: 'gift' as const }))],
           deliveryType: formData.deliveryType,
           deliveryAddress: formData.deliveryType === 'delivery'
             ? `${formData.deliveryStreet}, ${formData.deliveryZip} ${formData.deliveryCity}${formData.deliveryFloor ? ` (${formData.deliveryFloor}${formData.hasElevator ? ', Aufzug' : ''})` : ''}`
@@ -1235,8 +1266,13 @@ const CateringCheckout = () => {
           grandTotal: grandTotalEuro + giftTotalEuro,
           paymentMethod: paymentMethod,
           company: formData.company,
-          foodVat7: totalVat7,
-          deliveryVat19: totalVat19
+          // Teilbeträge für die Erfolgsseite (Netto-Anzeige): Catering und Körbe getrennt, Steuer aus dem BEZAHLTEN Angebot
+          cateringTotal: grandTotalEuro,
+          giftTotal: giftTotalEuro,
+          minimumOrderSurcharge: surchargeEuro,
+          foodVat7: paidNet.vat7Food,
+          drinksVat19: paidNet.vat19Drinks,
+          deliveryVat19: paidNet.vat19Delivery,
         }
       };
       localStorage.setItem(successDataKey, JSON.stringify(successData));
@@ -1430,8 +1466,12 @@ const CateringCheckout = () => {
                     {/* Always visible cost summary */}
                     <div className="space-y-2 text-sm mb-3">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">{language === 'de' ? 'Speisen' : 'Food'}</span>
-                        <span>{formatPriceMixed(cateringLineParts(cateringItems))}</span>
+                        <span className="text-muted-foreground">
+                          {hasEventPackageItems
+                            ? (language === 'de' ? 'Speisen & Getränke' : 'Food & drinks')
+                            : (language === 'de' ? 'Speisen' : 'Food')}
+                        </span>
+                        <span>{cateringSubtotalDisplay}</span>
                       </div>
                       {hasGiftItems && (
                       <div className="flex justify-between">
@@ -1448,13 +1488,13 @@ const CateringCheckout = () => {
                           <span>+{formatPrice(minimumOrderSurcharge)}</span>
                         </div>
                       )}
-                      {chafingDishQuantity > 0 && (
+                      {chafingQtyShown > 0 && (
                         <div className="flex justify-between text-amber-600 dark:text-amber-400">
                           <span className="flex items-center gap-1">
                             <Flame className="h-3 w-3" />
-                            {chafingDishQuantity}× Chafing Dish
+                            {chafingQtyShown}× Chafing Dish
                           </span>
-                          <span>+{formatPrice(chafingDishQuantity * CHAFING_DISH.price)}</span>
+                          <span>+{formatPrice(chafingGrossShown)}</span>
                         </div>
                       )}
                       {formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery && (
@@ -1465,7 +1505,7 @@ const CateringCheckout = () => {
                               <span className="text-xs ml-1">({deliveryCalc.oneWayDistanceKm} km{deliveryCalc.isRoundTrip ? ' ×2' : ''})</span>
                             )}
                           </span>
-                          <span>+{formatPrice(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)}</span>
+                          <span>+{formatPrice(deliveryGrossShown, VAT_RATES.DELIVERY)}</span>
                         </div>
                       )}
                       {formData.deliveryType === 'delivery' && deliveryCalc?.isFreeDelivery && (
@@ -1474,10 +1514,19 @@ const CateringCheckout = () => {
                           <span>{language === 'de' ? 'Kostenlos' : 'Free'}</span>
                         </div>
                       )}
-                      <div className="flex justify-between pt-2 border-t border-border font-semibold">
-                        <span>{language === 'de' ? 'Gesamt' : 'Total'}{totalVatSuffix}</span>
-                        <span className="text-primary">{displayTotal}</span>
-                      </div>
+                    </div>
+                    {/* MwSt.-Zeilen und Endbetrag immer sichtbar (Netto-Modus: Netto-Summe, zzgl. MwSt., Endbetrag = Brutto-Zahlbetrag) */}
+                    <div className="mb-3">
+                      <VatTotals
+                        variant="inline"
+                        language={language === 'de' ? 'de' : 'en'}
+                        showGross={showGross}
+                        grandTotal={grandTotal}
+                        giftSubtotal={giftSubtotal}
+                        vat7Food={vat7ForDisplay}
+                        vat19Drinks={vat19DrinksForDisplay}
+                        vat19Delivery={vat19DeliveryForDisplay}
+                      />
                     </div>
 
                     <Collapsible defaultOpen={false}>
@@ -1537,7 +1586,7 @@ const CateringCheckout = () => {
                           <div className="pt-4 mt-4 border-t border-border space-y-2 text-sm">
                             <div className="flex justify-between text-muted-foreground">
                               <span>{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
-                              <span>{formatPriceMixed(cateringLineParts(cateringItems))}</span>
+                              <span>{cateringSubtotalDisplay}</span>
                             </div>
                             {hasGiftItems && (
                             <div className="flex justify-between">
@@ -1554,13 +1603,13 @@ const CateringCheckout = () => {
                                 <span>+{formatPrice(minimumOrderSurcharge)}</span>
                               </div>
                             )}
-                            {chafingDishQuantity > 0 && (
+                            {chafingQtyShown > 0 && (
                               <div className="flex justify-between text-amber-600 dark:text-amber-400">
                                 <span className="flex items-center gap-1">
                                   <Flame className="h-3 w-3" />
-                                  {chafingDishQuantity}× Chafing Dish
+                                  {chafingQtyShown}× Chafing Dish
                                 </span>
-                                <span>+{formatPrice(chafingDishQuantity * CHAFING_DISH.price)}</span>
+                                <span>+{formatPrice(chafingGrossShown)}</span>
                               </div>
                             )}
                             {formData.deliveryType === 'delivery' && deliveryCalc && (
@@ -1576,22 +1625,11 @@ const CateringCheckout = () => {
                                 <span>
                                   {deliveryCalc.isFreeDelivery
                                     ? (language === 'de' ? 'Kostenlos' : 'Free')
-                                    : `+${formatPrice(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)}`
+                                    : `+${formatPrice(deliveryGrossShown, VAT_RATES.DELIVERY)}`
                                   }
                                 </span>
                               </div>
                             )}
-                            {/* MwSt.-Zeilen und Endbetrag (Netto-Modus: zzgl. MwSt., Endbetrag = Brutto-Zahlbetrag) */}
-                            <VatTotals
-                              variant="inline"
-                              language={language === 'de' ? 'de' : 'en'}
-                              showGross={showGross}
-                              grandTotal={grandTotal}
-                              giftSubtotal={giftSubtotal}
-                              vat7Food={totalVat7}
-                              vat19Drinks={drinksVat}
-                              vat19Delivery={deliveryVat}
-                            />
                           </div>
                         </div>
                       </CollapsibleContent>
@@ -2233,15 +2271,16 @@ const CateringCheckout = () => {
                 {/* Right Column: Sticky Summary (Desktop only) */}
                 <div className="hidden lg:block">
                   <StickySummary
-                    deliveryCost={deliveryCalc?.deliveryCostGross || 0}
+                    deliveryCost={deliveryGrossShown}
                     minimumOrderSurcharge={minimumOrderSurcharge}
-                    chafingDishQuantity={chafingDishQuantity}
-                    chafingDishPrice={CHAFING_DISH.price}
+                    chafingDishQuantity={chafingQtyShown}
+                    chafingDishPrice={chafingQtyShown > 0 ? chafingGrossShown / chafingQtyShown : CHAFING_DISH.price}
                     grandTotal={grandTotal}
                     giftSubtotal={giftSubtotal}
-                    foodVat7={totalVat7}
-                    drinksVat19={drinksVat}
-                    deliveryVat19={deliveryVat}
+                    foodVat7={vat7ForDisplay}
+                    drinksVat19={vat19DrinksForDisplay}
+                    deliveryVat19={vat19DeliveryForDisplay}
+                    netSubtotalDisplay={cateringSubtotalDisplay}
                     isDelivery={formData.deliveryType === 'delivery'}
                     distanceKm={deliveryCalc?.distanceKm}
                     isRoundTrip={deliveryCalc?.isRoundTrip}
@@ -2307,7 +2346,7 @@ const CateringCheckout = () => {
                 <div className="flex items-center justify-between gap-4">
                   <div className="text-sm">
                     <span className="text-muted-foreground">{language === 'de' ? 'Gesamt:' : 'Total:'}{totalVatSuffix}</span>
-                    <span className="font-bold text-lg ml-1">{displayTotal}</span>
+                    <span className="font-bold text-lg ml-1 whitespace-nowrap">{displayTotal}</span>
                   </div>
                   <Button
                     type="submit"

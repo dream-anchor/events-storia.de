@@ -1,5 +1,9 @@
 import { cn } from "@/lib/utils";
 import { formatEuroTruncated, formatMixedTotal } from "@/lib/gift/mixedCart";
+import { splitNetCents, formatCents } from "@/lib/netDisplay";
+
+// Rechenhelfer liegen in src/lib/netDisplay.ts (ohne React testbar); hier weiterhin exportiert.
+export { toCents, splitNetCents, lineNetCents, subtotalNetCents, formatCents } from "@/lib/netDisplay";
 
 interface VatTotalsProps {
   language: "de" | "en";
@@ -32,11 +36,8 @@ function vat19Scope(drinks: number, delivery: number, language: "de" | "en"): st
 export function VatTotals({ language, showGross, grandTotal, giftSubtotal = 0, vat7Food, vat19Drinks, vat19Delivery, variant }: VatTotalsProps) {
   const de = language === "de";
   // Steuerbeträge auf den Cent GERUNDET und die Netto-Summe als Rest (Brutto minus Steuer), damit Netto + MwSt. immer genau den Zahlbetrag ergeben
-  const cents = (v: number) => Math.round(v * 100);
-  const euro = (c: number) => formatEuroTruncated(c / 100);
-  const vat7C = cents(vat7Food);
-  const vat19C = cents(vat19Drinks + vat19Delivery);
-  const netC = cents(grandTotal) - vat7C - vat19C;
+  const euro = formatCents;
+  const { vat7C, vat19C, netC } = splitNetCents(grandTotal, vat7Food, vat19Drinks, vat19Delivery);
   const hasGifts = giftSubtotal > 0;
   const vatWord = showGross ? (de ? "inkl." : "incl.") : (de ? "zzgl." : "plus");
   const sticky = variant === "sticky";
@@ -73,12 +74,12 @@ export function VatTotals({ language, showGross, grandTotal, giftSubtotal = 0, v
       {sticky ? (
         <div className="flex justify-between items-center pt-3 border-t border-border">
           <span className="font-serif text-lg font-semibold">{totalLabel}</span>
-          <span className="font-serif text-xl font-bold text-amber-950 dark:text-amber-50">{totalValue}</span>
+          <span className="font-serif text-xl font-bold text-amber-950 dark:text-amber-50 whitespace-nowrap shrink-0">{totalValue}</span>
         </div>
       ) : (
         <div className={cn("flex justify-between pt-2 border-t border-border font-medium")}>
           <span>{totalLabel}</span>
-          <span className="text-primary font-bold">{totalValue}</span>
+          <span className="text-primary font-bold whitespace-nowrap shrink-0 pl-3">{totalValue}</span>
         </div>
       )}
     </>

@@ -6,7 +6,9 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import SEO from '@/components/SEO';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { usePriceDisplay } from '@/contexts/PriceDisplayContext';
+import { usePriceDisplay, VAT_RATES, lineParts, allocateNetCents } from '@/contexts/PriceDisplayContext';
+import { VatTotals } from '@/components/checkout/VatTotals';
+import { splitNetCents, lineNetCents, subtotalNetCents, formatCents, toCents } from '@/lib/netDisplay';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +24,10 @@ interface OrderItem {
   quantity: number;
   price: number;
   total: number;
+  /** Warenkorb-ID (Event-Pakete: `event-…` = 70/30-Steuerung) */
+  id?: string;
+  /** Geschenkkorb: wird immer brutto angezeigt */
+  kind?: 'gift';
 }
 
 interface OrderDetails {
@@ -35,7 +41,13 @@ interface OrderDetails {
   grandTotal: number;
   paymentMethod: 'invoice' | 'stripe';
   company?: string;
+  /** Catering-Betrag brutto (ohne Körbe); fehlt bei älteren Bestellungen = grandTotal */
+  cateringTotal?: number;
+  /** Korb-Anteil brutto */
+  giftTotal?: number;
+  minimumOrderSurcharge?: number;
   foodVat7?: number;
+  drinksVat19?: number;
   deliveryVat19?: number;
 }
 
@@ -48,7 +60,7 @@ interface LocationState {
 
 const OrderSuccess = () => {
   const { t, language } = useLanguage();
-  const { formatPrice } = usePriceDisplay();
+  const { formatPrice, showGross } = usePriceDisplay();
   const navigate = useNavigate();
   const location = useLocation();
   const { getPath } = useLocalizedPath();
@@ -176,55 +188,99 @@ const OrderSuccess = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Items List */}
-                  <div className="divide-y divide-border">
-                    {orderDetails.items.map((item, index) => (
-                      <div key={index} className="py-2 flex justify-between text-sm">
-                        <div>
-                          <span className="font-medium">{item.quantity}×</span>{' '}
-                          {language === 'en' && item.name_en ? item.name_en : item.name}
+                  {(() => {
+                    const de = language === 'de';
+                    const giftTotal = orderDetails.giftTotal ?? 0;
+                    const cateringTotal = orderDetails.cateringTotal ?? orderDetails.grandTotal - giftTotal;
+                    const surcharge = orderDetails.minimumOrderSurcharge ?? 0;
+                    const delivery = orderDetails.deliveryCost;
+                    const hasVat = orderDetails.foodVat7 !== undefined || orderDetails.drinksVat19 !== undefined || orderDetails.deliveryVat19 !== undefined;
+                    const cateringItems = orderDetails.items.filter(item => item.kind !== 'gift');
+                    const giftItems = orderDetails.items.filter(item => item.kind === 'gift');
+                    // Netto-Ansicht (nur mit Steuerdaten): Steuerbeträge sind echte Beträge und werden NICHT nochmals umgerechnet;
+                    // Zwischensumme = Rest aus dem Netto-Gesamtbetrag minus Netto-Aufschlag und Netto-Lieferung.
+                    const net = hasVat && !showGross
+                      ? splitNetCents(cateringTotal, orderDetails.foodVat7 ?? 0, orderDetails.drinksVat19 ?? 0, orderDetails.deliveryVat19 ?? 0)
+                      : null;
+                    const surchargeNetC = surcharge > 0 ? lineNetCents(surcharge, VAT_RATES.FOOD) : 0;
+                    const deliveryNetC = delivery > 0 ? lineNetCents(delivery, VAT_RATES.DELIVERY) : 0;
+                    const subtotalC = net
+                      ? subtotalNetCents(net.netC, [surchargeNetC, deliveryNetC])
+                      : Math.max(0, toCents(cateringTotal) - toCents(surcharge) - toCents(delivery));
+                    // Zeilen auf die Zwischensumme aufgehen lassen (Event-Pakete 70/30 über die Zeilen-ID)
+                    // Altbestellungen (vor dem Deploy gespeichert, ohne cateringTotal): Zeilen und Zwischensumme wie früher, keine Verteilung
+                    const legacy = orderDetails.cateringTotal === undefined;
+                    const alloc = net && !legacy ? allocateNetCents(cateringItems.map(item => lineParts(item.id ?? '', item.total)), subtotalC) : null;
+                    return (
+                      <>
+                        {/* Items List */}
+                        <div className="divide-y divide-border">
+                          {cateringItems.map((item, index) => (
+                            <div key={`c${index}`} className="py-2 flex justify-between text-sm">
+                              <div>
+                                <span className="font-medium">{item.quantity}×</span>{' '}
+                                {language === 'en' && item.name_en ? item.name_en : item.name}
+                              </div>
+                              <span>{legacy ? formatPrice(item.total) : alloc ? formatCents(alloc.lines[index]) : formatCents(toCents(item.total))}</span>
+                            </div>
+                          ))}
+                          {giftItems.map((item, index) => (
+                            <div key={`g${index}`} className="py-2 flex justify-between text-sm">
+                              <div>
+                                <span className="font-medium">{item.quantity}×</span>{' '}
+                                {language === 'en' && item.name_en ? item.name_en : item.name}
+                              </div>
+                              <span>{formatCents(toCents(item.total))}</span>
+                            </div>
+                          ))}
                         </div>
-                        <span>{formatPrice(item.total)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Price Summary */}
-                  <div className="pt-3 border-t border-border space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{language === 'de' ? 'Zwischensumme' : 'Subtotal'}</span>
-                      <span>{formatPrice(orderDetails.subtotal)}</span>
-                    </div>
-                    {orderDetails.deliveryCost > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">{language === 'de' ? 'Lieferung' : 'Delivery'}</span>
-                        <span>{formatPrice(orderDetails.deliveryCost)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">
-                      <span>{language === 'de' ? 'Gesamt' : 'Total'}</span>
-                      <span>{formatPrice(orderDetails.grandTotal)}</span>
-                    </div>
-                    
-                    {/* VAT Breakdown */}
-                    {(orderDetails.foodVat7 !== undefined || orderDetails.deliveryVat19 !== undefined) && (
-                      <div className="pt-2 space-y-1 text-xs text-muted-foreground">
-                        {orderDetails.foodVat7 !== undefined && orderDetails.foodVat7 > 0 && (
+
+                        {/* Price Summary */}
+                        <div className="pt-3 border-t border-border space-y-1 text-sm">
                           <div className="flex justify-between">
-                            <span>{language === 'de' ? 'inkl. 7% MwSt. (Speisen)' : 'incl. 7% VAT (food)'}</span>
-                            <span>{formatPrice(orderDetails.foodVat7)}</span>
+                            <span className="text-muted-foreground">{de ? 'Zwischensumme' : 'Subtotal'}</span>
+                            <span>{legacy ? formatPrice(orderDetails.subtotal) : formatCents(subtotalC)}</span>
                           </div>
-                        )}
-                        {orderDetails.deliveryVat19 !== undefined && orderDetails.deliveryVat19 > 0 && (
-                          <div className="flex justify-between">
-                            <span>{language === 'de' ? 'inkl. 19% MwSt. (Lieferung)' : 'incl. 19% VAT (delivery)'}</span>
-                            <span>{formatPrice(orderDetails.deliveryVat19)}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
+                          {surcharge > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">{de ? 'Mindestbest.-Aufschlag' : 'Min. order surcharge'}</span>
+                              <span>{net ? formatCents(surchargeNetC) : formatCents(toCents(surcharge))}</span>
+                            </div>
+                          )}
+                          {giftTotal > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">{de ? 'Geschenkkörbe (brutto)' : 'Gift baskets (gross)'}</span>
+                              <span>{formatCents(toCents(giftTotal))}</span>
+                            </div>
+                          )}
+                          {delivery > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">{de ? 'Lieferung' : 'Delivery'}</span>
+                              <span>{net ? formatCents(deliveryNetC) : formatCents(toCents(delivery))}</span>
+                            </div>
+                          )}
+                          {hasVat ? (
+                            <VatTotals
+                              variant="inline"
+                              language={de ? 'de' : 'en'}
+                              showGross={showGross}
+                              grandTotal={cateringTotal}
+                              giftSubtotal={giftTotal}
+                              vat7Food={orderDetails.foodVat7 ?? 0}
+                              vat19Drinks={orderDetails.drinksVat19 ?? 0}
+                              vat19Delivery={orderDetails.deliveryVat19 ?? 0}
+                            />
+                          ) : (
+                            <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">
+                              <span>{de ? 'Gesamt (brutto)' : 'Total (gross)'}</span>
+                              <span>{formatCents(toCents(orderDetails.grandTotal))}</span>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+
                   {/* Delivery/Pickup Info */}
                   <div className="pt-3 border-t border-border">
                     <div className="flex items-start gap-2">

@@ -37,15 +37,55 @@ export const packageParts = (gross: number): PricePart[] => [
   { gross: gross * PACKAGE_SPLIT.DRINKS_PORTION, vatRate: VAT_RATES.DRINKS },
 ];
 
+/** Steuerteile eines Brutto-Betrags nach Zeilen-ID: Event-Pakete (ID `event-…`) 70/30, alles andere 7 %. */
+export const lineParts = (id: string, gross: number): PricePart[] =>
+  id.startsWith('event-') ? packageParts(gross) : [{ gross, vatRate: VAT_RATES.FOOD }];
+
 /** Steuerteile EINER Warenkorb-Zeile (Stückpreis): Event-Pakete (ID `event-…`) 70/30, alles andere 7 %. */
 export const itemParts = (item: { id: string; price: number }, quantity = 1): PricePart[] =>
-  item.id.startsWith('event-')
-    ? packageParts(item.price * quantity)
-    : [{ gross: item.price * quantity, vatRate: VAT_RATES.FOOD }];
+  lineParts(item.id, item.price * quantity);
 
 /** Steuerteile aller Catering-Zeilen (Menge berücksichtigt), für die Zwischensumme in der Netto-Ansicht. */
 export const cateringLineParts = (items: { id: string; price: number; quantity: number }[]): PricePart[] =>
   items.flatMap(item => itemParts(item, item.quantity));
+
+/**
+ * Netto-Summe mehrerer Steuerteile in Cent, gerechnet wie im Checkout (<VatTotals>): Brutto minus die je Steuersatz
+ * auf den Cent gerundete MwSt. Nur so stimmen Warenkorb und Checkout auf den Cent überein.
+ */
+export const netCentsOfParts = (parts: PricePart[]): number => {
+  const gross = parts.reduce((sum, p) => sum + p.gross, 0);
+  const vat = (rate: number) =>
+    parts.filter(p => p.vatRate === rate).reduce((sum, p) => sum + (p.gross - p.gross / (1 + p.vatRate)), 0);
+  const rates = Array.from(new Set(parts.map(p => p.vatRate)));
+  // Sätze mit gleichem Ergebnis wie im Checkout: 7 % einzeln, alle 19-%-Anteile (Getränke, Lieferung) zusammen gerundet
+  const vatCents = rates.reduce((sum, r) => sum + Math.round(vat(r) * 100), 0);
+  return Math.round(gross * 100) - vatCents;
+};
+
+/**
+ * Netto-Zeilen so auf Cent runden, dass ihre Summe genau dem Netto-Gesamtbetrag entspricht (Restverteilung nach
+ * größtem Nachkomma-Rest). Je Zeile: Steuerteile der Zeile. `targetTotal` überschreibt den Gesamtbetrag (z. B. wenn die
+ * Zeilen Teil einer größeren Summe sind).
+ */
+export const allocateNetCents = (lines: PricePart[][], targetTotal?: number): { lines: number[]; total: number } => {
+  const exact = lines.map(parts => parts.reduce((sum, p) => sum + (p.gross / (1 + p.vatRate)) * 100, 0));
+  // 1e-6 gegen Gleitkomma-Rauschen (x,4999999 statt x,5)
+  const floors = exact.map(v => Math.floor(v + 1e-6));
+  const total = targetTotal ?? netCentsOfParts(lines.flat());
+  const result = [...floors];
+  let rest = total - floors.reduce((sum, c) => sum + c, 0);
+  if (result.length === 0) return { lines: result, total };
+  const order = exact.map((v, i) => ({ i, frac: v - floors[i] }));
+  if (rest >= 0) order.sort((a, b) => b.frac - a.frac);
+  else order.sort((a, b) => a.frac - b.frac);
+  for (let k = 0; rest !== 0; k++) {
+    const { i } = order[k % order.length];
+    result[i] += rest > 0 ? 1 : -1;
+    rest += rest > 0 ? -1 : 1;
+  }
+  return { lines: result, total };
+};
 
 interface PriceDisplayContextType {
   showGross: boolean;
@@ -111,7 +151,8 @@ export const PriceDisplayProvider = ({ children }: { children: ReactNode }) => {
   // Anzeigepreis je nach Vorgabe: Brutto abgeschnitten (wie bisher), Netto auf den Cent GERUNDET (wie <VatTotals>),
   // damit Einzelzeilen und „Gesamt netto“ zusammenpassen.
   const formatPriceValue = (grossPrice: number, vatRate: number = VAT_RATES.FOOD): number => {
-    if (showGross) return Math.trunc(grossPrice * 100) / 100;
+    // kleiner Zuschlag gegen Gleitkomma-Rest, wie in formatPriceMixed
+    if (showGross) return Math.floor(grossPrice * 100 + 1e-6) / 100;
     return Math.round((grossPrice / (1 + vatRate)) * 100) / 100;
   };
 
@@ -119,7 +160,7 @@ export const PriceDisplayProvider = ({ children }: { children: ReactNode }) => {
     const value = showGross
       // kleiner Zuschlag gegen Gleitkomma-Rest (70 % + 30 % ergibt sonst x,99999…)
       ? Math.floor(parts.reduce((sum, p) => sum + p.gross, 0) * 100 + 1e-6) / 100
-      : Math.round(parts.reduce((sum, p) => sum + p.gross / (1 + p.vatRate), 0) * 100) / 100;
+      : netCentsOfParts(parts) / 100;
     return value.toFixed(2).replace('.', ',') + ' €';
   };
 

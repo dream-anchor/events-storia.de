@@ -26,6 +26,8 @@ interface StickySummaryProps {
   drinksVat19?: number;
   /** 19-%-Steuer auf die Lieferung */
   deliveryVat19?: number;
+  /** Netto-Zwischensumme (fertig formatiert, Rest aus dem Netto-Gesamtbetrag); nur in der Netto-Ansicht genutzt */
+  netSubtotalDisplay?: string;
   isDelivery?: boolean;
   isSubmitting?: boolean;
   isProcessingPayment?: boolean;
@@ -46,6 +48,7 @@ const StickySummary = ({
   foodVat7 = 0,
   drinksVat19 = 0,
   deliveryVat19 = 0,
+  netSubtotalDisplay,
   isDelivery = true,
   distanceKm,
   isRoundTrip,
@@ -53,12 +56,10 @@ const StickySummary = ({
   className,
   ctaButton,
 }: StickySummaryProps) => {
-  const { items, updateQuantity, removeFromCart, totalPrice, cateringSubtotal } = useCart();
+  const { items, updateQuantity, removeFromCart } = useCart();
   const { language } = useLanguage();
   const { formatPrice, formatPriceMixed, showGross, setShowGross } = usePriceDisplay();
   const hasGifts = giftSubtotal > 0;
-  // Zwischensumme-Zeile zeigt den Catering-Anteil (Körbe stehen in eigener Zeile); ohne Körbe unverändert totalPrice
-  const subtotalBase = hasGifts ? cateringSubtotal : totalPrice;
   const giftText = GIFT_COPY[language === 'de' ? 'de' : 'en'];
 
   const chafingDishGross = chafingDishQuantity * chafingDishPrice;
@@ -171,7 +172,7 @@ const StickySummary = ({
             <span className="text-muted-foreground">
               {language === 'de' ? 'Zwischensumme' : 'Subtotal'}
             </span>
-            <span>{formatPriceMixed(cateringLineParts(items.filter(item => !isGiftItem(item))))}</span>
+            <span>{showGross || !netSubtotalDisplay ? formatPriceMixed(cateringLineParts(items.filter(item => !isGiftItem(item)))) : netSubtotalDisplay}</span>
           </div>
 
           {hasGifts && (

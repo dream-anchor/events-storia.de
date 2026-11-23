@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { LocalizedLink } from "@/components/LocalizedLink";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
-import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
+import { usePriceDisplay, packageParts } from "@/contexts/PriceDisplayContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -105,7 +105,9 @@ interface EventPackageShopCardProps {
 const EventPackageShopCard = ({ pkg, featured }: EventPackageShopCardProps) => {
   const { language } = useLanguage();
   const { addToCart, items } = useCart();
-  const { formatPrice } = usePriceDisplay();
+  const { formatPriceMixed } = usePriceDisplay();
+  // Event-Pakete: 70 % Speisen (7 %) / 30 % Getränke (19 %), in der Netto-Ansicht entsprechend getrennt umgerechnet
+  const formatPrice = (gross: number): string => formatPriceMixed(packageParts(gross));
   const [guestCount, setGuestCount] = useState(pkg.min_guests || 20);
   const [isAdded, setIsAdded] = useState(false);
   const [inquiryDialogOpen, setInquiryDialogOpen] = useState(false);
