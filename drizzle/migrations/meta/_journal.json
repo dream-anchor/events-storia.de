@@ -57,6 +57,13 @@
       "when": 1795392718609,
       "tag": "0007_order_checkout_seal",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795394319747,
+      "tag": "0008_gift_stock_hold_window",
+      "breakpoints": true
     }
   ]
 }
