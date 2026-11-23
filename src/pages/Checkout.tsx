@@ -29,6 +29,7 @@ import CheckoutHeader from '@/components/checkout/CheckoutHeader';
 import AccordionSection from '@/components/checkout/AccordionSection';
 import StickySummary from '@/components/checkout/StickySummary';
 import { VatTotals } from '@/components/checkout/VatTotals';
+import { PriceDisplayToggle } from '@/components/checkout/PriceDisplayToggle';
 import { splitNetCents, lineNetCents, subtotalNetCents, formatCents, quoteNetBreakdown } from '@/lib/netDisplay';
 import PaymentMethodCard from '@/components/checkout/PaymentMethodCard';
 import TimeSlotGrid from '@/components/checkout/TimeSlotGrid';
@@ -1463,6 +1464,17 @@ const CateringCheckout = () => {
                   
                   {/* Mobile Cart Overview - outside grid flow on desktop */}
                   <div className="lg:hidden bg-card border border-border rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                        {language === 'de' ? 'Übersicht' : 'Overview'}
+                      </span>
+                      <PriceDisplayToggle
+                        variant="mobile"
+                        showGross={showGross}
+                        onChange={setShowGross}
+                        language={language === 'de' ? 'de' : 'en'}
+                      />
+                    </div>
                     {/* Always visible cost summary */}
                     <div className="space-y-2 text-sm mb-3">
                       <div className="flex justify-between">
