@@ -10,6 +10,7 @@ import { sendGiftMails } from '../_shared/giftMail.ts';
 import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
 import { asyncHoldExtensionUntil, computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
 import { markEventBookingPaid } from '../_shared/eventPayment.ts';
+import { shouldSplitOfferAsEventPackage } from '../_shared/eventVatSplit.ts';
 import { alertIfDoublePayment, checkPaymentMatchesOrder } from '../_shared/paymentGuard.ts';
 import {
   buildOrderPayload,
@@ -1054,7 +1055,7 @@ async function processEventOfferPaymentInline(
   // Lookup option (supports both v2 UUID and legacy source_option_id)
   const { data: option, error: optErr } = await supabase
     .from("v2_offer_options")
-    .select("id, event_id, package_id, label, guest_count, menu_selection, amount_total, stripe_payment_link_id, source_option_id")
+    .select("id, event_id, package_id, label, guest_count, menu_selection, amount_total, stripe_payment_link_id, source_option_id, offer_mode, packages(package_type)")
     .or(`id.eq.${optionId},source_option_id.eq.${optionId}`)
     .maybeSingle();
 
@@ -1194,7 +1195,13 @@ async function processEventOfferPaymentInline(
         street: '', zip: '', city: '', country: 'DE',
       },
       items: [{
-        id: option.package_id || 'event-package',
+        id: option.package_id || 'offer-package', // kein `event-`-Präfix: Split nur über isEventPackage
+        // 70/30 nur für reine Event-Pakete ohne Zusatzposten (BMF 22.12.2025); sonst wie bisher 7 %
+        isEventPackage: shouldSplitOfferAsEventPackage({
+          offerMode: option.offer_mode,
+          packageType: Array.isArray(option.packages) ? option.packages[0]?.package_type : option.packages?.package_type,
+          menuSelection: option.menu_selection,
+        }),
         name: `Event-Paket: ${option.label}`,
         quantity: option.guest_count,
         price: option.amount_total / option.guest_count,
