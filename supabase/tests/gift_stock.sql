@@ -1,8 +1,16 @@
 -- SQL-Tests Geschenkkorb-Bestand. Lauf gegen eine Wegwerf-/Branch-DB (NIE Produktion):
 --   psql "$TEST_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/gift_stock.sql
--- Alles in einer Transaktion mit ROLLBACK am Ende. Voraussetzung: Migrationen 20261120100000-200 und 20261121120000 angewendet.
+-- Alles in einer Transaktion mit ROLLBACK am Ende. Voraussetzung: Migrationen 20261120100000-200, 20261121120000 und 20261123100000 angewendet.
 -- Echter Parallel-Test (zwei Sessions) siehe Kommentar ganz unten.
 BEGIN;
+
+-- Hilfsfunktion Abschnitt 14: Bestellung als unbestätigte Vor-Ort-Reservierung für heute (Berlin) + p_days vorbereiten
+CREATE FUNCTION pg_temp.prep(p_order uuid, p_tok text, p_days int) RETURNS void LANGUAGE sql AS $f$
+  UPDATE gift_orders SET status = 'awaiting_confirmation', payment_method = 'on_site', confirm_token_hash = repeat(p_tok, 64), confirmed_at = NULL,
+         handover_date = (now() AT TIME ZONE 'Europe/Berlin')::date + p_days, reservation_until = now() + make_interval(days => p_days, hours => 5),
+         is_test = false, stock_conflict_at = NULL, stock_conflict_notified_at = NULL WHERE id = p_order $f$;
+CREATE FUNCTION pg_temp.avail(p_key text) RETURNS int LANGUAGE sql AS $f$
+  SELECT (v->>'available')::int FROM jsonb_array_elements(gift_public_catalog()) b, jsonb_array_elements(b->'variants') v WHERE v->>'key' = p_key $f$;
 
 DO $$
 DECLARE
@@ -141,6 +149,124 @@ BEGIN
   EXCEPTION WHEN check_violation THEN caught := true;
   END;
   ASSERT caught, 'unbekannter handover-Wert wird abgelehnt';
+
+  -- ── 14) Z10: Vor-Ort-Reservierung belegt Bestand erst ab 2 Tagen vor Abholung (Fenster D-2, Berliner Datum) ──
+  -- 14a) Unbestätigter Opt-in für fernen Termin belegt KEINEN Bestand und verfällt nach 30 Min
+  DELETE FROM gift_stock_holds WHERE order_id IN (o1, o2, o3);
+  UPDATE gift_basket_variants SET stock_qty = 1, stock_unlimited = false WHERE id = v_var;
+  PERFORM pg_temp.prep(o1, '1', 30);
+  PERFORM gift_reserve_stock(o1, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes', false);
+  ASSERT (SELECT status FROM gift_stock_holds WHERE order_id = o1) = 'deferred', 'ferner Opt-in-Hold ist deferred';
+  ASSERT pg_temp.avail('w1') = 1, 'Katalog direkt nach dem Anlegen unverändert';
+  ASSERT (gift_open_counts('on_site', 'a@x.de', NULL)->>'by_email')::int = 1, 'unbestätigter ferner Opt-in zählt für die Missbrauchsgrenze';
+  UPDATE gift_stock_holds SET expires_at = now() - interval '1 minute' WHERE order_id = o1;
+  SELECT count(*) INTO n FROM gift_sweep_expired_holds();
+  ASSERT (SELECT status FROM gift_orders WHERE id = o1) = 'expired' AND (SELECT status FROM gift_stock_holds WHERE order_id = o1) = 'released', 'unbestätigter ferner Opt-in verfällt';
+
+  -- 14b) Bestätigung bei fernem Termin: bleibt deferred bis reservation_until, Katalog unverändert, andere Kunden können den Korb reservieren
+  DELETE FROM gift_stock_holds WHERE order_id IN (o1, o2, o3);
+  PERFORM pg_temp.prep(o1, '1', 30);
+  PERFORM gift_reserve_stock(o1, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes', false);
+  ASSERT gift_confirm_reservation(repeat('1', 64))->>'status' = 'confirmed';
+  ASSERT (SELECT status FROM gift_stock_holds WHERE order_id = o1) = 'deferred' AND (SELECT expires_at FROM gift_stock_holds WHERE order_id = o1) > now() + interval '29 days', 'deferred bis reservation_until';
+  ASSERT pg_temp.avail('w1') = 1, 'bestätigte ferne Reservierung zieht nichts ab';
+  PERFORM pg_temp.prep(o2, '2', 1);
+  PERFORM gift_reserve_stock(o2, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes');   -- anderer Kunde bekommt den letzten Korb
+  ASSERT (gift_open_counts('on_site', 'a@x.de', NULL)->>'by_email')::int = 1, 'zurückgestellte Reservierung zählt für die Missbrauchsgrenze';
+  SELECT count(*) INTO n FROM gift_sweep_expired_holds();
+  ASSERT (SELECT status FROM gift_orders WHERE id = o1) = 'reserved', 'Sweep lässt zurückgestellte Reservierung bestehen';
+  ASSERT NOT EXISTS (SELECT 1 FROM gift_activate_deferred_holds()), 'außerhalb des Fensters: keine Aktivierung';
+
+  -- 14c) Eintritt ins Fenster: o2 hält den letzten Korb -> Überbuchung markiert, Hold trotzdem gesetzt; Nachpacken räumt den Hinweis auf
+  UPDATE gift_orders SET handover_date = (now() AT TIME ZONE 'Europe/Berlin')::date + 2 WHERE id = o1;
+  SELECT count(*) INTO n FROM gift_activate_deferred_holds() WHERE conflict;
+  ASSERT n = 1, 'Konflikt wird gemeldet';
+  ASSERT (SELECT status FROM gift_stock_holds WHERE order_id = o1) = 'held', 'Hold nach Aktivierung belegt';
+  ASSERT (SELECT stock_conflict_at FROM gift_orders WHERE id = o1) IS NOT NULL, 'Konflikt markiert';
+  ASSERT NOT EXISTS (SELECT 1 FROM gift_activate_deferred_holds() WHERE conflict), 'Aktivierung ist idempotent';
+  ASSERT (SELECT stock_conflict_at FROM gift_orders WHERE id = o1) IS NOT NULL, 'Konflikt bleibt, solange der Bestand fehlt';
+  UPDATE gift_orders SET stock_conflict_notified_at = now() WHERE id = o1;
+  UPDATE gift_basket_variants SET stock_qty = 2 WHERE id = v_var;   -- Nachpacken im Admin
+  PERFORM gift_activate_deferred_holds();
+  ASSERT (SELECT stock_conflict_at IS NULL AND stock_conflict_notified_at IS NULL FROM gift_orders WHERE id = o1), 'Hinweis verschwindet samt Alarm-Marker, sobald der Bestand reicht';
+  UPDATE gift_basket_variants SET stock_qty = 1 WHERE id = v_var;   -- Bestand sinkt erneut
+  PERFORM gift_activate_deferred_holds();
+  ASSERT (SELECT stock_conflict_at IS NOT NULL AND stock_conflict_notified_at IS NULL FROM gift_orders WHERE id = o1), 'erneuter Konflikt wird wieder markiert (neuer Alarm)';
+
+  -- 14d) Bestätigung über Mitternacht (Termin war beim Anlegen Tag+3, beim Klick Tag+2): gleiche Konfliktprüfung
+  DELETE FROM gift_stock_holds WHERE order_id IN (o1, o2, o3);
+  UPDATE gift_basket_variants SET stock_qty = 1 WHERE id = v_var;
+  PERFORM pg_temp.prep(o3, '3', 1);
+  PERFORM gift_reserve_stock(o3, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes');
+  PERFORM gift_confirm_reservation(repeat('3', 64));   -- o3 hält den letzten Korb (im Fenster, geprüft)
+  PERFORM pg_temp.prep(o1, '4', 3);
+  PERFORM gift_reserve_stock(o1, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes', false);
+  UPDATE gift_orders SET handover_date = (now() AT TIME ZONE 'Europe/Berlin')::date + 2 WHERE id = o1;   -- Mitternacht vergeht
+  ASSERT gift_confirm_reservation(repeat('4', 64))->>'status' = 'confirmed';
+  ASSERT (SELECT status FROM gift_stock_holds WHERE order_id = o1) = 'held', 'Hold nach Bestätigung im Fenster belegt';
+  ASSERT (SELECT stock_conflict_at FROM gift_orders WHERE id = o1) IS NOT NULL, 'Bestätigung über Mitternacht markiert die Überbuchung';
+
+  -- 14e) "Bereit" belegt den Bestand sofort, auch vor D-2; reicht er nicht: Konflikt
+  DELETE FROM gift_stock_holds WHERE order_id IN (o1, o2, o3);
+  UPDATE gift_orders SET stock_conflict_at = NULL WHERE id IN (o1, o2, o3);
+  PERFORM pg_temp.prep(o3, '5', 1);
+  PERFORM gift_reserve_stock(o3, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes');
+  PERFORM gift_confirm_reservation(repeat('5', 64));
+  PERFORM pg_temp.prep(o2, '6', 40);
+  PERFORM gift_reserve_stock(o2, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes', false);
+  PERFORM gift_confirm_reservation(repeat('6', 64));
+  ASSERT (SELECT status FROM gift_stock_holds WHERE order_id = o2) = 'deferred';
+  res := gift_admin_set_status(o2, 'ready');
+  ASSERT (res->>'conflict')::boolean, 'Bereit ohne Bestand: Konflikt';
+  ASSERT (SELECT status FROM gift_stock_holds WHERE order_id = o2) = 'held' AND (SELECT stock_conflict_at FROM gift_orders WHERE id = o2) IS NOT NULL, 'Bereit belegt sofort und markiert';
+  -- mit ausreichendem Bestand: kein Konflikt
+  DELETE FROM gift_stock_holds WHERE order_id IN (o1, o3);
+  PERFORM pg_temp.prep(o1, '7', 50);
+  PERFORM gift_reserve_stock(o1, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes', false);
+  PERFORM gift_confirm_reservation(repeat('7', 64));
+  UPDATE gift_basket_variants SET stock_qty = 5 WHERE id = v_var;
+  res := gift_admin_set_status(o1, 'ready');
+  ASSERT NOT (res->>'conflict')::boolean AND (SELECT stock_conflict_at FROM gift_orders WHERE id = o1) IS NULL, 'Bereit mit Bestand: kein Konflikt';
+  ASSERT (SELECT status FROM gift_stock_holds WHERE order_id = o1) = 'held';
+
+  -- 14f) Übergabe einer zurückgestellten Reservierung (vor dem Fenster) bei fehlendem Bestand: oversold sofort sichtbar
+  DELETE FROM gift_stock_holds WHERE order_id IN (o1, o2, o3);
+  UPDATE gift_basket_variants SET stock_qty = 1 WHERE id = v_var;
+  PERFORM pg_temp.prep(o3, '8', 1);
+  PERFORM gift_reserve_stock(o3, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes');
+  PERFORM gift_confirm_reservation(repeat('8', 64));
+  PERFORM pg_temp.prep(o1, '9', 30);
+  PERFORM gift_reserve_stock(o1, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes', false);
+  PERFORM gift_confirm_reservation(repeat('9', 64));
+  res := gift_consume_stock(o1);
+  ASSERT (res->>'oversold')::boolean, 'deferred + fremder aktiver Hold: oversold sofort';
+  ASSERT (SELECT stock_qty FROM gift_basket_variants WHERE id = v_var) = 1, 'fremder Hold bleibt unangetastet';
+
+  -- 14g) Abgelaufenes reservation_until einer zurückgestellten Reservierung: verfällt bei der Aktivierung
+  DELETE FROM gift_stock_holds WHERE order_id IN (o1, o2, o3);
+  PERFORM pg_temp.prep(o2, 'a', 30);
+  PERFORM gift_reserve_stock(o2, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',1)), now() + interval '30 minutes', false);
+  PERFORM gift_confirm_reservation(repeat('a', 64));
+  UPDATE gift_orders SET handover_date = (now() AT TIME ZONE 'Europe/Berlin')::date + 1, reservation_until = now() - interval '1 hour' WHERE id = o2;
+  PERFORM gift_activate_deferred_holds();
+  ASSERT (SELECT status FROM gift_orders WHERE id = o2) = 'expired' AND (SELECT status FROM gift_stock_holds WHERE order_id = o2) = 'released', 'abgelaufene zurückgestellte Reservierung verfällt';
+
+  -- 14h) Storno gibt zurückgestellte Holds frei
+  DELETE FROM gift_stock_holds WHERE order_id IN (o1, o2, o3);
+  PERFORM pg_temp.prep(o3, 'b', 40);
+  PERFORM gift_reserve_stock(o3, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',5)), now() + interval '30 minutes', false);   -- ohne Bestandsprüfung
+  PERFORM gift_confirm_reservation(repeat('b', 64));
+  ASSERT (SELECT status FROM gift_stock_holds WHERE order_id = o3) = 'deferred';
+  ASSERT gift_release_stock(o3) = 1, 'Storno gibt einen Hold frei';
+  ASSERT (SELECT status FROM gift_stock_holds WHERE order_id = o3) = 'released', 'Storno gibt zurückgestellten Hold frei';
+
+  -- 14i) Online (Stripe) unverändert: Standardaufruf prüft den Bestand weiterhin
+  caught := false;
+  BEGIN
+    PERFORM gift_reserve_stock(o3, jsonb_build_array(jsonb_build_object('variant_id',v_var,'qty',5)), now() + interval '35 minutes');
+  EXCEPTION WHEN OTHERS THEN caught := (SQLERRM = 'sold_out');
+  END;
+  ASSERT caught, 'Standardaufruf (online) prüft den Bestand unverändert';
 
   RAISE NOTICE 'gift_stock.sql: alle Assertions grün';
 END $$;

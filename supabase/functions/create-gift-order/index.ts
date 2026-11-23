@@ -3,7 +3,8 @@
 // über OpenRouteService berechnet (nicht aus gift-delivery-quote übernommen).
 // Zahlart online: Bestand-Hold + Stripe Checkout (30 Min). Zahlart "vor Ort" (nur Abholung): Double-Opt-in statt
 // CAPTCHA (Inhaber 20.11.2026): Bestellung 'awaiting_confirmation' mit Hold nur 30 Min + Bestätigungsmail; erst der Klick
-// auf den Link (confirm-gift-reservation) macht daraus 'reserved' mit Hold bis Ladenschluss des Abholtags.
+// auf den Link (confirm-gift-reservation) macht daraus 'reserved' mit Hold bis Ladenschluss des Abholtags - bei Abholtag
+// weiter als 2 Tage entfernt aber erst ab 2 Tagen vorher (Z10, _shared/giftHoldWindow.ts; vorher belegt die Reservierung keinen Bestand).
 // Missbrauchsschutz: Honeypot-Feld, Mindest-Ausfüllzeit, Limits je E-Mail/IP (DB-gestützt), Mengen- und Terminlimits.
 // Modus handover 'with_catering' (Mischbestellung, Konzept § 11): Körbe fahren mit dem Catering mit. Serverpreise, vat_split und
 // Hold wie gewohnt, aber Liefergebühr 0, Termin = Catering-Termin (nur Sperrtage), KEINE eigene Stripe-Session, nur Zahlart online.
@@ -26,6 +27,7 @@ import {
   MAX_QTY_PER_ORDER,
   type VatShare,
 } from "../_shared/giftPricing.ts";
+import { isBeyondHoldWindow } from "../_shared/giftHoldWindow.ts";
 import { resolveDistanceKm, RoutingError } from "../_shared/giftRouting.ts";
 import { clientIp, hashIp, rateLimited } from "../_shared/giftRateLimit.ts";
 import { CONFIRM_HOLD_MINUTES, checkFormTiming, confirmUrl, generateConfirmToken, hashConfirmToken } from "../_shared/giftConfirm.ts";
@@ -74,9 +76,10 @@ interface OrderInput {
  *  Der Termin ist zeitlich NICHT begrenzt (Entscheidung Inhaber 22.11.2026); es gilt nur das technische Sicherheitslimit
  *  MAX_ADVANCE_DAYS (730 Tage, wie Catering) für alle Zahlwege. */
 const ON_SITE_MAX_QTY = 5;
-/** Offene (noch gültig gehaltene) Bestellungen je E-Mail bzw. je IP, getrennt für "vor Ort" und Online-Checkout (max. 2). */
-const MAX_OPEN_PER_EMAIL = 2;
-const MAX_OPEN_PER_IP = 2;
+/** Offene Bestellungen je E-Mail bzw. je IP, getrennt für "vor Ort" (max. 5, Inhaber 23.11.2026; zählt auch zurückgestellte
+ *  Reservierungen) und Online-Checkout (max. 2, noch gültig gehaltene Holds). */
+const MAX_OPEN_ON_SITE = 5;
+const MAX_OPEN_ONLINE = 2;
 /** Stripe-Session = Erstellung + 31 Min (Minimum 30); der Hold muss sie überdauern. */
 const STRIPE_SESSION_MINUTES = 31;
 const MIN_HOLD_MINUTES = 36;
@@ -318,6 +321,9 @@ serve(async (req) => {
       p_order_id: order.id,
       p_items: lines.map((l) => ({ variant_id: l.variant_id, qty: l.qty })),
       p_expires_at: holdUntil.toISOString(),
+      // Vor Ort + Abholtag weiter als 2 Tage entfernt (Z10): heutige Menge ist nicht maßgeblich, der Bestand wird erst
+      // ab 2 Tagen vor der Abholung belegt (gift_activate_deferred_holds). Online/nahe Termine: Bestand wie bisher prüfen.
+      p_check_stock: !(onSite && isBeyondHoldWindow(input.date, now)),
     });
     if (rErr) {
       if (/sold_out/.test(rErr.message)) throw new HttpError(409, "sold_out", { variant_id: rErr.details ?? null });
@@ -333,7 +339,8 @@ serve(async (req) => {
         p_payment_method: input.payment_method, p_email: input.customer.email, p_ip_hash: ipHash,
       });
       if (cErr) throw new Error(`open_count_failed: ${cErr.message}`);
-      if (Number(counts?.by_email ?? 0) > MAX_OPEN_PER_EMAIL || Number(counts?.by_ip ?? 0) > MAX_OPEN_PER_IP) {
+      const maxOpen = input.payment_method === "on_site" ? MAX_OPEN_ON_SITE : MAX_OPEN_ONLINE;
+      if (Number(counts?.by_email ?? 0) > maxOpen || Number(counts?.by_ip ?? 0) > maxOpen) {
         throw new HttpError(429, "too_many_open_reservations");  // catch räumt Hold + Bestellung auf, bevor eine Mail rausgeht
       }
     }

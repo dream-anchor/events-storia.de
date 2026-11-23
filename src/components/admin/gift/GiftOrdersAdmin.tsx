@@ -106,6 +106,9 @@ export function GiftOrdersAdmin() {
                 </span>
               </span>
               <span className="flex items-center gap-2">
+                {/* Z10: Überbuchung beim Eintritt ins 2-Tage-Fenster sichtbar machen, Vor-Ort-Reservierung ohne Bestandsbelegung kennzeichnen */}
+                {o.stock_conflict_at && ["reserved", "ready"].includes(o.status) && <Badge variant="destructive">Bestand reicht nicht</Badge>}
+                {o.status === "reserved" && o.payment_method === "on_site" && !o.stock_conflict_at && o.handover_date > addDays(today, 2) && <Badge variant="outline">Bestand ab 2 Tage vorher</Badge>}
                 <span className="tabular-nums">{formatEuro(o.total_cents)}</span>
                 <Badge variant={["cancelled", "expired", "refunded"].includes(o.status) ? "outline" : "default"}>{STATUS_LABEL[o.status] ?? o.status}</Badge>
               </span>
@@ -135,8 +138,10 @@ function OrderDialog({ order, windowLabel, cateringId, onClose, onChanged }: { o
     const { data, error } = await supabase.rpc("gift_admin_set_status", { p_order_id: order.id, p_status: to });
     setBusy(false);
     if (error) { toast.error("Statuswechsel fehlgeschlagen", { description: error.message }); return; }
-    const res = (data ?? {}) as { oversold?: boolean };
-    if (res.oversold) {
+    const res = (data ?? {}) as { oversold?: boolean; conflict?: boolean };
+    if (res.conflict) {
+      toast.warning("Bestand reicht nicht", { description: "Der Bestand reicht nicht für diese Bestellung. Der Hinweis verschwindet von selbst, sobald der Bestand (z. B. nach Nachpacken) wieder reicht.", duration: 12000 });
+    } else if (res.oversold) {
       // Bei Zahlung vor Ort war nicht mehr die volle Menge im Bestand: Bestand prüfen, ggf. nachbuchen
       toast.warning("Achtung: Überverkauf", { description: "Beim Abbuchen reichte der Bestand nicht für die volle Menge (es wurde nur der freie Anteil abgebucht). Bitte Bestand prüfen und ggf. korrigieren.", duration: 12000 });
     } else {

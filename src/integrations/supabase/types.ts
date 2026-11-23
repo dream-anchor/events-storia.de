@@ -2800,6 +2800,8 @@ export type Database = {
           payment_method: string
           reservation_until: string | null
           restocked_at: string | null
+          stock_conflict_at: string | null
+          stock_conflict_notified_at: string | null
           status: string
           stripe_payment_intent_id: string | null
           stripe_session_id: string | null
@@ -2850,6 +2852,8 @@ export type Database = {
           payment_method?: string
           reservation_until?: string | null
           restocked_at?: string | null
+          stock_conflict_at?: string | null
+          stock_conflict_notified_at?: string | null
           status?: string
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
@@ -2900,6 +2904,8 @@ export type Database = {
           payment_method?: string
           reservation_until?: string | null
           restocked_at?: string | null
+          stock_conflict_at?: string | null
+          stock_conflict_notified_at?: string | null
           status?: string
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
@@ -8051,10 +8057,16 @@ export type Database = {
         Returns: Json
       }
       gift_public_catalog: { Args: never; Returns: Json }
+      gift_activate_deferred_holds: {
+        Args: never
+        Returns: { conflict: boolean; order_id: string; order_number: string }[]
+      }
+      gift_activate_order_holds: { Args: { p_order_id: string }; Returns: boolean }
+      gift_hold_window_days: { Args: never; Returns: number }
       gift_public_settings: { Args: never; Returns: Json }
       gift_release_stock: { Args: { p_order_id: string }; Returns: number }
       gift_reserve_stock: {
-        Args: { p_expires_at: string; p_items: Json; p_order_id: string }
+        Args: { p_check_stock?: boolean; p_expires_at: string; p_items: Json; p_order_id: string }
         Returns: undefined
       }
       gift_restock_order: { Args: { p_order_id: string }; Returns: Json }
