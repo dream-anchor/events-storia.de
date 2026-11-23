@@ -2,8 +2,8 @@
 // CREATE LEXOFFICE FINAL INVOICE (Schlussrechnung)
 //
 // Erzeugt für einen Auftrag eine Schlussrechnung in LexOffice. Sammelt alle
-// bereits in LexOffice angelegten Anzahlungsrechnungen (event_payments mit
-// lexoffice_invoice_id) und übergibt sie als negative Abzugszeilen
+// bereits in LexOffice angelegten Anzahlungsrechnungen (v2_payments mit
+// lexoffice_invoice_id; event_payments ist nur eine View darauf) und übergibt sie als negative Abzugszeilen
 // (§ 14 Abs. 5 UStG) an create-event-quotation mit forceDocumentType=invoice
 // und isFinalInvoice=true.
 //
@@ -13,6 +13,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { findExistingFinalInvoice, loadDownPaymentDeductions } from "../_shared/finalInvoiceDeductions.ts";
 
 const log = (step: string, details?: Record<string, unknown>) => {
   const d = details ? ` ${JSON.stringify(details)}` : "";
@@ -68,10 +69,9 @@ serve(async (req) => {
       );
     }
 
-    const standardInvoiceId = ev?.lexoffice_document_type === "invoice" ? ev?.invoice_lexoffice_id : null;
-    const standardInvoiceNumber = ev?.lexoffice_document_type === "invoice" ? ev?.invoice_lexoffice_number : null;
-    const existingInvoiceId = ev?.final_lexoffice_invoice_id || standardInvoiceId;
-    const existingInvoiceNumber = ev?.final_lexoffice_invoice_number || standardInvoiceNumber;
+    const existing = findExistingFinalInvoice(ev);
+    const existingInvoiceId = existing?.id;
+    const existingInvoiceNumber = existing?.number;
     if (existingInvoiceId && !force) {
       log("Final invoice exists — skip (idempotent)", {
         invoiceId: existingInvoiceId,
@@ -89,22 +89,8 @@ serve(async (req) => {
       );
     }
 
-    // 2. Alle Anzahlungsrechnungen sammeln (deposit + prepayment, paid, mit invoice id)
-    const { data: dpPayments } = await supabase
-      .from("event_payments")
-      .select("id, amount_cents, payment_type, lexoffice_invoice_id, lexoffice_invoice_number, paid_at, created_at")
-      .eq("inquiry_id", inquiryId)
-      .in("payment_type", ["deposit", "prepayment"])
-      .eq("status", "paid")
-      .not("lexoffice_invoice_id", "is", null)
-      .order("created_at", { ascending: true });
-
-    const deductions = (dpPayments || []).map((p) => ({
-      invoice_number: p.lexoffice_invoice_number,
-      date_iso: p.paid_at || p.created_at,
-      gross: (p.amount_cents || 0) / 100,
-      tax_rate: 7, // muss dem Steuersatz der Anzahlungsrechnung entsprechen
-    }));
+    // 2. Alle Anzahlungsrechnungen sammeln (deposit + prepayment, paid, mit invoice id) – aus v2_payments
+    const deductions = await loadDownPaymentDeductions(supabase, inquiryId);
 
     log("Schlussrechnung wird erzeugt", {
       inquiryId,

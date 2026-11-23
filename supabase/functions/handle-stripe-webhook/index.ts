@@ -10,7 +10,7 @@ import { sendGiftMails } from '../_shared/giftMail.ts';
 import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
 import { asyncHoldExtensionUntil, computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
 import { markEventBookingPaid } from '../_shared/eventPayment.ts';
-import { shouldSplitOfferAsEventPackage } from '../_shared/eventVatSplit.ts';
+import { findExistingOfferPayment, insertOfferPayment, issueInvoiceForOfferPayment, resolveOfferPaymentType } from '../_shared/eventOfferInvoice.ts';
 import { alertIfDoublePayment, checkPaymentMatchesOrder } from '../_shared/paymentGuard.ts';
 import {
   buildOrderPayload,
@@ -1065,11 +1065,7 @@ async function processEventOfferPaymentInline(
   }
 
   // Idempotency: already processed?
-  const { data: existingPayment } = await supabase
-    .from("v2_payments")
-    .select("id, event_id")
-    .eq("source_offer_option_id", option.id)
-    .maybeSingle();
+  const existingPayment = await findExistingOfferPayment(supabase, option.id);
 
   if (existingPayment) {
     logStep("v2_payment already exists (idempotent)", { paymentId: existingPayment.id });
@@ -1104,37 +1100,28 @@ async function processEventOfferPaymentInline(
   const sessionAmountCents = typeof session.amount_total === "number" ? session.amount_total : null;
   const fullAmountCents = Math.round(option.amount_total * 100);
   const amountCents = sessionAmountCents && sessionAmountCents > 0 ? sessionAmountCents : fullAmountCents;
-  const metaPaymentType = (session.metadata?.payment_type as string | undefined)?.toLowerCase();
-  const paymentType: "full" | "deposit" =
-    metaPaymentType === "deposit" || metaPaymentType === "full"
-      ? (metaPaymentType as "full" | "deposit")
-      : amountCents < fullAmountCents - 1
-        ? "deposit"
-        : "full";
-  const { data: paymentData, error: payErr } = await supabase
-    .from("v2_payments")
-    .insert({
-      event_id: ev.id,
-      amount_cents: amountCents,
-      payment_type: paymentType,
-      status: "paid",
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: session.payment_intent as string,
-      paid_at: new Date().toISOString(),
-      paid_via: "stripe_checkout",
-      source_offer_option_id: option.id,
-    })
-    .select()
-    .single();
+  const paymentType = resolveOfferPaymentType(session.metadata?.payment_type as string | undefined, amountCents, fullAmountCents);
+  const inserted = await insertOfferPayment(supabase, {
+    event_id: ev.id,
+    amount_cents: amountCents,
+    payment_type: paymentType,
+    status: "paid",
+    stripe_checkout_session_id: session.id,
+    stripe_payment_intent_id: session.payment_intent as string,
+    paid_at: new Date().toISOString(),
+    paid_via: "stripe_checkout",
+    source_offer_option_id: option.id,
+  });
 
-  if (payErr) {
-    if (payErr.code === "23505") {
-      logStep("v2_payment unique violation (race), already exists");
-      return;
-    }
-    logStep("Failed to create v2_payment", { error: payErr.message });
+  if (inserted.status === "duplicate") {
+    logStep("v2_payment unique violation (race), already exists");
     return;
   }
+  if (inserted.status === "error") {
+    logStep("Failed to create v2_payment", { error: inserted.message });
+    return;
+  }
+  const paymentData = { id: inserted.paymentId };
 
   // Generate booking number if missing
   let bookingNumber = ev.booking_number;
@@ -1181,81 +1168,21 @@ async function processEventOfferPaymentInline(
     .eq("event_id", ev.id)
     .neq("id", option.id);
 
-  // Create LexOffice invoice (non-fatal)
-  try {
-    const lexofficePayload = {
-      orderId: ev.id,
-      orderNumber: bookingNumber,
-      customerName: customer.name,
-      customerEmail: customer.email,
-      customerPhone: customer.phone || '',
-      companyName: customer.company || undefined,
-      billingAddress: {
-        name: customer.company || customer.name,
-        street: '', zip: '', city: '', country: 'DE',
-      },
-      items: [{
-        id: option.package_id || 'offer-package', // kein `event-`-Präfix: Split nur über isEventPackage
-        // 70/30 nur für reine Event-Pakete ohne Zusatzposten (BMF 22.12.2025); sonst wie bisher 7 %
-        isEventPackage: shouldSplitOfferAsEventPackage({
-          offerMode: option.offer_mode,
-          packageType: Array.isArray(option.packages) ? option.packages[0]?.package_type : option.packages?.package_type,
-          menuSelection: option.menu_selection,
-        }),
-        name: `Event-Paket: ${option.label}`,
-        quantity: option.guest_count,
-        price: option.amount_total / option.guest_count,
-      }],
-      subtotal: option.amount_total,
-      deliveryCost: 0,
-      minimumOrderSurcharge: 0,
-      grandTotal: option.amount_total,
-      isPickup: false,
-      documentType: 'invoice',
-      isPaid: true,
-      desiredDate: ev.date || undefined,
-      desiredTime: ev.event_time || ev.time_from || undefined,
-      paymentMethod: 'stripe',
-      isEventBooking: true,
-    };
-
-    const lexRes = await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-lexoffice-invoice`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify(lexofficePayload),
-      }
-    );
-
-    if (lexRes.ok) {
-      const lexResult = await lexRes.json();
-      if (lexResult.invoiceId || lexResult.quotationId) {
-        const invoiceId = lexResult.invoiceId || lexResult.quotationId;
-        const documentType = lexResult.invoiceId ? 'invoice' : 'quotation';
-
-        await supabase.from("v2_events").update({
-          invoice_lexoffice_id: invoiceId,
-          invoice_lexoffice_number: lexResult.invoiceNumber || null,
-          lexoffice_document_type: documentType,
-        }).eq("id", ev.id);
-
-        await supabase.from("v2_payments").update({
-          lexoffice_invoice_id: invoiceId,
-          lexoffice_invoice_number: lexResult.invoiceNumber || null,
-        }).eq("id", paymentData.id);
-
-        logStep("LexOffice invoice created and linked", { invoiceId, documentType });
-      }
-    } else {
-      logStep("LexOffice invoice creation failed (non-fatal)", { status: lexRes.status });
-    }
-  } catch (lexErr) {
-    logStep("LexOffice error (non-fatal)", { error: lexErr instanceof Error ? lexErr.message : String(lexErr) });
-  }
+  // Rechnung (non-fatal): Anzahlung -> Anzahlungsrechnung über den gezahlten Betrag, Vollzahlung -> Vollrechnung
+  const invoiceResult = await issueInvoiceForOfferPayment(supabase, {
+    paymentType,
+    paymentId: paymentData.id,
+    event: ev,
+    bookingNumber,
+    customer,
+    option,
+  }, {
+    fetchFn: fetch,
+    supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+    serviceKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    log: logStep,
+  });
+  logStep("Offer payment invoice", { paymentType, result: invoiceResult });
 
   logStep("Event offer payment processed inline", { eventId: ev.id, bookingNumber });
 }
