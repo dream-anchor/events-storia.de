@@ -144,11 +144,35 @@ export async function issueInvoiceForOfferPayment(
   }
 }
 
+export interface ExistingOfferPayment {
+  id: string;
+  event_id: string;
+  payment_type?: string | null;
+  lexoffice_invoice_id?: string | null;
+}
+
+/**
+ * Webhook-Wiederholung: Anzahlung ist verbucht, aber die Anzahlungsrechnung fehlt (frühere Erstellung fehlgeschlagen)
+ * -> erneut anstoßen. create-lexoffice-downpayment-invoice bricht selbst ab, wenn die Zahlung schon eine Rechnung hat.
+ * Sonst würde die Schlussrechnung die Anzahlung nicht abziehen.
+ */
+export async function retryMissingDownpaymentInvoice(
+  existing: ExistingOfferPayment,
+  deps: OfferInvoiceDeps,
+): Promise<OfferInvoiceResult | null> {
+  if (existing.payment_type !== "deposit" || existing.lexoffice_invoice_id) return null;
+  return await issueInvoiceForOfferPayment(
+    null,
+    { paymentType: "deposit", paymentId: existing.id } as OfferInvoiceInput,
+    deps,
+  );
+}
+
 /** Idempotenz (Webhook-Wiederholung): Zahlung zur Angebotsoption schon verbucht? */
-export async function findExistingOfferPayment(supabase: Supa, optionId: string): Promise<{ id: string; event_id: string } | null> {
+export async function findExistingOfferPayment(supabase: Supa, optionId: string): Promise<ExistingOfferPayment | null> {
   const { data } = await supabase
     .from("v2_payments")
-    .select("id, event_id")
+    .select("id, event_id, payment_type, lexoffice_invoice_id")
     .eq("source_offer_option_id", optionId)
     .maybeSingle();
   return data ?? null;

@@ -288,7 +288,7 @@ serve(async (req) => {
     } catch { /* non-fatal */ }
 
     // 11. PDF an Kunde mailen — non-blocking fire-and-forget
-    (async () => {
+    const sendInvoiceMail = async () => {
       try {
         const pdfResp = await fetch(
           `${Deno.env.get("SUPABASE_URL")}/functions/v1/get-lexoffice-document-by-id`,
@@ -362,7 +362,15 @@ ${enPara}
           error: err instanceof Error ? err.message : String(err),
         });
       }
-    })();
+    };
+    // waitUntil: Edge-Runtime darf nach der Antwort nicht abbrechen, bevor die Mail raus ist
+    // @ts-ignore — EdgeRuntime ist in Supabase Deno verfügbar
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(sendInvoiceMail());
+    } else {
+      sendInvoiceMail();
+    }
 
     return new Response(
       JSON.stringify({

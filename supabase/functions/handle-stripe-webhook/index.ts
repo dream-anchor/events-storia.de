@@ -10,7 +10,7 @@ import { sendGiftMails } from '../_shared/giftMail.ts';
 import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
 import { asyncHoldExtensionUntil, computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
 import { markEventBookingPaid } from '../_shared/eventPayment.ts';
-import { findExistingOfferPayment, insertOfferPayment, issueInvoiceForOfferPayment, resolveOfferPaymentType } from '../_shared/eventOfferInvoice.ts';
+import { findExistingOfferPayment, insertOfferPayment, issueInvoiceForOfferPayment, resolveOfferPaymentType, retryMissingDownpaymentInvoice } from '../_shared/eventOfferInvoice.ts';
 import { alertIfDoublePayment, checkPaymentMatchesOrder } from '../_shared/paymentGuard.ts';
 import {
   buildOrderPayload,
@@ -1069,6 +1069,13 @@ async function processEventOfferPaymentInline(
 
   if (existingPayment) {
     logStep("v2_payment already exists (idempotent)", { paymentId: existingPayment.id });
+    const retried = await retryMissingDownpaymentInvoice(existingPayment, {
+      fetchFn: fetch,
+      supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+      serviceKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      log: logStep,
+    });
+    if (retried) logStep("Anzahlungsrechnung bei Wiederholung nachgeholt", { result: retried });
     return;
   }
 

@@ -7,6 +7,7 @@ import {
   issueInvoiceForOfferPayment,
   type OfferInvoiceInput,
   resolveOfferPaymentType,
+  retryMissingDownpaymentInvoice,
 } from "./eventOfferInvoice.ts";
 import { findExistingFinalInvoice, loadDownPaymentDeductions } from "./finalInvoiceDeductions.ts";
 
@@ -200,4 +201,18 @@ Deno.test("Idempotenz: Webhook-Wiederholung erzeugt keine zweite Zahlung und kei
   const race = await insertOfferPayment(sb, { event_id: "ev-1", amount_cents: 40000, payment_type: "deposit", source_offer_option_id: "opt-1" });
   assertEquals(race.status, "duplicate");
   assert(sb.tables.v2_payments.length === 1);
+});
+
+Deno.test("Wiederholung: Anzahlung ohne Rechnung stößt die Anzahlungsrechnung erneut an, mit Rechnung/Vollzahlung nicht", async () => {
+  const { fetchFn, calls } = fakeFetch({ "create-lexoffice-downpayment-invoice": { success: true, invoiceId: "inv-dp" } });
+  const d = deps(fetchFn);
+  const sb = fakeSupabase({ v2_payments: [{ id: "p1", event_id: "ev-1", payment_type: "deposit", lexoffice_invoice_id: null, source_offer_option_id: "opt-1" }] });
+  const existing = await findExistingOfferPayment(sb, "opt-1");
+  assert(existing);
+  const r = await retryMissingDownpaymentInvoice(existing, d);
+  assertEquals(r?.kind, "downpayment");
+  assertEquals(calls.map((c) => c.body), [{ payment_id: "p1" }]);
+  assertEquals(await retryMissingDownpaymentInvoice({ ...existing, lexoffice_invoice_id: "x" }, d), null);
+  assertEquals(await retryMissingDownpaymentInvoice({ ...existing, payment_type: "full" }, d), null);
+  assertEquals(calls.length, 1);
 });
