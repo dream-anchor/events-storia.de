@@ -189,6 +189,9 @@ BEGIN
   UPDATE gift_basket_variants SET stock_qty = 2 WHERE id = v_var;   -- Nachpacken im Admin
   PERFORM gift_activate_deferred_holds();
   ASSERT (SELECT stock_conflict_at IS NULL AND stock_conflict_notified_at IS NULL FROM gift_orders WHERE id = o1), 'Hinweis verschwindet samt Alarm-Marker, sobald der Bestand reicht';
+  UPDATE gift_basket_variants SET stock_qty = 1 WHERE id = v_var;   -- Bestand sinkt erneut
+  PERFORM gift_activate_deferred_holds();
+  ASSERT (SELECT stock_conflict_at IS NOT NULL AND stock_conflict_notified_at IS NULL FROM gift_orders WHERE id = o1), 'erneuter Konflikt wird wieder markiert (neuer Alarm)';
 
   -- 14d) Bestätigung über Mitternacht (Termin war beim Anlegen Tag+3, beim Klick Tag+2): gleiche Konfliktprüfung
   DELETE FROM gift_stock_holds WHERE order_id IN (o1, o2, o3);

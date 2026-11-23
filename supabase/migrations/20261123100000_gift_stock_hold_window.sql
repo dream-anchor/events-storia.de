@@ -273,6 +273,20 @@ END $$;
 REVOKE ALL ON FUNCTION public.gift_activate_order_holds(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.gift_activate_order_holds(uuid) TO service_role;
 
+-- true, wenn für mindestens eine Variante der Bestellung (gültiger Hold) der Bestand nach Abzug fremder aktiver Holds nicht reicht
+CREATE OR REPLACE FUNCTION public.gift_order_short_of_stock(p_order_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.gift_stock_holds h JOIN public.gift_basket_variants v ON v.id = h.variant_id
+     WHERE h.order_id = p_order_id AND h.status = 'held' AND NOT v.stock_unlimited
+       AND v.stock_qty - COALESCE((SELECT sum(x.qty) FROM public.gift_stock_holds x
+                                    WHERE x.variant_id = h.variant_id AND x.status = 'held' AND x.expires_at > now()
+                                      AND x.order_id <> p_order_id), 0) < h.qty);
+$$;
+REVOKE ALL ON FUNCTION public.gift_order_short_of_stock(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.gift_order_short_of_stock(uuid) TO service_role;
+
 -- ── Zurückgestellte Holds aktivieren (Eintritt ins 2-Tage-Fenster) + Konflikthinweis aufräumen ──
 -- Liefert je aktivierter Bestellung, ob der Bestand NICHT reichte (conflict). Reservierungen, deren Ende (reservation_until)
 -- schon vorbei ist (Sweep stand lange), verfallen. Danach: Konflikthinweise, die nicht mehr zutreffen (Bestand wurde erhöht,
@@ -317,15 +331,21 @@ BEGIN
     END;
   END LOOP;
 
+  -- Konflikthinweise abgleichen: zurücksetzen, wenn der Bestand wieder reicht; erneut markieren (neuer Alarm), wenn er danach
+  -- wieder fehlt. Bestellungen nur mit SKIP LOCKED (wartet nie auf eine Bestellung, siehe Sperrreihenfolge Bestellung -> Variante).
   BEGIN
     UPDATE public.gift_orders o SET stock_conflict_at = NULL, stock_conflict_notified_at = NULL
-     WHERE o.stock_conflict_at IS NOT NULL AND o.status IN ('reserved','ready')
-       AND NOT EXISTS (
-         SELECT 1 FROM public.gift_stock_holds h JOIN public.gift_basket_variants v ON v.id = h.variant_id
-          WHERE h.order_id = o.id AND h.status IN ('held','deferred') AND NOT v.stock_unlimited
-            AND v.stock_qty - COALESCE((SELECT sum(x.qty) FROM public.gift_stock_holds x
-                                         WHERE x.variant_id = h.variant_id AND x.status = 'held' AND x.expires_at > now()
-                                           AND x.order_id <> o.id), 0) < h.qty);
+     WHERE o.id IN (
+       SELECT o2.id FROM public.gift_orders o2
+        WHERE o2.stock_conflict_at IS NOT NULL AND o2.status IN ('reserved','ready')
+          AND NOT public.gift_order_short_of_stock(o2.id)
+        FOR UPDATE OF o2 SKIP LOCKED);
+    UPDATE public.gift_orders o SET stock_conflict_at = now()
+     WHERE o.id IN (
+       SELECT o2.id FROM public.gift_orders o2
+        WHERE o2.stock_conflict_at IS NULL AND o2.status IN ('reserved','ready') AND o2.payment_method = 'on_site'
+          AND public.gift_order_short_of_stock(o2.id)
+        FOR UPDATE OF o2 SKIP LOCKED);
   EXCEPTION WHEN deadlock_detected THEN
     NULL;
   END;
@@ -362,7 +382,7 @@ BEGIN
              AND EXISTS (SELECT 1 FROM public.gift_stock_holds h WHERE h.order_id = o.id AND h.status = 'released'))
        )
      ORDER BY o.id
-       FOR UPDATE OF o
+       FOR UPDATE OF o SKIP LOCKED   -- läuft alle 5 Min; gesperrte Bestellungen (Webhook, Admin) kommen im nächsten Lauf dran
   LOOP
     UPDATE public.gift_stock_holds h SET status = 'released'
      WHERE h.order_id = r.id AND h.status IN ('held','deferred') AND h.expires_at <= now();
