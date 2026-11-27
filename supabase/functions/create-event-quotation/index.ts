@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { requireAuth, AuthError } from '../_shared/auth.ts';
+import { shouldSplitOfferAsEventPackage, splitEventPackageLine } from '../_shared/eventVatSplit.ts';
 import {
   loadBusinessData,
   resolveLocationAddress,
@@ -331,6 +332,8 @@ function buildLineItems(
   opt: OfferOption,
   packageName: string | null,
   guestOverride?: number,
+  /** Paket-Modus: Paketzeile 70/30 teilen (reines Paket mit Getränken, ohne Anzahlungsabzug; Entscheidung 27.11.2026) */
+  splitPackageVat = false,
 ): LexOfficeLineItem[] {
   const ms = opt.menu_selection;
   const guestCount = guestOverride && guestOverride > 0
@@ -837,18 +840,31 @@ function buildLineItems(
       ? `Inklusive:\n${inclLines.join('\n')}`
       : '';
 
-    items.push({
-      type: 'custom',
-      name: packageName || 'Veranstaltungspaket',
-      description,
-      quantity: guestCount,
-      unitName: 'Person',
-      unitPrice: {
-        currency: 'EUR',
-        grossAmount: unitPriceBrutto,
-        taxRatePercentage: 7,
-      },
-    });
+    if (splitPackageVat) {
+      // 70 % Speisen zu 7 %, 30 % Getränke zu 19 % (§ 12 Abs. 2 Nr. 15 UStG, BMF 22.12.2025); Summe = bisherige Zeile, cent-genau
+      splitEventPackageLine({ name: packageName || 'Veranstaltungspaket', quantity: guestCount, price: unitPriceBrutto })
+        .forEach((part, idx) => items.push({
+          type: 'custom',
+          name: part.name,
+          description: idx === 0 ? description : '',
+          quantity: part.quantity,
+          unitName: part.quantity === guestCount ? 'Person' : 'Pauschale',
+          unitPrice: { currency: 'EUR', grossAmount: part.grossAmount, taxRatePercentage: part.taxRatePercentage },
+        }));
+    } else {
+      items.push({
+        type: 'custom',
+        name: packageName || 'Veranstaltungspaket',
+        description,
+        quantity: guestCount,
+        unitName: 'Person',
+        unitPrice: {
+          currency: 'EUR',
+          grossAmount: unitPriceBrutto,
+          taxRatePercentage: 7,
+        },
+      });
+    }
 
     for (const d of (ms?.drinks || [])) {
       const name = d.customDrink || d.selectedChoice || d.drinkLabel;
@@ -1395,46 +1411,19 @@ serve(async (req) => {
     )] as string[];
 
     const packageNameMap: Record<string, string> = {};
+    const packageTypeMap: Record<string, string | null> = {};
     if (packageIds.length > 0) {
       const { data: pkgs } = await supabase
         .from('packages')
-        .select('id, name')
+        .select('id, name, package_type')
         .in('id', packageIds);
       for (const p of pkgs || []) {
         packageNameMap[p.id] = p.name;
+        packageTypeMap[p.id] = p.package_type ?? null;
       }
     }
 
-    // 4. Line-Items aus allen aktiven Optionen bauen.
-    //    Bei mehreren Varianten ohne Kundenauswahl: erste Variante als parent,
-    //    weitere als `subItems[].alternative=true` (Lex-API "OR"-Position).
-    //    So wird die Summe der Quotation NICHT aufaddiert.
-    //    WICHTIG: Pursue (Angebot → Rechnung) wird von Lex mit 406 abgelehnt,
-    //    solange alternative/optional Items enthalten sind. Daher nur im
-    //    reinen Angebots-Modus (kein forceDocumentType, keine Auswahl).
     const isInvoiceOrOrder = forceDocumentType === 'invoice' || forceDocumentType === 'order';
-    const useAlternatives = !useSelectedQuantity && !isInvoiceOrOrder && workingOptions.length > 1;
-    const lineItems: LexOfficeLineItem[] = [];
-    if (useAlternatives) {
-      const variants: LexOfficeLineItem[] = (workingOptions as OfferOption[]).map((opt) => {
-        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
-        return buildVariantLineItem(opt, pkgName);
-      });
-      const parent = variants[0];
-      parent.subItems = variants.slice(1).map((v) => ({ ...v, alternative: true }));
-      lineItems.push(parent);
-    } else {
-      for (const opt of workingOptions as Array<OfferOption & { selected_quantity?: number | null }>) {
-        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
-        const guestOverride = useSelectedQuantity ? (opt.selected_quantity ?? 0) : undefined;
-        lineItems.push(...buildLineItems(opt, pkgName, guestOverride));
-      }
-    }
-
-    if (lineItems.length === 0) {
-      throw new Error('Keine Positionen für das Angebot — Menü oder Paket konfigurieren');
-    }
-
     // ── Anzahlungsabzug (Schlussrechnung) ──────────────────────────────────
     // Pro vorausgegangener Anzahlungsrechnung eine eigene negative Brutto-
     // Zeile anhängen. Pflicht nach § 14 Abs. 5 UStG: Rechnungsnummer + Datum
@@ -1480,6 +1469,43 @@ serve(async (req) => {
           total: effectiveDeductions.reduce((s, d) => s + d.gross, 0),
         });
       }
+    }
+
+    // 4. Line-Items aus allen aktiven Optionen bauen.
+    //    Bei mehreren Varianten ohne Kundenauswahl: erste Variante als parent,
+    //    weitere als `subItems[].alternative=true` (Lex-API "OR"-Position).
+    //    So wird die Summe der Quotation NICHT aufaddiert.
+    //    WICHTIG: Pursue (Angebot → Rechnung) wird von Lex mit 406 abgelehnt,
+    //    solange alternative/optional Items enthalten sind. Daher nur im
+    //    reinen Angebots-Modus (kein forceDocumentType, keine Auswahl).
+    const useAlternatives = !useSelectedQuantity && !isInvoiceOrOrder && workingOptions.length > 1;
+    const lineItems: LexOfficeLineItem[] = [];
+    if (useAlternatives) {
+      const variants: LexOfficeLineItem[] = (workingOptions as OfferOption[]).map((opt) => {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        return buildVariantLineItem(opt, pkgName);
+      });
+      const parent = variants[0];
+      parent.subItems = variants.slice(1).map((v) => ({ ...v, alternative: true }));
+      lineItems.push(parent);
+    } else {
+      for (const opt of workingOptions as Array<OfferOption & { selected_quantity?: number | null }>) {
+        const pkgName = opt.package_id ? packageNameMap[opt.package_id] || null : null;
+        const guestOverride = useSelectedQuantity ? (opt.selected_quantity ?? 0) : undefined;
+        // 70/30 nur für ein reines Paket mit Getränken (event/gruppenreisen, kein Speisen-Paket, keine Zusatzposten) und nur
+        // ohne Anzahlungsabzug: die Anzahlungsrechnungen wurden zu 7 % ausgestellt, ihr Abzug (§ 14 Abs. 5 UStG) muss dazu passen.
+        const splitPackageVat = effectiveDeductions.length === 0 && shouldSplitOfferAsEventPackage({
+          offerMode: opt.offer_mode,
+          packageType: opt.package_id ? packageTypeMap[opt.package_id] ?? null : null,
+          menuSelection: opt.menu_selection as Record<string, unknown> | null,
+          packageId: opt.package_id,
+        });
+        lineItems.push(...buildLineItems(opt, pkgName, guestOverride, splitPackageVat));
+      }
+    }
+
+    if (lineItems.length === 0) {
+      throw new Error('Keine Positionen für das Angebot — Menü oder Paket konfigurieren');
     }
 
     if (effectiveDeductions.length > 0) {
