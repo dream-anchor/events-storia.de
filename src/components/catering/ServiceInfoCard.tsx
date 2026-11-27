@@ -57,20 +57,20 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
               <p className="font-medium">1–8 km (München)</p>
-              <p className="text-muted-foreground mt-1">50€ netto pro Fahrt</p>
-              <p className="text-xs text-muted-foreground">• Pizza: 1× Hinfahrt (50€)</p>
-              <p className="text-xs text-muted-foreground">• Catering mit Equipment: Hin + Rückfahrt (100€)</p>
+              <p className="text-muted-foreground mt-1">59,50€ pro Fahrt</p>
+              <p className="text-xs text-muted-foreground">• Pizza: 1× Hinfahrt (59,50€)</p>
+              <p className="text-xs text-muted-foreground">• Catering mit Equipment: Hin + Rückfahrt (119€)</p>
               <p className="text-xs text-muted-foreground mt-1">Mindestbestellwert: 150€</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
               <p className="font-medium">&gt; 8 km</p>
-              <p className="text-muted-foreground mt-1">1,20€ netto pro km</p>
+              <p className="text-muted-foreground mt-1">59,50€ pro Fahrt + 1,43€ pro km</p>
               <p className="text-xs text-muted-foreground">• Pizza: 1× Strecke</p>
               <p className="text-xs text-muted-foreground">• Catering mit Equipment: 2× Strecke</p>
               <p className="text-xs text-muted-foreground mt-1">Mindestbestellwert: 200€</p>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Alle Preise zzgl. 19% MwSt.</p>
+          <p className="text-xs text-muted-foreground mt-2">Alle Preise inkl. MwSt.</p>
         </div>
         <div className="border-t pt-3 space-y-3">
           <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
@@ -99,20 +99,20 @@ const ServicePopoverContent = ({ serviceKey, language }: { serviceKey: string; l
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
               <p className="font-medium">1–8 km (Munich)</p>
-              <p className="text-muted-foreground mt-1">€50 net per trip</p>
-              <p className="text-xs text-muted-foreground">• Pizza: 1× one-way (€50)</p>
-              <p className="text-xs text-muted-foreground">• Catering with equipment: round trip (€100)</p>
+              <p className="text-muted-foreground mt-1">€59.50 per trip</p>
+              <p className="text-xs text-muted-foreground">• Pizza: 1× one-way (€59.50)</p>
+              <p className="text-xs text-muted-foreground">• Catering with equipment: round trip (€119)</p>
               <p className="text-xs text-muted-foreground mt-1">Minimum order: €150</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
               <p className="font-medium">&gt; 8 km</p>
-              <p className="text-muted-foreground mt-1">€1.20 net per km</p>
+              <p className="text-muted-foreground mt-1">€59.50 per trip + €1.43 per km</p>
               <p className="text-xs text-muted-foreground">• Pizza: 1× distance</p>
               <p className="text-xs text-muted-foreground">• Catering with equipment: 2× distance</p>
               <p className="text-xs text-muted-foreground mt-1">Minimum order: €200</p>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">All prices plus 19% VAT.</p>
+          <p className="text-xs text-muted-foreground mt-2">All prices incl. VAT.</p>
         </div>
         <div className="border-t pt-3 space-y-3">
           <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">

@@ -119,3 +119,68 @@ test("Event-Paket: 70 % zu 7 %, 30 % zu 19 %", () => {
   // 119,00 brutto: MwSt. 7 % auf 83,30 = 5,45; MwSt. 19 % auf 35,70 = 5,70 -> Netto 107,85
   assert.equal(netCentsOfParts(packageParts(119)), 10785);
 });
+
+// ─── Umsatzsteuer-Entscheidungen 27.11.2026 (Anzeige im Warenkorb/Checkout/Erfolgsseite) ─────────
+const BENVENUTI = "event-d8cfcf08-9997-4f0a-8a3c-cc598dd11ce3"; // Gruppenreise mit Getränken
+const CANDLE_48 = "event-5a434d47-d21a-4887-92a1-487e837d22d9"; // nur Speisen
+
+test("E1 Gruppenreise Benvenuti 45 EUR x 20 = 900,00: 70/30, Netto 815,68 (vorher bereits 70/30 in der Anzeige)", () => {
+  const items: CartLine[] = [{ id: BENVENUTI, price: 45, quantity: 20 }];
+  // 630,00 -> MwSt. 41,21 (7 %); 270,00 -> MwSt. 43,11 (19 %); Netto = 900,00 - 84,32 = 815,68
+  assert.equal(netCentsOfParts(cateringLineParts(items)), 81568);
+  const b = quoteNetBreakdown(makeQuote(items));
+  assert.equal(toCents(b.vat7Food), 4121);
+  assert.equal(toCents(b.vat19Drinks), 4311);
+  assert.equal(b.netC, 81568);
+});
+
+test("E2 Speisen-Paket Candlelight 48 EUR x 10 = 480,00: nur 7 %, Netto 448,60 (vorher 435,03 mit 70/30)", () => {
+  const items: CartLine[] = [{ id: CANDLE_48, price: 48, quantity: 10 }];
+  assert.deepEqual(lineParts(CANDLE_48, 480), [{ gross: 480, vatRate: 0.07 }]);
+  assert.equal(netCentsOfParts(cateringLineParts(items)), 44860);
+  assert.equal(netCentsOfParts(packageParts(480)), 43503); // alte Anzeige: 336,00 / 1,07 + 144,00 / 1,19
+  const b = quoteNetBreakdown(makeQuote(items));
+  assert.equal(toCents(b.vat7Food), 3140);
+  assert.equal(b.vat19Drinks, 0);
+  assert.equal(b.netC, 44860);
+  // Warenkorb = Checkout auf den Cent
+  assert.equal(allocateNetCents(items.map(i => itemParts(i, i.quantity))).total, b.netC);
+});
+
+test("E5 Chafing 25 EUR: Netto 21,01 / MwSt. 3,99 zu 19 % (vorher 23,36 / 1,64 zu 7 %), Warenkorb und Checkout gleich", () => {
+  assert.deepEqual(lineParts("chafing-dish", 25), [{ gross: 25, vatRate: 0.19 }]);
+  assert.equal(VAT_RATES.CHAFING, 0.19);
+  assert.equal(lineNetCents(25, VAT_RATES.CHAFING), 2101);
+  // Warenkorb-Chafing (kind chafing_cart, ID chafing-dish) + Checkout-Chafing
+  const q = makeQuote([{ id: "a", price: 30, quantity: 10 }, { id: "chafing-dish", price: 25, quantity: 1 }], { chafingCheckout: 5000 });
+  q.lines[1].kind = "chafing_cart";
+  const b = quoteNetBreakdown(q);
+  assert.equal(toCents(b.vat19Rental), 1197); // 75,00 - 75,00 / 1,19 = 11,97
+  assert.equal(toCents(b.vat7Food), 1963); // 300,00 zu 7 %
+  assert.equal(b.chafingNetC, 4202); // Checkout-Zeile 50,00 -> 42,02
+  const net = splitNetCents(b.grandTotal, b.vat7Food, b.vat19Drinks, b.vat19Delivery, b.vat19Rental);
+  assert.equal(net.netC, b.netC);
+  assert.equal(net.netC + net.vat7C + net.vat19C, q.totalCents); // 375,00 brutto unverändert
+  assert.equal(b.subtotalNetC + b.chafingNetC + b.surchargeNetC + b.deliveryNetC, b.netC);
+  // Warenkorb-Netto (ohne Checkout-Chafing) = Checkout-Netto derselben Zeilen
+  const cartOnly = makeQuote([{ id: "a", price: 30, quantity: 10 }, { id: "chafing-dish", price: 25, quantity: 1 }]);
+  cartOnly.lines[1].kind = "chafing_cart";
+  assert.equal(allocateNetCents([itemParts({ id: "a", price: 30 }, 10), itemParts({ id: "chafing-dish", price: 25 }, 1)]).total, quoteNetBreakdown(cartOnly).netC);
+});
+
+test("E4 reine Speisenlieferung 119,00: Lieferung zu 7 % (Netto 111,21), 19-%-Zeile entfällt; mit 19 % wie bisher 100,00", () => {
+  const base = makeQuote([{ id: "a", price: 30, quantity: 10 }], { delivery: 11900 });
+  const at7 = quoteNetBreakdown({ ...base, delivery: { deliveryVatRate: 0.07 } } as typeof base);
+  assert.equal(at7.deliveryVatRate, 0.07);
+  assert.equal(at7.vat19Delivery, 0);
+  assert.equal(at7.deliveryNetC, 11121);
+  // 7 % auf 300,00 + 119,00 = 419,00 gemeinsam gerundet (wie Lexoffice je Steuersatz): 27,41 (einzeln 19,63 + 7,79)
+  assert.equal(toCents(at7.vat7Food), 2741);
+  assert.equal(at7.netC + toCents(at7.vat7Food), base.totalCents); // 419,00 brutto unverändert
+  assert.equal(at7.subtotalNetC + at7.surchargeNetC + at7.deliveryNetC + at7.chafingNetC, at7.netC);
+  const at19 = quoteNetBreakdown({ ...base, delivery: { deliveryVatRate: 0.19 } } as typeof base);
+  assert.equal(at19.deliveryNetC, 10000);
+  assert.equal(toCents(at19.vat19Delivery), 1900);
+  // ohne Satz im Angebot (ältere Server-Version): 19 %
+  assert.equal(quoteNetBreakdown(base).deliveryVatRate, 0.19);
+});

@@ -7,7 +7,7 @@ import CateringCTA from "@/components/CateringCTA";
 import SEO from "@/components/SEO";
 import StructuredData from "@/components/StructuredData";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { usePriceDisplay } from "@/contexts/PriceDisplayContext";
+import { usePriceDisplay, VAT_RATES } from "@/contexts/PriceDisplayContext";
 import { useCateringMenuBySlug, CateringMenuItem } from "@/hooks/useCateringMenus";
 import { useCart } from "@/contexts/CartContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -190,7 +190,7 @@ const ChafingDishOption = ({ language }: { language: string }) => {
           <div>
             <p className="text-lg font-serif font-medium flex items-center gap-2">
               {language === 'de' ? 'Optional: Chafing Dish' : 'Optional: Chafing Dish'}
-              <span className="text-primary font-bold">+{formatPrice(chafingDish.price)}</span>
+              <span className="text-primary font-bold">+{formatPrice(chafingDish.price, VAT_RATES.CHAFING)}</span>
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               {language === 'de' ? chafingDish.description : chafingDish.description_en}

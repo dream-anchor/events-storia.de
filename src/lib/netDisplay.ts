@@ -1,12 +1,15 @@
 // Netto-Anzeige: reine Rechenhelfer ohne React (auch in Tests nutzbar). Nur Anzeige, der Zahlbetrag bleibt immer der Server-Brutto-Betrag.
 import { formatEuroTruncated } from "@/lib/gift/mixedCart";
 import type { OrderQuote } from "@/lib/orderQuote";
+import { CHAFING_VAT_PERCENT, packageHasDrinks } from "@/lib/vatRules";
 
 /** Steuersätze (wie PriceDisplayContext.VAT_RATES, hier gespiegelt, damit dieses Modul ohne React auskommt). */
 const RATE_FOOD = 0.07;
 const RATE_DRINKS = 0.19;
+/** Regelsatz der Lieferung, falls das Angebot keinen Satz trägt (ältere Server-Version) */
 const RATE_DELIVERY = 0.19;
-/** Event-Pakete: 70 % Speisen (7 %) / 30 % Getränke (19 %) */
+const RATE_CHAFING = CHAFING_VAT_PERCENT / 100;
+/** Event-Pakete mit Getränken: 70 % Speisen (7 %) / 30 % Getränke (19 %); reine Speisen-Pakete 7 % (vatRules.ts) */
 const PACKAGE_FOOD_PORTION = 0.7;
 
 /** Euro in ganze Cent runden (Float-Rauschen entfernen). */
@@ -17,9 +20,9 @@ export const toCents = (euro: number): number => Math.round(euro * 100);
  * Die Steuerbeträge werden je auf den Cent gerundet, die Netto-Summe ist der REST (Brutto minus Steuer),
  * damit Netto + MwSt. immer genau den Zahlbetrag ergeben.
  */
-export function splitNetCents(grandTotal: number, vat7Food: number, vat19Drinks: number, vat19Delivery: number) {
+export function splitNetCents(grandTotal: number, vat7Food: number, vat19Drinks: number, vat19Delivery: number, vat19Rental = 0) {
   const vat7C = toCents(vat7Food);
-  const vat19C = toCents(vat19Drinks + vat19Delivery);
+  const vat19C = toCents(vat19Drinks + vat19Delivery + vat19Rental);
   const netC = toCents(grandTotal) - vat7C - vat19C;
   return { vat7C, vat19C, netC };
 }
@@ -41,9 +44,15 @@ export const formatCents = (cents: number): string => formatEuroTruncated(cents 
 /** Steuergrundlagen und Netto-Aufschlüsselung EINES Server-Angebots: alles aus derselben Quelle wie `quote.totalCents`. */
 export interface QuoteNetBreakdown {
   grandTotal: number;
+  /** alle 7-%-Steuer: Speisen, Speisenanteil der Pakete, Aufschlag und (bei reiner Speisenlieferung) die Lieferung */
   vat7Food: number;
   vat19Drinks: number;
+  /** 19-%-Steuer der Lieferung (0, wenn die Lieferung zu 7 % läuft) */
   vat19Delivery: number;
+  /** 19-%-Steuer der Chafing-Dish-Leihgeräte (Warenkorb und Checkout) */
+  vat19Rental: number;
+  /** Steuersatz der Lieferung laut Angebot (0,07 oder 0,19) */
+  deliveryVatRate: number;
   /** Netto-Gesamtbetrag (Rest aus Brutto minus gerundete Steuer) in Cent */
   netC: number;
   /** Netto-Zwischensumme der Positionen (ohne Aufschlag, Lieferung und im Checkout gebuchtes Chafing) in Cent */
@@ -54,16 +63,21 @@ export interface QuoteNetBreakdown {
   chafingNetC: number;
 }
 
-export function quoteNetBreakdown(quote: Pick<OrderQuote, "lines" | "surchargeCents" | "deliveryCents" | "totalCents">): QuoteNetBreakdown {
+export function quoteNetBreakdown(
+  quote: Pick<OrderQuote, "lines" | "surchargeCents" | "deliveryCents" | "totalCents"> & { delivery?: { deliveryVatRate?: number } | null },
+): QuoteNetBreakdown {
   let vat7 = 0;
   let vat19Drinks = 0;
+  let vat19Rental = 0;
   for (const line of quote.lines) {
     const gross = line.lineCents / 100;
-    if (line.kind === "event_package") {
+    if (line.kind === "event_package" && packageHasDrinks(line.id)) {
       const food = gross * PACKAGE_FOOD_PORTION;
       const drinks = gross - food;
       vat7 += food - food / (1 + RATE_FOOD);
       vat19Drinks += drinks - drinks / (1 + RATE_DRINKS);
+    } else if (line.kind === "chafing_cart" || line.kind === "chafing_checkout") {
+      vat19Rental += gross - gross / (1 + RATE_CHAFING);
     } else {
       vat7 += gross - gross / (1 + RATE_FOOD);
     }
@@ -71,19 +85,24 @@ export function quoteNetBreakdown(quote: Pick<OrderQuote, "lines" | "surchargeCe
   const surcharge = quote.surchargeCents / 100;
   vat7 += surcharge - surcharge / (1 + RATE_FOOD);
   const delivery = quote.deliveryCents / 100;
-  const vat19Delivery = delivery - delivery / (1 + RATE_DELIVERY);
+  const deliveryVatRate = quote.delivery?.deliveryVatRate === RATE_FOOD ? RATE_FOOD : RATE_DELIVERY;
+  const deliveryVat = delivery - delivery / (1 + deliveryVatRate);
+  if (deliveryVatRate === RATE_FOOD) vat7 += deliveryVat;
+  const vat19Delivery = deliveryVatRate === RATE_FOOD ? 0 : deliveryVat;
   const grandTotal = quote.totalCents / 100;
-  const { netC } = splitNetCents(grandTotal, vat7, vat19Drinks, vat19Delivery);
+  const { netC } = splitNetCents(grandTotal, vat7, vat19Drinks, vat19Delivery, vat19Rental);
   const chafingNetC = quote.lines
     .filter(l => l.kind === "chafing_checkout")
-    .reduce((sum, l) => sum + lineNetCents(l.lineCents / 100, RATE_FOOD), 0);
+    .reduce((sum, l) => sum + lineNetCents(l.lineCents / 100, RATE_CHAFING), 0);
   const surchargeNetC = lineNetCents(surcharge, RATE_FOOD);
-  const deliveryNetC = lineNetCents(delivery, RATE_DELIVERY);
+  const deliveryNetC = lineNetCents(delivery, deliveryVatRate);
   return {
     grandTotal,
     vat7Food: vat7,
     vat19Drinks,
     vat19Delivery,
+    vat19Rental,
+    deliveryVatRate,
     netC,
     subtotalNetC: subtotalNetCents(netC, [surchargeNetC, chafingNetC, deliveryNetC]),
     surchargeNetC,
