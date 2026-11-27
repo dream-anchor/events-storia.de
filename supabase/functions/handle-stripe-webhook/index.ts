@@ -11,6 +11,7 @@ import { ensureGiftInvoice } from '../_shared/giftInvoice.ts';
 import { asyncHoldExtensionUntil, computeExpectedMixedAmount, giftLinkedToCatering, isMixedAmountOk, shouldHandleGiftInCatering } from '../_shared/giftMixed.ts';
 import { markEventBookingPaid } from '../_shared/eventPayment.ts';
 import { shouldSplitOfferAsEventPackage } from '../_shared/eventVatSplit.ts';
+import { cateringDeliveryVatPercent } from '../_shared/vatRules.ts';
 import { alertIfDoublePayment, checkPaymentMatchesOrder } from '../_shared/paymentGuard.ts';
 import {
   buildOrderPayload,
@@ -1196,11 +1197,13 @@ async function processEventOfferPaymentInline(
       },
       items: [{
         id: option.package_id || 'offer-package', // kein `event-`-Präfix: Split nur über isEventPackage
-        // 70/30 nur für reine Event-Pakete ohne Zusatzposten (BMF 22.12.2025); sonst wie bisher 7 %
+        // 70/30 nur für reine Pakete mit Getränken (event und gruppenreisen) ohne Zusatzposten (BMF 22.12.2025,
+        // Entscheidung 27.11.2026); Speisen-Pakete und Angebote mit Zusatzposten wie bisher eine 7-%-Zeile
         isEventPackage: shouldSplitOfferAsEventPackage({
           offerMode: option.offer_mode,
           packageType: Array.isArray(option.packages) ? option.packages[0]?.package_type : option.packages?.package_type,
           menuSelection: option.menu_selection,
+          packageId: option.package_id,
         }),
         name: `Event-Paket: ${option.label}`,
         quantity: option.guest_count,
@@ -1905,13 +1908,19 @@ async function logActivity(supabase: any, entry: {
 }
 
 // deno-lint-ignore no-explicit-any
-function buildLexofficePayload(order: any, _metadata: Record<string, string>) {
+function buildLexofficePayload(order: any, metadata: Record<string, string>) {
   const items = (order.items || []).map((item: { id: string; name: string; quantity: number; price: number }) => ({
     id: item.id,
     name: item.name,
     quantity: item.quantity,
     price: item.price,
   }));
+  // Lieferkosten: 7 % als Nebenleistung einer reinen Speisenlieferung, sonst 19 % (_shared/vatRules.ts, Entscheidung 27.11.2026).
+  // Mischbestellung (Session trägt gift_order_id): Körbe fahren mit, bleibt 19 %. Gleiche Regel wie das Server-Angebot im Checkout.
+  const deliveryTaxRatePercentage = cateringDeliveryVatPercent({
+    itemIds: items.map((i: { id: string }) => String(i.id ?? "")),
+    hasGiftBaskets: !!metadata?.gift_order_id,
+  });
 
   return {
     orderId: order.id,
@@ -1930,6 +1939,7 @@ function buildLexofficePayload(order: any, _metadata: Record<string, string>) {
     items,
     subtotal: (order.total_amount || 0) - (order.delivery_cost || 0) - (order.minimum_order_surcharge || 0),
     deliveryCost: order.delivery_cost || 0,
+    deliveryTaxRatePercentage,
     minimumOrderSurcharge: order.minimum_order_surcharge || 0,
     distanceKm: order.calculated_distance_km || undefined,
     grandTotal: order.total_amount,

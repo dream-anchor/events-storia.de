@@ -1,10 +1,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { cateringItemVatPercent, packageHasDrinks, PACKAGE_LINE_PREFIX } from '@/lib/vatRules';
 
-// VAT rates as of January 2026
+// VAT rates as of January 2026 (Regeln je Position: src/lib/vatRules.ts = supabase/functions/_shared/vatRules.ts)
 export const VAT_RATES = {
   FOOD: 0.07,      // 7% for food
   DRINKS: 0.19,    // 19% for drinks
-  DELIVERY: 0.19,  // 19% for delivery services
+  /** Regelsatz der Lieferung; bei reiner Speisenlieferung 7 % (Satz kommt aus dem Server-Angebot: delivery.deliveryVatRate) */
+  DELIVERY: 0.19,
+  /** Chafing Dish: separat buchbare Leihleistung (Entscheidung 27.11.2026) */
+  CHAFING: 0.19,
 } as const;
 
 // 70/30 split for packages including food + drinks (BMF simplified rule)
@@ -37,11 +41,16 @@ export const packageParts = (gross: number): PricePart[] => [
   { gross: gross * PACKAGE_SPLIT.DRINKS_PORTION, vatRate: VAT_RATES.DRINKS },
 ];
 
-/** Steuerteile eines Brutto-Betrags nach Zeilen-ID: Event-Pakete (ID `event-…`) 70/30, alles andere 7 %. */
-export const lineParts = (id: string, gross: number): PricePart[] =>
-  id.startsWith('event-') ? packageParts(gross) : [{ gross, vatRate: VAT_RATES.FOOD }];
+/**
+ * Steuerteile eines Brutto-Betrags nach Zeilen-ID (vatRules.ts): Pakete (ID `event-…`) mit Getränken 70/30, reine
+ * Speisen-Pakete 7 %, Chafing-Leihgerät 19 %, alle anderen Speisen 7 %.
+ */
+export const lineParts = (id: string, gross: number): PricePart[] => {
+  if (id.startsWith(PACKAGE_LINE_PREFIX)) return packageHasDrinks(id) ? packageParts(gross) : [{ gross, vatRate: VAT_RATES.FOOD }];
+  return [{ gross, vatRate: cateringItemVatPercent(id) / 100 }];
+};
 
-/** Steuerteile EINER Warenkorb-Zeile (Stückpreis): Event-Pakete (ID `event-…`) 70/30, alles andere 7 %. */
+/** Steuerteile EINER Warenkorb-Zeile (Stückpreis), Regeln wie lineParts. */
 export const itemParts = (item: { id: string; price: number }, quantity = 1): PricePart[] =>
   lineParts(item.id, item.price * quantity);
 
@@ -58,7 +67,7 @@ export const netCentsOfParts = (parts: PricePart[]): number => {
   const vat = (rate: number) =>
     parts.filter(p => p.vatRate === rate).reduce((sum, p) => sum + (p.gross - p.gross / (1 + p.vatRate)), 0);
   const rates = Array.from(new Set(parts.map(p => p.vatRate)));
-  // Sätze mit gleichem Ergebnis wie im Checkout: 7 % einzeln, alle 19-%-Anteile (Getränke, Lieferung) zusammen gerundet
+  // Sätze mit gleichem Ergebnis wie im Checkout: 7 % einzeln, alle 19-%-Anteile (Getränke, Chafing, Lieferung) zusammen gerundet
   const vatCents = rates.reduce((sum, r) => sum + Math.round(vat(r) * 100), 0);
   return Math.round(gross * 100) - vatCents;
 };

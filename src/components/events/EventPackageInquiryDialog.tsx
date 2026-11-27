@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { usePriceDisplay, packageParts } from "@/contexts/PriceDisplayContext";
+import { usePriceDisplay, lineParts } from "@/contexts/PriceDisplayContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,8 +58,8 @@ const EventPackageInquiryDialog = ({
 }: EventPackageInquiryDialogProps) => {
   const { language } = useLanguage();
   const { formatPriceMixed } = usePriceDisplay();
-  // Event-Pakete: 70 % Speisen (7 %) / 30 % Getränke (19 %), in der Netto-Ansicht entsprechend getrennt umgerechnet
-  const formatPrice = (gross: number): string => formatPriceMixed(packageParts(gross));
+  // Pakete mit Getränken: 70 % Speisen (7 %) / 30 % Getränke (19 %); reine Speisen-Pakete 7 % (vatRules.ts). Nur Netto-Ansicht.
+  const formatPrice = (gross: number): string => formatPriceMixed(lineParts(`event-${packageId}`, gross));
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);

@@ -66,8 +66,10 @@ Deno.test("Echte Werte: 12 Lasagne, 12,34 km einfach => Gebühr 154,25, gespeich
   const q = ok(buildOrderQuote(req({ isPickup: false }), ctx({ oneWayKm: 12.34 })));
   assertEquals(q.delivery?.oneWayDistanceKm, 12.34);
   assertEquals(q.delivery?.trips, 2);
-  assertEquals(q.deliveryCents, 15425);
-  assertEquals(q.delivery?.deliveryCostNet, 129.62);
+  assertEquals(q.deliveryCents, 15425); // Brutto unverändert (Tarif 129,62 netto x 1,19)
+  // reine Speisenlieferung: Lieferkosten zu 7 % (Entscheidung 27.11.2026), vorher 129,62 netto zu 19 %
+  assertEquals(q.delivery?.deliveryVatRate, 0.07);
+  assertEquals(q.delivery?.deliveryCostNet, 144.16);
   assertEquals(q.surchargeCents, 0); // 360 >= 200
   assertEquals(q.totalCents, 36000 + 15425);
 });

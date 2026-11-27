@@ -31,6 +31,7 @@ import StickySummary from '@/components/checkout/StickySummary';
 import { VatTotals } from '@/components/checkout/VatTotals';
 import { PriceDisplayToggle } from '@/components/checkout/PriceDisplayToggle';
 import { splitNetCents, lineNetCents, subtotalNetCents, formatCents, quoteNetBreakdown } from '@/lib/netDisplay';
+import { CHAFING_LINE_ID, packageHasDrinks } from '@/lib/vatRules';
 import PaymentMethodCard from '@/components/checkout/PaymentMethodCard';
 import TimeSlotGrid from '@/components/checkout/TimeSlotGrid';
 import SaveForLaterCheckbox from '@/components/checkout/SaveForLaterCheckbox';
@@ -183,8 +184,9 @@ const formatCurrency = (value: number): string => {
   return truncated.toFixed(2).replace('.', ',');
 };
 
-// Lieferkosten-Info: gespiegelt aus supabase/functions/calculate-delivery/index.ts
-// (NETTO-Konstanten dort; hier brutto inkl. 19 % USt angezeigt, wie im Warenkorb).
+// Lieferkosten-Info: gespiegelt aus supabase/functions/_shared/cateringPricing.ts
+// (NETTO-Tarif dort, Brutto = Tarif x 1,19). Angezeigt wird der Bruttobetrag; der Steuersatz der Lieferung ist 7 % bei reiner
+// Speisenlieferung, sonst 19 % (vatRules.ts), der Bruttobetrag bleibt in beiden Fällen gleich.
 const DELIVERY_INFO = {
   vatRate: 0.19,
   netPerTrip: 50,        // 1–8 km: 50 € netto je Fahrt; über 8 km: Anfahrtspauschale 50 € netto je Fahrt
@@ -784,14 +786,19 @@ const CateringCheckout = () => {
   const quoteChafingLine = quote?.lines.find(l => l.kind === 'chafing_checkout') ?? null;
   const chafingQtyShown = quote ? (quoteChafingLine?.quantity ?? 0) : chafingDishQuantity;
   const chafingGrossShown = quote ? (quoteChafingLine ? quoteChafingLine.lineCents / 100 : 0) : chafingDishGross;
-  const chafingDishNet = chafingDishGross / 1.07;
+  const chafingDishNet = chafingDishGross / (1 + VAT_RATES.CHAFING); // Leihgerät 19 % (vatRules.ts)
   
+  // Vorschau ohne Server-Angebot: Pakete mit Getränken 70/30, Speisen-Pakete und Speisen 7 %, Warenkorb-Chafing 19 % (vatRules.ts)
+  const isSplitPackage = (id: string) => id.startsWith('event-') && packageHasDrinks(id);
   const eventPackagesGross = cateringItems
-    .filter(item => item.id.startsWith('event-'))
+    .filter(item => isSplitPackage(item.id))
     .reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
+  const cartChafingGross = cateringItems
+    .filter(item => item.id === CHAFING_LINE_ID)
+    .reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const regularFoodGross = cateringItems
-    .filter(item => !item.id.startsWith('event-'))
+    .filter(item => !isSplitPackage(item.id) && item.id !== CHAFING_LINE_ID)
     .reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
   const pkgFoodGross = eventPackagesGross * 0.70;
@@ -801,8 +808,10 @@ const CateringCheckout = () => {
   const pkgFoodVat = pkgFoodGross - pkgFoodNet;
   const pkgDrinksVat = pkgDrinksGross - pkgDrinksNet;
   
-  const regularFoodNet = (regularFoodGross + minimumOrderSurcharge) / 1.07 + chafingDishNet;
-  const regularFoodVat = (regularFoodGross + minimumOrderSurcharge + chafingDishGross) - regularFoodNet;
+  const regularFoodNet = (regularFoodGross + minimumOrderSurcharge) / 1.07;
+  const regularFoodVat = (regularFoodGross + minimumOrderSurcharge) - regularFoodNet;
+  const rentalGross = cartChafingGross + chafingDishGross;
+  const rentalVat = rentalGross - rentalGross / (1 + VAT_RATES.CHAFING);
   
   const deliveryNet = deliveryCalc?.deliveryCostNet || 0;
   const deliveryGross = deliveryCalc?.deliveryCostGross || 0;
@@ -810,7 +819,7 @@ const CateringCheckout = () => {
   const deliveryGrossShown = quote ? quote.deliveryCents / 100 : deliveryGross;
   const deliveryVat = deliveryCalc?.deliveryVat || 0;
   
-  const foodGross = regularFoodGross + minimumOrderSurcharge + chafingDishGross + pkgFoodGross;
+  const foodGross = regularFoodGross + minimumOrderSurcharge + rentalGross + pkgFoodGross;
   const foodNet = regularFoodNet + pkgFoodNet;
   const foodVat = regularFoodVat + pkgFoodVat;
   
@@ -818,9 +827,10 @@ const CateringCheckout = () => {
   const drinksNet = pkgDrinksNet;
   const drinksVat = pkgDrinksVat;
   
+  const deliveryVatRate = deliveryCalc?.deliveryVatRate === VAT_RATES.FOOD ? VAT_RATES.FOOD : VAT_RATES.DELIVERY;
   const totalNet = foodNet + drinksNet + deliveryNet;
-  const totalVat7 = foodVat;
-  const totalVat19 = drinksVat + deliveryVat;
+  const totalVat7 = foodVat + (deliveryVatRate === VAT_RATES.FOOD ? deliveryVat : 0);
+  const totalVat19 = drinksVat + (deliveryVatRate === VAT_RATES.FOOD ? 0 : deliveryVat) + rentalVat;
   const grandTotal = quote ? quote.totalCents / 100 : foodGross + drinksGross + deliveryGross;
   // Netto-Ansicht: alle Steuergrundlagen aus DERSELBEN Quelle wie `grandTotal` (Server-Angebot: Positionen, Aufschlag, Lieferung).
   // So kann die Zwischensumme nicht negativ werden, wenn Warenkorb/Chafing sich geändert haben, das neue Angebot aber noch fehlt.
@@ -828,16 +838,19 @@ const CateringCheckout = () => {
   const quoteNet = quote ? quoteNetBreakdown(quote) : null;
   const vat7ForDisplay = quoteNet ? quoteNet.vat7Food : totalVat7;
   const vat19DrinksForDisplay = quoteNet ? quoteNet.vat19Drinks : drinksVat;
-  const vat19DeliveryForDisplay = quoteNet ? quoteNet.vat19Delivery : deliveryVat;
-  const { netC: cateringNetC } = splitNetCents(grandTotal, vat7ForDisplay, vat19DrinksForDisplay, vat19DeliveryForDisplay);
+  const vat19DeliveryForDisplay = quoteNet ? quoteNet.vat19Delivery : (deliveryVatRate === VAT_RATES.FOOD ? 0 : deliveryVat);
+  const vat19RentalForDisplay = quoteNet ? quoteNet.vat19Rental : rentalVat;
+  const deliveryVatRateForDisplay = quoteNet ? quoteNet.deliveryVatRate : deliveryVatRate;
+  const deliveryAt7ForDisplay = deliveryVatRateForDisplay === VAT_RATES.FOOD && deliveryGrossShown > 0;
+  const { netC: cateringNetC } = splitNetCents(grandTotal, vat7ForDisplay, vat19DrinksForDisplay, vat19DeliveryForDisplay, vat19RentalForDisplay);
   const cateringSubtotalDisplay = showGross
     ? formatPriceMixed(cateringLineParts(cateringItems))
     : formatCents(quoteNet
         ? quoteNet.subtotalNetC
         : subtotalNetCents(cateringNetC, [
-            chafingQtyShown > 0 ? lineNetCents(chafingGrossShown, VAT_RATES.FOOD) : 0,
+            chafingQtyShown > 0 ? lineNetCents(chafingGrossShown, VAT_RATES.CHAFING) : 0,
             formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery
-              ? lineNetCents(deliveryGrossShown, VAT_RATES.DELIVERY)
+              ? lineNetCents(deliveryGrossShown, deliveryVatRateForDisplay)
               : 0,
           ]));
   const hasEventPackageItems = cateringItems.some(item => item.id.startsWith('event-'));
@@ -1274,6 +1287,8 @@ const CateringCheckout = () => {
           foodVat7: paidNet.vat7Food,
           drinksVat19: paidNet.vat19Drinks,
           deliveryVat19: paidNet.vat19Delivery,
+          rentalVat19: paidNet.vat19Rental,
+          deliveryVatRate: paidNet.deliveryVatRate,
         }
       };
       localStorage.setItem(successDataKey, JSON.stringify(successData));
@@ -1506,7 +1521,7 @@ const CateringCheckout = () => {
                             <Flame className="h-3 w-3" />
                             {chafingQtyShown}× Chafing Dish
                           </span>
-                          <span>+{formatPrice(chafingGrossShown)}</span>
+                          <span>+{formatPrice(chafingGrossShown, VAT_RATES.CHAFING)}</span>
                         </div>
                       )}
                       {formData.deliveryType === 'delivery' && deliveryCalc && !deliveryCalc.isFreeDelivery && (
@@ -1517,7 +1532,7 @@ const CateringCheckout = () => {
                               <span className="text-xs ml-1">({deliveryCalc.oneWayDistanceKm} km{deliveryCalc.isRoundTrip ? ' ×2' : ''})</span>
                             )}
                           </span>
-                          <span>+{formatPrice(deliveryGrossShown, VAT_RATES.DELIVERY)}</span>
+                          <span>+{formatPrice(deliveryGrossShown, deliveryVatRateForDisplay)}</span>
                         </div>
                       )}
                       {formData.deliveryType === 'delivery' && deliveryCalc?.isFreeDelivery && (
@@ -1538,6 +1553,8 @@ const CateringCheckout = () => {
                         vat7Food={vat7ForDisplay}
                         vat19Drinks={vat19DrinksForDisplay}
                         vat19Delivery={vat19DeliveryForDisplay}
+                        vat19Rental={vat19RentalForDisplay}
+                        deliveryAt7={deliveryAt7ForDisplay}
                       />
                     </div>
 
@@ -1621,7 +1638,7 @@ const CateringCheckout = () => {
                                   <Flame className="h-3 w-3" />
                                   {chafingQtyShown}× Chafing Dish
                                 </span>
-                                <span>+{formatPrice(chafingGrossShown)}</span>
+                                <span>+{formatPrice(chafingGrossShown, VAT_RATES.CHAFING)}</span>
                               </div>
                             )}
                             {formData.deliveryType === 'delivery' && deliveryCalc && (
@@ -1637,7 +1654,7 @@ const CateringCheckout = () => {
                                 <span>
                                   {deliveryCalc.isFreeDelivery
                                     ? (language === 'de' ? 'Kostenlos' : 'Free')
-                                    : `+${formatPrice(deliveryGrossShown, VAT_RATES.DELIVERY)}`
+                                    : `+${formatPrice(deliveryGrossShown, deliveryVatRateForDisplay)}`
                                   }
                                 </span>
                               </div>
@@ -1729,8 +1746,8 @@ const CateringCheckout = () => {
                             </p>
                             <p className="text-muted-foreground">
                               {language === 'de'
-                                ? 'Alle Preise inkl. 19 % MwSt. Die genauen Lieferkosten sehen Sie nach Eingabe der Adresse im Warenkorb.'
-                                : 'All prices incl. 19% VAT. The exact delivery cost is shown in the cart once you enter your address.'}
+                                ? 'Alle Preise inkl. MwSt. Die genauen Lieferkosten sehen Sie nach Eingabe der Adresse im Warenkorb.'
+                                : 'All prices incl. VAT. The exact delivery cost is shown in the cart once you enter your address.'}
                             </p>
                           </div>
                         </CollapsibleContent>
@@ -1825,7 +1842,7 @@ const CateringCheckout = () => {
                                 {language === 'de' ? deliveryCalc.message : deliveryCalc.messageEn}
                               </span>
                               {!deliveryCalc.isFreeDelivery && (
-                                <span className="font-medium">{formatPrice(deliveryCalc.deliveryCostGross, VAT_RATES.DELIVERY)}</span>
+                                <span className="font-medium">{formatPrice(deliveryCalc.deliveryCostGross, deliveryVatRateForDisplay)}</span>
                               )}
                             </div>
                             {/* Additional delivery details */}
@@ -2292,6 +2309,8 @@ const CateringCheckout = () => {
                     foodVat7={vat7ForDisplay}
                     drinksVat19={vat19DrinksForDisplay}
                     deliveryVat19={vat19DeliveryForDisplay}
+                    rentalVat19={vat19RentalForDisplay}
+                    deliveryVatRate={deliveryVatRateForDisplay}
                     netSubtotalDisplay={cateringSubtotalDisplay}
                     isDelivery={formData.deliveryType === 'delivery'}
                     distanceKm={deliveryCalc?.distanceKm}

@@ -3,6 +3,8 @@
 // (Abschn. 10.1 Abs. 12 UStAE): Bei Kombiangeboten gilt eine Getränkepauschale von 30 %.
 // Gespiegelt aus src/contexts/PriceDisplayContext.tsx (packageParts / itemParts): 70 % Speisen zu 7 %,
 // 30 % Getränke zu 19 %. Beträge in Cent, damit die Summe exakt dem Brutto entspricht.
+// Welche Pakete Getränke enthalten (Speisen-Pakete: 100 % 7 %), steht allein in vatRules.ts (Entscheidung 27.11.2026).
+import { packageHasDrinks } from "./vatRules.ts";
 
 export const EVENT_FOOD_SHARE = 0.7;
 export const EVENT_FOOD_VAT = 7;
@@ -58,16 +60,40 @@ export function splitEventPackageLine(item: { name: string; quantity: number; pr
 }
 
 /**
- * Angebots-Zahlweg: nur ein reines Event-Paket (offer_mode 'package', packages.package_type 'event')
- * ohne einzeln ausgewiesene Zusatzposten (Getränke, Weinbegleitung, Personal, Equipment) wird 70/30 geteilt.
- * Menüs, Getränkepakete und Angebote mit Zusatzposten bleiben wie bisher bei 7 %.
+ * Rechnungszeilen einer Paketzeile: Paket mit Getränken 70/30 (splitEventPackageLine), reines Speisen-Paket
+ * (vatRules.FOOD_ONLY_PACKAGE_IDS) EINE Zeile zu 7 % mit unverändertem Brutto.
+ */
+export function packageInvoiceLines(item: { id?: string; name: string; quantity: number; price: number }): SplitLine[] {
+  if (packageHasDrinks(item.id)) return splitEventPackageLine(item);
+  // wie splitEventPackageLine: nicht ganzzahlige Stückpreise als Menge 1 mit dem Zeilenbetrag, damit die Summe dem Zahlbetrag entspricht
+  const unitCents = Math.round(item.price * 100);
+  const lineCents = Math.round(item.price * item.quantity * 100);
+  if (lineCents === 0) return [];
+  if (unitCents * item.quantity === lineCents) {
+    return [{ name: item.name, quantity: item.quantity, grossAmount: unitCents / 100, taxRatePercentage: EVENT_FOOD_VAT }];
+  }
+  return [{ name: `${item.name} (${item.quantity} Gäste)`, quantity: 1, grossAmount: lineCents / 100, taxRatePercentage: EVENT_FOOD_VAT }];
+}
+
+/** Paketarten, die Speisen und Getränke enthalten können (Entscheidung 27.11.2026: auch Gruppenreise-Pakete). */
+export const SPLIT_PACKAGE_TYPES: readonly string[] = ["event", "gruppenreisen"];
+
+/**
+ * Angebots-Zahlweg: nur ein reines Paket (offer_mode 'package', packages.package_type 'event' oder 'gruppenreisen')
+ * MIT Getränken und ohne einzeln ausgewiesene Zusatzposten (Getränke, Weinbegleitung, Personal, Equipment) wird 70/30 geteilt.
+ * Speisen-Pakete (vatRules.FOOD_ONLY_PACKAGE_IDS), Menüs und Angebote mit Zusatzposten bleiben bei einer 7-%-Zeile.
+ * Angebote mit Zusatzposten werden bewusst NICHT geteilt: der Getränkeanteil steht dort schon im Gesamtbetrag, eine 30-%-Pauschale
+ * darauf würde Getränke doppelt zählen; diese Fälle deckt die Entscheidung vom 27.11.2026 nicht ab (offen gemeldet).
  */
 export function shouldSplitOfferAsEventPackage(input: {
   offerMode: string | null | undefined;
   packageType: string | null | undefined;
   menuSelection: Record<string, unknown> | null | undefined;
+  /** packages.id des Angebots; reine Speisen-Pakete werden nicht geteilt. Fehlt = wie bisher (Paket mit Getränken). */
+  packageId?: string | null;
 }): boolean {
-  if (input.offerMode !== "package" || input.packageType !== "event") return false;
+  if (input.offerMode !== "package" || !SPLIT_PACKAGE_TYPES.includes(input.packageType ?? "")) return false;
+  if (!packageHasDrinks(input.packageId)) return false;
   const ms = input.menuSelection ?? {};
   const nonEmpty = (v: unknown) => Array.isArray(v) && v.length > 0;
   if (nonEmpty(ms.equipment) || nonEmpty(ms.staff) || nonEmpty(ms.drinks) || nonEmpty(ms.drinksEinzeln)) return false;

@@ -25,8 +25,12 @@ interface StickySummaryProps {
   foodVat7?: number;
   /** 19-%-Steuer auf den Getränke-Anteil der Event-Pakete */
   drinksVat19?: number;
-  /** 19-%-Steuer auf die Lieferung */
+  /** 19-%-Steuer auf die Lieferung (0, wenn sie zu 7 % läuft) */
   deliveryVat19?: number;
+  /** 19-%-Steuer auf die Chafing-Dish-Leihgeräte */
+  rentalVat19?: number;
+  /** Steuersatz der Lieferung laut Server-Angebot (0,07 bei reiner Speisenlieferung, sonst 0,19) */
+  deliveryVatRate?: number;
   /** Netto-Zwischensumme (fertig formatiert, Rest aus dem Netto-Gesamtbetrag); nur in der Netto-Ansicht genutzt */
   netSubtotalDisplay?: string;
   isDelivery?: boolean;
@@ -49,6 +53,8 @@ const StickySummary = ({
   foodVat7 = 0,
   drinksVat19 = 0,
   deliveryVat19 = 0,
+  rentalVat19 = 0,
+  deliveryVatRate = VAT_RATES.DELIVERY,
   netSubtotalDisplay,
   isDelivery = true,
   distanceKm,
@@ -174,7 +180,7 @@ const StickySummary = ({
                 <Flame className="h-3 w-3" />
                 {chafingDishQuantity}× Chafing Dish
               </span>
-              <span>+{formatPrice(chafingDishGross)}</span>
+              <span>+{formatPrice(chafingDishGross, VAT_RATES.CHAFING)}</span>
             </div>
           )}
 
@@ -191,7 +197,7 @@ const StickySummary = ({
                   </span>
                 )}
               </span>
-              <span>+{formatPrice(deliveryCost, VAT_RATES.DELIVERY)}</span>
+              <span>+{formatPrice(deliveryCost, deliveryVatRate)}</span>
             </div>
           )}
 
@@ -224,6 +230,8 @@ const StickySummary = ({
             vat7Food={foodVat7}
             vat19Drinks={drinksVat19}
             vat19Delivery={deliveryVat19}
+            vat19Rental={rentalVat19}
+            deliveryAt7={deliveryVatRate === VAT_RATES.FOOD && deliveryCost > 0}
           />
         </div>
 

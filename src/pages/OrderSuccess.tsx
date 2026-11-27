@@ -49,6 +49,10 @@ interface OrderDetails {
   foodVat7?: number;
   drinksVat19?: number;
   deliveryVat19?: number;
+  /** 19-%-Steuer der Chafing-Leihgeräte (fehlt bei älteren Bestellungen) */
+  rentalVat19?: number;
+  /** Steuersatz der Lieferung (0,07 bei reiner Speisenlieferung); fehlt bei älteren Bestellungen = 19 % */
+  deliveryVatRate?: number;
 }
 
 interface LocationState {
@@ -200,10 +204,11 @@ const OrderSuccess = () => {
                     // Netto-Ansicht (nur mit Steuerdaten): Steuerbeträge sind echte Beträge und werden NICHT nochmals umgerechnet;
                     // Zwischensumme = Rest aus dem Netto-Gesamtbetrag minus Netto-Aufschlag und Netto-Lieferung.
                     const net = hasVat && !showGross
-                      ? splitNetCents(cateringTotal, orderDetails.foodVat7 ?? 0, orderDetails.drinksVat19 ?? 0, orderDetails.deliveryVat19 ?? 0)
+                      ? splitNetCents(cateringTotal, orderDetails.foodVat7 ?? 0, orderDetails.drinksVat19 ?? 0, orderDetails.deliveryVat19 ?? 0, orderDetails.rentalVat19 ?? 0)
                       : null;
+                    const deliveryVatRate = orderDetails.deliveryVatRate === VAT_RATES.FOOD ? VAT_RATES.FOOD : VAT_RATES.DELIVERY;
                     const surchargeNetC = surcharge > 0 ? lineNetCents(surcharge, VAT_RATES.FOOD) : 0;
-                    const deliveryNetC = delivery > 0 ? lineNetCents(delivery, VAT_RATES.DELIVERY) : 0;
+                    const deliveryNetC = delivery > 0 ? lineNetCents(delivery, deliveryVatRate) : 0;
                     const subtotalC = net
                       ? subtotalNetCents(net.netC, [surchargeNetC, deliveryNetC])
                       : Math.max(0, toCents(cateringTotal) - toCents(surcharge) - toCents(delivery));
@@ -269,6 +274,8 @@ const OrderSuccess = () => {
                               vat7Food={orderDetails.foodVat7 ?? 0}
                               vat19Drinks={orderDetails.drinksVat19 ?? 0}
                               vat19Delivery={orderDetails.deliveryVat19 ?? 0}
+                              vat19Rental={orderDetails.rentalVat19 ?? 0}
+                              deliveryAt7={deliveryVatRate === VAT_RATES.FOOD && delivery > 0}
                             />
                           ) : (
                             <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">

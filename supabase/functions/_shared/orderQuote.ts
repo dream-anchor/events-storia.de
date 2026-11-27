@@ -20,6 +20,7 @@ import {
   type Catalog,
 } from "./cateringPricing.ts";
 import { EVENT_MAX_GUESTS_DEFAULT, expectedEventPackageCents, type EventPackageRow } from "./eventPricing.ts";
+import { cateringDeliveryVatPercent } from "./vatRules.ts";
 
 export type Lang = "de" | "en";
 
@@ -263,8 +264,11 @@ function buildCateringQuote(req: QuoteRequest, ctx: QuoteContext): QuoteOutcome 
     if (ctx.oneWayKm === null || !Number.isFinite(ctx.oneWayKm) || ctx.oneWayKm < 0) return fail("delivery_unverifiable");
     const km = roundKm(ctx.oneWayKm);
     const trips = tripCount(km, isPizzaOnly);
-    const net = deliveryFeeNetCents(km, isPizzaOnly);
+    // Brutto unverändert aus dem Tarif (Tarif-Netto x 1,19). Steuersatz: 7 % als Nebenleistung einer reinen Speisenlieferung,
+    // sonst 19 % (vatRules.ts, Entscheidung 27.11.2026); Netto = Brutto / (1 + Satz), auf den Cent gerundet.
     deliveryCents = deliveryFeeGrossCents(km, isPizzaOnly);
+    const vatPercent = cateringDeliveryVatPercent({ itemIds: lines.map((l) => l.id), hasGiftBaskets: giftCents > 0 });
+    const net = vatPercent === 19 ? deliveryFeeNetCents(km, isPizzaOnly) : Math.round((deliveryCents * 100) / (100 + vatPercent));
     const minimum = minimumOrderCents(km);
     surchargeCents = Math.max(0, minimum - cartCents - giftCents);
     delivery = {
@@ -275,7 +279,7 @@ function buildCateringQuote(req: QuoteRequest, ctx: QuoteContext): QuoteOutcome 
       deliveryCostNet: net / 100,
       deliveryCostGross: deliveryCents / 100,
       deliveryVat: (deliveryCents - net) / 100,
-      deliveryVatRate: 0.19,
+      deliveryVatRate: vatPercent / 100,
       minimumOrder: minimum / 100,
     };
   }
