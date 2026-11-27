@@ -5,6 +5,7 @@
 // Fail-closed über MAESTRO_HANDOFF_ENABLED=="true".
 
 import type { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { cateringItemVatPercent } from "./vatRules.ts";
 
 export type MaestroTxnKind = "charge" | "refund" | "chargeback";
 export type MaestroPaymentType = "deposit" | "prepayment" | "final" | "full";
@@ -313,7 +314,8 @@ function cateringLines(items: unknown): MaestroLine[] {
       name: String(it?.name ?? ""),
       qty: Number(it?.quantity),
       unitCents: unit,
-      vatRate: typeof it?.taxRatePercentage === "number" ? it.taxRatePercentage : 7, // Catering-Standard wie create-lexoffice-invoice
+      // wie create-lexoffice-invoice: Speisen 7 %, Chafing-Leihgerät 19 % (vatRules.ts, Entscheidung 27.11.2026)
+      vatRate: typeof it?.taxRatePercentage === "number" ? it.taxRatePercentage : cateringItemVatPercent(typeof it?.id === "string" ? it.id : null),
     });
   }
   return out;
