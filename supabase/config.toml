@@ -152,6 +152,3 @@ verify_jwt = false
 
 [functions.gift-shop-config]
 verify_jwt = false
-
-[functions.lexoffice-positions-report]
-verify_jwt = true
